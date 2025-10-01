@@ -1,14 +1,6 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { signInAnonymously, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/firebase';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { ChevronLeft } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -16,7 +8,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { auth } from '@/firebase';
+import { cn } from '@/lib/utils';
+import { signInAnonymously, signInWithEmailAndPassword } from 'firebase/auth';
+import { ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const Signin = () => {
   const [error, setError] = useState('');
@@ -60,7 +60,7 @@ const Signin = () => {
         to="/"
         className={cn(
           buttonVariants({ variant: 'ghost' }),
-          'absolute left-4 top-4 md:left-8 md:top-8'
+          'hidden absolute left-4 top-4 md:left-8 md:top-8'
         )}
       >
         <>
@@ -73,7 +73,7 @@ const Signin = () => {
         value={i18n.language}
         defaultValue="en"
       >
-        <SelectTrigger className="absolute right-4 top-4 md:right-8 md:top-8 w-32">
+        <SelectTrigger className="hidden absolute right-4 top-4 md:right-8 md:top-8 w-32">
           <SelectValue placeholder={t('languagesTitle')} />
         </SelectTrigger>
         <SelectContent>
@@ -84,9 +84,11 @@ const Signin = () => {
       <div className="mx-auto flex w-full flex-col justify-center gap-6 sm:w-[350px]">
         <div className="flex flex-col gap-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            {t('signInTitle')}
+            {t('Creative Studio')}
           </h1>
-          <p className="text-muted-foreground text-sm">{t('signInDesc')}</p>
+          <p className="text-muted-foreground text-sm">
+            {t('Hisobga kirish uchun email va parol kiriting')}
+          </p>
         </div>
         <form
           onSubmit={handleSubmit(handleSignIn)}
@@ -121,7 +123,7 @@ const Signin = () => {
               >
                 Password
               </Label>
-              <p className="text-muted-foreground text-xs">
+              <p className="hidden text-muted-foreground text-xs">
                 <Link
                   to="/forgot-password"
                   className="hover:text-brand underline underline-offset-4"
@@ -143,15 +145,15 @@ const Signin = () => {
               </p>
             )}
           </div>
-          <Button type="submit" className="w-full">
-            {isSubmitting ? 'Signing in...' : `${t('signinButton')}`}
+          <Button disabled={isSubmitting} type="submit" className="w-full">
+            {isSubmitting ? 'Hisobga kirilmoqda...' : `${t('Hisobga kirish')}`}
           </Button>
 
           {error && (
             <p className="text-sm text-red-500 mt-4 text-center">{error}</p>
           )}
         </form>
-        <div className="relative">
+        <div className="relative hidden">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
@@ -161,22 +163,22 @@ const Signin = () => {
             </span>
           </div>
         </div>
-        <Button
+        {/* <Button
           onClick={handleAnonymousSignIn}
           className="w-full"
           variant="secondary"
         >
           <img className="w-5 h-5" src="/assets/ghost.png" alt="Ghost png" />
           {t('signinButtonGhost')}
-        </Button>
-        <p className="text-muted-foreground px-8 text-center text-sm">
+        </Button> */}
+        {/* <p className="text-muted-foreground px-8 text-center text-sm">
           <Link
             to="/signup"
             className="hover:text-brand underline underline-offset-4"
           >
             {t('doNotHaveProfile')}
           </Link>
-        </p>
+        </p> */}
       </div>
     </div>
   );

@@ -1,16 +1,11 @@
-import * as React from 'react';
 import {
-  AudioWaveform,
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  GalleryVerticalEnd,
+  Briefcase,
+  ClipboardList,
   LayoutDashboard,
-  Map,
-  PieChart,
-  Settings2,
-  SquareTerminal,
+  PlusCircle,
+  Settings,
+  UserCog,
+  Users,
 } from 'lucide-react';
 
 import {
@@ -23,172 +18,100 @@ import {
   SidebarMenuButton,
   SidebarRail,
 } from '@/components/ui/sidebar';
-import { TeamSwitcher } from './TeamSwitcher';
-import { NavMain } from './NavMain';
-import { NavProjects } from './NavProjects';
-import { NavUser } from './NavUser';
+
 import { useAppContext } from '@/context/AppContext';
-import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { NavUser } from './NavUser';
 
 export function AppSidebar({ ...props }) {
   const { user } = useAppContext();
-  const { t } = useTranslation();
+  const location = useLocation();
 
-  const data = {
-    user: {
-      name: 'shadcn',
-      email: 'm@example.com',
-      avatar: '/avatars/shadcn.jpg',
+  const navItems = [
+    {
+      title: 'Dashboard',
+      url: '/dashboard',
+      icon: LayoutDashboard,
     },
-    teams: [
-      {
-        name: 'Acme Inc',
-        logo: GalleryVerticalEnd,
-        plan: 'Enterprise',
-      },
-      {
-        name: 'Acme Corp.',
-        logo: AudioWaveform,
-        plan: 'Startup',
-      },
-      {
-        name: 'Evil Corp.',
-        logo: Command,
-        plan: 'Free',
-      },
-    ],
-    navMain: [
-      {
-        title: 'Playground',
-        url: '#',
-        icon: SquareTerminal,
-        isActive: true,
-        items: [
-          {
-            title: 'History',
-            url: '#',
-          },
-          {
-            title: 'Starred',
-            url: '#',
-          },
-          {
-            title: 'Settings',
-            url: '#',
-          },
-        ],
-      },
-      {
-        title: 'Models',
-        url: '#',
-        icon: Bot,
-        items: [
-          {
-            title: 'Genesis',
-            url: '#',
-          },
-          {
-            title: 'Explorer',
-            url: '#',
-          },
-          {
-            title: 'Quantum',
-            url: '#',
-          },
-        ],
-      },
-      {
-        title: 'Documentation',
-        url: '#',
-        icon: BookOpen,
-        items: [
-          {
-            title: 'Introduction',
-            url: '#',
-          },
-          {
-            title: 'Get Started',
-            url: '#',
-          },
-          {
-            title: 'Tutorials',
-            url: '#',
-          },
-          {
-            title: 'Changelog',
-            url: '#',
-          },
-        ],
-      },
-      {
-        title: `${t('settings')}`,
-        url: '/dashboard/settings',
-        icon: Settings2,
-        items: [
-          {
-            title: `${t('general')}`,
-            url: '/dashboard/settings',
-          },
-          {
-            title: `${t('appearance')}`,
-            url: '/dashboard/settings',
-          },
-          {
-            title: `${t('privacy')}`,
-            url: '/dashboard/settings',
-          },
-          {
-            title: `${t('password')}`,
-            url: '/dashboard/settings',
-          },
-          {
-            title: `${t('insights')}`,
-            url: '/dashboard/settings',
-          },
-          {
-            title: `${t('share')}`,
-            url: '/dashboard/settings',
-          },
-        ],
-      },
-    ],
-    projects: [
-      {
-        name: 'Design Engineering',
-        url: '#',
-        icon: Frame,
-      },
-      {
-        name: 'Sales & Marketing',
-        url: '#',
-        icon: PieChart,
-      },
-      {
-        name: 'Travel',
-        url: '#',
-        icon: Map,
-      },
-    ],
-  };
+    {
+      title: 'Yangi Buyurtma',
+      url: '/dashboard/orders/new',
+      icon: PlusCircle,
+    },
+    {
+      title: 'Buyurtmalar',
+      url: '/dashboard/orders',
+      icon: ClipboardList,
+    },
+    {
+      title: 'Mijozlar',
+      url: '/dashboard/clients',
+      icon: Users,
+    },
+    {
+      title: 'Xodimlar',
+      url: '/dashboard/employees',
+      icon: UserCog,
+    },
+    {
+      title: 'Xizmatlar',
+      url: '/dashboard/services',
+      icon: Briefcase,
+    },
+  ];
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" className="px-2" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <h2 className="text-lg font-bold px-2">Creative Studio</h2>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
-          <Link to="/dashboard">
-            <SidebarMenuButton tooltip="Dashboard">
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard</span>
+        <SidebarGroup className="space-y-0.5">
+          <SidebarGroupLabel>Asosiy bo'limlar</SidebarGroupLabel>
+          {navItems.map((item, i) => {
+            let isActive = false;
+
+            if (item.url === '/dashboard') {
+              // faqat to‘liq mos kelsa
+              isActive = location.pathname === item.url;
+            } else {
+              // qolganlar uchun boshlanishini tekshir
+              isActive = location.pathname.startsWith(item.url);
+            }
+
+            return (
+              <Link key={i} to={item.url}>
+                <SidebarMenuButton
+                  tooltip={item.title}
+                  className={`flex items-center ${
+                    isActive
+                      ? 'bg-primary text-white hover:bg-primary/90 hover:text-white border-l-2 border-primary'
+                      : 'hover:bg-muted'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{item.title}</span>
+                </SidebarMenuButton>
+              </Link>
+            );
+          })}
+
+          <SidebarGroupLabel>Sozlamalar</SidebarGroupLabel>
+          <Link to="/dashboard/settings">
+            <SidebarMenuButton
+              tooltip="Sozlamalar"
+              className={`flex items-center ${
+                location.pathname === '/dashboard/settings' ||
+                location.pathname.startsWith('/dashboard/settings/')
+                  ? 'bg-primary text-white hover:bg-primary/90 hover:text-white border-l-2 border-primary'
+                  : 'hover:bg-muted'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span className="text-sm font-medium">Sozlamalar</span>
             </SidebarMenuButton>
           </Link>
         </SidebarGroup>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

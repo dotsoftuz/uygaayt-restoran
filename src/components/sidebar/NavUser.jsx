@@ -1,18 +1,9 @@
-import {
-  BadgeCheck,
-  Bell,
-  ChevronsUpDown,
-  CreditCard,
-  LogOut,
-  Settings,
-  Sparkles,
-} from 'lucide-react';
+import { ChevronsUpDown, LogOut, Settings } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -24,11 +15,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Link, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebase';
 import { useAppContext } from '@/context/AppContext';
+import { auth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate } from 'react-router-dom';
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -52,7 +43,7 @@ export function NavUser() {
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="bg-transparent border border-border hover:bg-muted/90 data-[state=open]:bg-muted data-[state=open]:text-sidebar-accent-foreground rounded-lg"
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage
