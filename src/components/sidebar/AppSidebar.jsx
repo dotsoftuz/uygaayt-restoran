@@ -35,7 +35,7 @@ export function AppSidebar({ ...props }) {
     },
     {
       title: 'Yangi Buyurtma',
-      url: '/dashboard/orders/new',
+      url: '/dashboard/create-order',
       icon: PlusCircle,
     },
     {
@@ -85,7 +85,7 @@ export function AppSidebar({ ...props }) {
                   tooltip={item.title}
                   className={`flex items-center ${
                     isActive
-                      ? 'bg-primary text-white hover:bg-primary/90 hover:text-white border-l-2 border-primary'
+                      ? 'bg-primary text-white dark:text-black hover:bg-primary/90 hover:text-white border-l-2 border-primary'
                       : 'hover:bg-muted'
                   }`}
                 >

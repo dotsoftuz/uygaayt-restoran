@@ -9,8 +9,10 @@ import {
   BrowserRouter as Router,
   Routes,
 } from 'react-router-dom';
+import CreateOrder from './CreateOrder';
 import ForgotPassword from './ForgotPassword';
 import NotFound from './NotFound';
+import Orders from './Orders';
 import Signin from './Signin';
 import Signup from './Signup';
 
@@ -42,6 +44,8 @@ function Dashboard() {
           }
         >
           <Route index element={<MainPage />} />
+          <Route path="create-order" element={<CreateOrder />} />
+          <Route path="orders" element={<Orders />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 
