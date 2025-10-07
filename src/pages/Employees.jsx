@@ -10,6 +10,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
+import {
   Table,
   TableBody,
   TableCell,
@@ -22,7 +30,9 @@ import { Badge } from '@/components/ui/badge';
 import AddEmployee from '@/components/dashboard/dialogs/AddEmployee';
 import { useAppContext } from '@/context/AppContext';
 import { useDebounce } from '@/hooks/use-debounce';
-import { Plus, Search, Phone, User, Calendar } from 'lucide-react';
+import { Plus, Search, Phone, User, Calendar, CircleOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import CustomPagination from '@/components/ui/custom-pagination';
 
 function Employees() {
   const { employees } = useAppContext();
@@ -80,26 +90,28 @@ function Employees() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 my-2">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Xodimlar</h1>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Xodimlar ro'yxati
+          </h2>
           <p className="text-muted-foreground">
-            Barcha xodimlaringizni boshqaring
+            Tizimga yangi xodim qo'shish uchun "Xodim qo'shish" tugmasini
+            bosing.
           </p>
         </div>
         <Button
           onClick={() => setShowAddEmployee(true)}
           className="flex items-center gap-2"
         >
-          <Plus className="h-4 w-4" />
           Xodim qo'shish
         </Button>
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -135,21 +147,16 @@ function Employees() {
       </div>
 
       {/* Employees Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Xodimlar ro'yxati
-            <Badge variant="secondary">
-              {filteredEmployees.length} ta xodim
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <div className="space-y-4">
+        <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-96">
           {filteredEmployees.length > 0 ? (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Ism</TableHead>
+                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r bg-muted">
+                  <TableHead className="w-10 text-center">№</TableHead>
+                  <TableHead className="py-2 font-medium w-[18rem]">
+                    Ism
+                  </TableHead>
                   <TableHead>Telefon</TableHead>
                   <TableHead>Vazifa</TableHead>
                   <TableHead>Ishchi turi</TableHead>
@@ -157,17 +164,17 @@ function Employees() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredEmployees.map((employee) => (
+                {filteredEmployees.map((employee, index) => (
                   <TableRow
                     key={employee.id}
-                    className="cursor-pointer hover:bg-muted/50"
+                    className="cursor-pointer *:border-border hover:bg-muted/50 [&>:not(:last-child)]:border-r"
                     onClick={() => handleEmployeeClick(employee)}
                   >
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
+                    <TableCell className="text-center">{index + 1}</TableCell>
+                    <TableCell className="py-2 font-medium max-w-[18rem]">
+                      <span className="truncate block max-w-[18rem]">
                         {employee.name}
-                      </div>
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -176,7 +183,18 @@ function Employees() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'text-xs font-medium border-none dark:text-white',
+                          employee.position === 'editor' &&
+                            'bg-blue-100 text-blue-500 dark:bg-blue-500',
+                          employee.position === 'photographer' &&
+                            'bg-green-100 text-green-500 dark:bg-green-500',
+                          employee.position === 'video_operator' &&
+                            'bg-amber-100 text-amber-500 dark:bg-amber-500'
+                        )}
+                      >
                         {getPositionLabel(employee.position)}
                       </Badge>
                     </TableCell>
@@ -196,31 +214,30 @@ function Employees() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <div className="mx-auto w-24 h-24 bg-muted rounded-full flex items-center justify-center mb-4">
-                <Plus className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">
-                {searchTerm || filterType !== 'all' || filterPosition !== 'all'
-                  ? 'Xodim topilmadi'
-                  : "Hali xodimlar yo'q"}
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || filterType !== 'all' || filterPosition !== 'all'
-                  ? "Qidiruv so'zini o'zgartiring yoki filtrlarni tozalang"
-                  : "Birinchi xodimingizni qo'shing"}
-              </p>
-              {!searchTerm &&
-                filterType === 'all' &&
-                filterPosition === 'all' && (
-                  <Button onClick={() => setShowAddEmployee(true)}>
+            <div className="text-center py-8 lg:py-12 border rounded-lg">
+              <Empty>
+                <EmptyHeader>
+                  <EmptyMedia variant="icon">
+                    <CircleOff />
+                  </EmptyMedia>
+                  <EmptyTitle>Hali xodimlar mavjud emas!</EmptyTitle>
+                  <EmptyDescription>
+                    Tizimga yangi xodim qo'shish uchun "Xodim qo'shish"
+                    tugmasini bosing.
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button onClick={() => setShowAddEmployee(true)} size="sm">
                     Xodim qo'shish
                   </Button>
-                )}
+                </EmptyContent>
+              </Empty>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        <CustomPagination />
+      </div>
 
       {/* Add Employee Dialog */}
       <AddEmployee open={showAddEmployee} onOpenChange={setShowAddEmployee} />

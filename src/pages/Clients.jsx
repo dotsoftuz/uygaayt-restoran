@@ -32,6 +32,7 @@ import {
   ChevronLastIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CircleOff,
 } from 'lucide-react';
 
 import CustomPagination from '@/components/ui/custom-pagination';
@@ -95,14 +96,14 @@ function Clients() {
       </div>
 
       {/* Clients Table */}
-      <div className="">
+      <div>
         {filteredClients.length > 0 ? (
           <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-96">
-            <Table className="">
+            <Table>
               <TableHeader>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r bg-muted">
                   <TableHead className="w-10 text-center">№</TableHead>
-                  <TableHead className=" py-2 font-medium w-[18rem]">
+                  <TableHead className="py-2 font-medium w-[18rem]">
                     Ism
                   </TableHead>
                   <TableHead>Telefon</TableHead>
@@ -170,7 +171,7 @@ function Clients() {
             <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
-                  <Notebook />
+                  <CircleOff />
                 </EmptyMedia>
                 <EmptyTitle>No Projects Yet</EmptyTitle>
                 <EmptyDescription>
