@@ -100,8 +100,9 @@ function Clients() {
           <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-96">
             <Table className="">
               <TableHeader>
-                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r">
-                  <TableHead className="bg-muted/50 py-2 font-medium">
+                <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r bg-muted">
+                  <TableHead className="w-10 text-center">№</TableHead>
+                  <TableHead className=" py-2 font-medium w-[18rem]">
                     Ism
                   </TableHead>
                   <TableHead>Telefon</TableHead>
@@ -111,7 +112,7 @@ function Clients() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => {
+                {filteredClients.map((client, index) => {
                   const clientOrders = getClientOrders(client.id);
                   return (
                     <TableRow
@@ -119,9 +120,21 @@ function Clients() {
                       className="cursor-pointer *:border-border hover:bg-muted/50 [&>:not(:last-child)]:border-r"
                       onClick={() => handleClientClick(client)}
                     >
-                      <TableCell className="bg-muted/50 py-2 font-medium">
-                        {client.name}
+                      <TableCell className="text-center">{index + 1}</TableCell>
+                      <TableCell className="py-2 font-medium max-w-[18rem]">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate block max-w-[18rem]">
+                            {client.name}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-mono bg-muted ml-1"
+                          >
+                            {client.pinCode}
+                          </Badge>
+                        </div>
                       </TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Phone className="h-3 w-3 text-muted-foreground" />

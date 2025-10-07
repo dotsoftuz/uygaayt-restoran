@@ -375,7 +375,7 @@ export default function ClientDetails() {
             <div className="flex items-start justify-between p-3 group shadow-sm transition-shadow border border-border rounded-xl">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-2xl font-mono">
+                  <Badge variant="outline" className="text-2xl font-mono bg-muted">
                     {client.pinCode}
                   </Badge>
                   <p className="text-sm text-muted-foreground">
@@ -517,7 +517,7 @@ export default function ClientDetails() {
                   {filteredClientLinks.map((link, index) => (
                     <div
                       key={index}
-                      className="group overflow-hidden border-2 transition-all hover:border-border hover:shadow-xl rounded-xl"
+                      className="group overflow-hidden border-2 transition-all hover:border-border shadow-sm rounded-xl"
                     >
                       <div className="relative">
                         {/* YouTube Thumbnail or Default Background */}
