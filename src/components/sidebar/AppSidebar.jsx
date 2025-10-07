@@ -6,6 +6,7 @@ import {
   Settings,
   UserCog,
   Users,
+  FileText,
 } from 'lucide-react';
 
 import {
@@ -57,6 +58,11 @@ export function AppSidebar({ ...props }) {
       title: 'Xizmatlar',
       url: '/dashboard/services',
       icon: Briefcase,
+    },
+    {
+      title: 'Buyurtma shablonlari',
+      url: '/dashboard/order-template',
+      icon: FileText,
     },
   ];
 

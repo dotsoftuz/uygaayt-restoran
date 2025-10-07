@@ -9,16 +9,20 @@ import {
   BrowserRouter as Router,
   Routes,
 } from 'react-router-dom';
-import CreateOrder from './CreateOrder';
-import ForgotPassword from './ForgotPassword';
-import NotFound from './NotFound';
-import Orders from './Orders';
-import Signin from './Signin';
-import Signup from './Signup';
 import Clients from './Clients';
 import ClientDetails from './ClientDetails';
-import Employees from './Employees';
+import CreateOrder from './CreateOrder';
+import CreateTemplate from './CreateTemplate';
 import EmployeeDetails from './EmployeeDetails';
+import Employees from './Employees';
+import ForgotPassword from './ForgotPassword';
+import NotFound from './NotFound';
+import OrderTemplate from './OrderTemplate';
+import Orders from './Orders';
+import Services from './Services';
+import Signin from './Signin';
+import Signup from './Signup';
+import TemplateDetail from './TemplateDetail';
 
 function Dashboard() {
   // yarn vite --host 127.0.0.1 --port 3000
@@ -55,6 +59,10 @@ function Dashboard() {
           <Route path="employees" element={<Employees />} />
           <Route path="employees/:employeeId" element={<EmployeeDetails />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="services" element={<Services />} />
+          <Route path="order-template" element={<OrderTemplate />} />
+          <Route path="template-detail/:id" element={<TemplateDetail />} />
+          <Route path="create-template" element={<CreateTemplate />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
