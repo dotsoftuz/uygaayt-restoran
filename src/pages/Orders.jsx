@@ -1,171 +1,232 @@
-'use client';
-
-import OrderSheet from '@/components/dashboard/dialogs/OrderSheet';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { useDebounce } from '@/hooks/use-debounce';
-import { useAppContext } from '@/context/AppContext';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
   Calendar,
-  Camera,
-  CheckCircle2,
-  DollarSign,
-  MapPin,
-  Phone,
-  Search,
   User,
+  Phone,
+  DollarSign,
+  Loader2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useOrders } from '@/hooks/use-orders';
+import { formatNumber } from '@/lib/utils';
 
-export default function Orders() {
-  const { orders } = useAppContext();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const debouncedSearch = useDebounce(searchTerm, 300);
+function Orders() {
+  const navigate = useNavigate();
+  const { orders, loading, removeOrder } = useOrders();
+  const [deletingId, setDeletingId] = useState(null);
 
-  const filteredOrders = orders.filter((order) => {
-    const search = debouncedSearch.toLowerCase();
-    return (
-      (order.toyxona && order.toyxona.toLowerCase().includes(search)) ||
-      (order.mijozIsmi && order.mijozIsmi.toLowerCase().includes(search)) ||
-      (order.telefon && order.telefon.includes(search)) ||
-      (order.clientName && order.clientName.toLowerCase().includes(search)) ||
-      (order.clientPhone && order.clientPhone.includes(search))
-    );
-  });
+  const handleCreateNew = () => {
+    navigate('/dashboard/create-order');
+  };
+
+  const handleEdit = (orderId) => {
+    navigate(`/dashboard/edit-order/${orderId}`);
+  };
+
+  const handleView = (orderId) => {
+    navigate(`/dashboard/order-detail/${orderId}`);
+  };
+
+  const handleDelete = async (orderId) => {
+    if (window.confirm("Bu buyurtmani o'chirishni xohlaysizmi?")) {
+      setDeletingId(orderId);
+      try {
+        await removeOrder(orderId);
+      } catch (error) {
+        console.error('Error deleting order:', error);
+      } finally {
+        setDeletingId(null);
+      }
+    }
+  };
 
   const formatDate = (date) => {
     if (!date) return 'N/A';
-    return new Date(
-      date.seconds ? date.seconds * 1000 : date
-    ).toLocaleDateString('uz-UZ');
+    const d = date.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleDateString('uz-UZ', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
-  const handleCardClick = (order) => {
-    setSelectedOrder(order);
-    setIsSheetOpen(true);
+  const formatPrice = (price) => {
+    return formatNumber(price) + " so'm";
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'Qabul qilindi': 'bg-blue-500',
-      "To'y boshlandi": 'bg-yellow-500',
-      "To'y tugadi": 'bg-orange-500',
-      'Video editga berildi': 'bg-purple-500',
-      'Video edit tugadi': 'bg-indigo-500',
-      'Buyurtma tamomlandi': 'bg-green-500',
-    };
-    return colors[status] || 'bg-gray-500';
-  };
-
-  const getActiveServicesCount = (order) => {
-    if (!order.options) return 0;
-    return Object.values(order.options).filter(Boolean).length;
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin mr-2" />
+        <span className="text-gray-500">Buyurtmalar yuklanmoqda...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4 my-4">
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Buyurtmalarni qidirish..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Orders Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredOrders.map((order) => (
-          <Card
-            key={order.id}
-            className="group cursor-pointer overflow-hidden border-2 transition-all hover:border-primary hover:shadow-xl"
-            onClick={() => handleCardClick(order)}
-          >
-            <CardHeader className="border-b bg-gradient-to-r from-background to-muted/20 pb-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2">
-                  <MapPin className="mt-1 h-5 w-5 flex-shrink-0 text-primary" />
-                  <CardTitle className="text-balance text-lg leading-tight">
-                    {order.toyxona}
-                  </CardTitle>
-                </div>
-                <Badge
-                  className={`${getStatusColor(order.status)} flex-shrink-0 text-white`}
-                >
-                  {order.status}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-4">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Mijoz:</span>
-                <span className="ml-auto font-medium">
-                  {order.mijozIsmi || order.clientName || 'N/A'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Sana:</span>
-                <span className="ml-auto font-medium">
-                  {formatDate(order.sana)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Telefon:</span>
-                <span className="ml-auto font-medium">
-                  {order.telefon || order.clientPhone || 'N/A'}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Camera className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Kamera:</span>
-                <span className="ml-auto font-medium">
-                  {order.kameraSoni} ta
-                </span>
-              </div>
-              {getActiveServicesCount(order) > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Xizmatlar:</span>
-                  <span className="ml-auto font-medium">
-                    {getActiveServicesCount(order)} ta
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-2 border-t pt-3 text-sm">
-                <DollarSign className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground">Narx:</span>
-                <span className="ml-auto text-lg font-bold text-primary">
-                  {(order.narx || 0).toLocaleString('uz-UZ')} so'm
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {filteredOrders.length === 0 && (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground">
-            Hech qanday buyurtma topilmadi
+    <div className="space-y-6 my-4">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Buyurtmalar</h1>
+          <p className="text-gray-600 mt-2">
+            Barcha buyurtmalarni ko'rish va boshqarish
           </p>
         </div>
-      )}
+        <Button onClick={handleCreateNew} className="flex items-center gap-2">
+          <Plus className="h-4 w-4" />
+          Yangi buyurtma
+        </Button>
+      </div>
 
-      {/* Order Details Sheet */}
-      <OrderSheet
-        order={selectedOrder}
-        isOpen={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
-      />
+      {orders.length === 0 ? (
+        <div className="text-center py-12">
+          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Hali buyurtma yo'q
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Birinchi buyurtmani yaratish uchun boshlang
+          </p>
+          <Button
+            onClick={handleCreateNew}
+            className="flex items-center gap-2 mx-auto"
+          >
+            <Plus className="h-4 w-4" />
+            Buyurtma yaratish
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {orders.map((order) => (
+            <Card key={order.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <CardTitle className="text-lg">
+                      {order.mijozIsmi || 'N/A'}
+                    </CardTitle>
+                    <CardDescription>
+                      {order.toyxona || "To'yxona yo'q"}
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {formatDate(order.createdAt)}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  {/* Client Info */}
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <User className="h-4 w-4" />
+                    <span>{order.mijozIsmi}</span>
+                  </div>
+
+                  {order.telefon && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="h-4 w-4" />
+                      <span>{order.telefon}</span>
+                    </div>
+                  )}
+
+                  {/* Event Date */}
+                  {order.sana && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatDate(order.sana)}</span>
+                    </div>
+                  )}
+
+                  {/* Price */}
+                  <div className="flex items-center gap-2 text-sm font-semibold text-green-600">
+                    <DollarSign className="h-4 w-4" />
+                    <span>{formatPrice(order.narx || 0)}</span>
+                  </div>
+
+                  {/* Services */}
+                  {order.options && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-500 mb-1">Xizmatlar:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {Object.entries(order.options)
+                          .filter(([_, selected]) => selected)
+                          .slice(0, 3)
+                          .map(([service, _]) => (
+                            <Badge
+                              key={service}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {service}
+                            </Badge>
+                          ))}
+                        {Object.values(order.options).filter(Boolean).length >
+                          3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +
+                            {Object.values(order.options).filter(Boolean)
+                              .length - 3}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleView(order.id)}
+                      className="flex-1"
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      Ko'rish
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(order.id)}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Tahrir
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(order.id)}
+                      disabled={deletingId === order.id}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      {deletingId === order.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+export default Orders;

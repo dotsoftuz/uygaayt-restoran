@@ -1,5 +1,5 @@
-'use client';
-
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -17,16 +17,24 @@ import { Controller, useForm } from 'react-hook-form';
 import { useAppContext } from '@/context/AppContext';
 import { useTemplates } from '@/hooks/use-templates';
 import { useServices } from '@/hooks/use-services';
-import { useState, useEffect, useCallback } from 'react';
+import { useOrders } from '@/hooks/use-orders';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 
-export default function CreateOrder({ onSubmit }) {
-  const { clients, addOrder } = useAppContext();
+export default function EditOrder() {
+  const { orderId } = useParams();
+  const navigate = useNavigate();
+  const { clients, orders } = useAppContext();
+  const { editOrder } = useOrders();
   const { templates, loading: templatesLoading } = useTemplates();
   const { services } = useServices();
   const [selectedClientId, setSelectedClientId] = useState('');
   const [isNewClient, setIsNewClient] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [formattedPrice, setFormattedPrice] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Find the order to edit
+  const order = orders.find((o) => o.id === orderId);
 
   const {
     register,
@@ -78,42 +86,61 @@ export default function CreateOrder({ onSubmit }) {
     },
   });
 
-  // Apply template data to form
-  const applyTemplate = (templateId) => {
-    const template = templates.find((t) => t.id === templateId);
-    if (!template) return;
+  // Load order data when component mounts
+  useEffect(() => {
+    if (order) {
+      // Populate form with existing order data
+      reset({
+        toyxona: order.toyxona || '',
+        nikoh: order.nikoh || '',
+        bazm: order.bazm || '',
+        sana: order.sana || '',
+        kameraSoni: order.kameraSoni || 1,
+        telefon: order.telefon || '',
+        mijozIsmi: order.mijozIsmi || '',
+        clientId: order.clientId || '',
+        options: order.options || {
+          nikoh: false,
+          fotosessiya: false,
+          bazm: false,
+          chimilidq: false,
+          elOshi: false,
+          fotixaTuy: false,
+          kelinSalom: false,
+          qizBazm: false,
+          loveStory: false,
+        },
+        albom: order.albom || 'A4',
+        fleshka: order.fleshka || false,
+        pramoyEfir: order.pramoyEfir || false,
+        operatorlar: order.operatorlar || {
+          opr1: '',
+          opr2: '',
+          ronin: '',
+          kran: '',
+          camera360: '',
+        },
+        qoshimcha: order.qoshimcha || {
+          foto: '',
+          nahor: '',
+          kelinSalom: '',
+          pramoyEfir: '',
+          montaj: '',
+        },
+        narx: order.narx || 0,
+      });
 
-    // Apply services from template
-    const templateServices = template.services || [];
-    const options = {};
+      // Set client selection state
+      if (order.clientId) {
+        setSelectedClientId(order.clientId);
+        setIsNewClient(false);
+      } else {
+        setIsNewClient(true);
+      }
 
-    // Map template services to form options
-    templateServices.forEach((service) => {
-      const serviceName = service.name.toLowerCase();
-      if (serviceName.includes('nikoh')) options.nikoh = true;
-      if (serviceName.includes('fotosessiya')) options.fotosessiya = true;
-      if (serviceName.includes('bazm')) options.bazm = true;
-      if (serviceName.includes('chimilidq')) options.chimilidq = true;
-      if (serviceName.includes('el oshi')) options.elOshi = true;
-      if (serviceName.includes('fotixa tuy')) options.fotixaTuy = true;
-      if (serviceName.includes('kelin salom')) options.kelinSalom = true;
-      if (serviceName.includes('qiz bazm')) options.qizBazm = true;
-      if (serviceName.includes('love story')) options.loveStory = true;
-    });
-
-    // Apply additional services
-    const additionalServices = template.additionalServices || [];
-    const fleshka = additionalServices.includes('Flash');
-    const pramoyEfir = additionalServices.includes('Live');
-
-    // Update form values
-    setValue('options', options);
-    setValue('fleshka', fleshka);
-    setValue('pramoyEfir', pramoyEfir);
-
-    // Calculate and set price
-    calculatePrice(options, fleshka, pramoyEfir);
-  };
+      setLoading(false);
+    }
+  }, [order, reset]);
 
   // Format number with spaces for better readability
   const formatNumber = (num) => {
@@ -127,12 +154,50 @@ export default function CreateOrder({ onSubmit }) {
     );
   };
 
+  // Handle price input formatting
+  const handlePriceChange = (e) => {
+    const value = e.target.value;
+    const numericValue = value.replace(/\D/g, '');
+    setValue('narx', parseInt(numericValue) || 0);
+    setFormattedPrice(formatNumber(parseInt(numericValue) || 0));
+  };
+
+  // Apply template data to form
+  const applyTemplate = (templateId) => {
+    const template = templates.find((t) => t.id === templateId);
+    if (!template) return;
+
+    const templateServices = template.services || [];
+    const options = {};
+
+    templateServices.forEach((service) => {
+      const serviceName = service.name.toLowerCase();
+      if (serviceName.includes('nikoh')) options.nikoh = true;
+      if (serviceName.includes('fotosessiya')) options.fotosessiya = true;
+      if (serviceName.includes('bazm')) options.bazm = true;
+      if (serviceName.includes('chimilidq')) options.chimilidq = true;
+      if (serviceName.includes('el oshi')) options.elOshi = true;
+      if (serviceName.includes('fotixa tuy')) options.fotixaTuy = true;
+      if (serviceName.includes('kelin salom')) options.kelinSalom = true;
+      if (serviceName.includes('qiz bazm')) options.qizBazm = true;
+      if (serviceName.includes('love story')) options.loveStory = true;
+    });
+
+    const additionalServices = template.additionalServices || [];
+    const fleshka = additionalServices.includes('Flash');
+    const pramoyEfir = additionalServices.includes('Live');
+
+    setValue('options', options);
+    setValue('fleshka', fleshka);
+    setValue('pramoyEfir', pramoyEfir);
+    setFormattedPrice(formatNumber(0));
+  };
+
   // Calculate total price based on selected services
   const calculatePrice = useCallback(
     (options = {}, fleshka = false, pramoyEfir = false) => {
       let totalPrice = 0;
 
-      // Base prices for services (you can adjust these values)
       const servicePrices = {
         nikoh: 500000,
         fotosessiya: 300000,
@@ -145,34 +210,20 @@ export default function CreateOrder({ onSubmit }) {
         loveStory: 200000,
       };
 
-      // Add prices for selected services
       Object.entries(options).forEach(([service, isSelected]) => {
         if (isSelected && servicePrices[service]) {
           totalPrice += servicePrices[service];
         }
       });
 
-      // Add prices for additional services
-      if (fleshka) totalPrice += 50000; // Flash drive
-      if (pramoyEfir) totalPrice += 100000; // Live streaming
+      if (fleshka) totalPrice += 50000;
+      if (pramoyEfir) totalPrice += 100000;
 
-      // Set the calculated price
       setValue('narx', totalPrice);
       setFormattedPrice(formatNumber(totalPrice));
     },
     [setValue, formatNumber]
   );
-
-  // Handle price input formatting
-  const handlePriceChange = (e) => {
-    const value = e.target.value;
-    // Remove all non-digit characters
-    const numericValue = value.replace(/\D/g, '');
-    // Update the actual form value
-    setValue('narx', parseInt(numericValue) || 0);
-    // Update the formatted display
-    setFormattedPrice(formatNumber(parseInt(numericValue) || 0));
-  };
 
   // Watch form changes and recalculate price
   const watchedOptions = watch('options');
@@ -181,12 +232,11 @@ export default function CreateOrder({ onSubmit }) {
   const watchedNarx = watch('narx');
 
   useEffect(() => {
-    if (watchedOptions !== undefined) {
+    if (watchedOptions) {
       calculatePrice(watchedOptions, watchedFleshka, watchedPramoyEfir);
     }
   }, [watchedOptions, watchedFleshka, watchedPramoyEfir]);
 
-  // Update formatted price when narx changes
   useEffect(() => {
     if (watchedNarx !== undefined) {
       setFormattedPrice(formatNumber(watchedNarx));
@@ -202,22 +252,59 @@ export default function CreateOrder({ onSubmit }) {
         clientPhone: data.telefon,
       };
 
-      await addOrder(orderData);
-      reset();
-      setSelectedClientId('');
-      setIsNewClient(false);
-      setSelectedTemplateId('');
-
-      if (onSubmit) {
-        onSubmit(orderData);
-      }
+      await editOrder(orderId, orderData);
+      navigate('/dashboard/orders');
     } catch (error) {
-      console.error('Error creating order:', error);
+      console.error('Error updating order:', error);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin mr-2" />
+        <span className="text-gray-500">Buyurtma yuklanmoqda...</span>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-12">
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Buyurtma topilmadi
+        </h3>
+        <p className="text-gray-600 mb-4">
+          Bu buyurtma mavjud emas yoki o'chirilgan
+        </p>
+        <Button onClick={() => navigate('/dashboard/orders')}>
+          Buyurtmalar ro'yxatiga qaytish
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="my-4">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/dashboard/orders')}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Orqaga
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Buyurtmani tahrirlash
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {order.mijozIsmi} - {order.toyxona}
+          </p>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
         {/* Client Selection */}
         <div className="space-y-4">
@@ -559,102 +646,6 @@ export default function CreateOrder({ onSubmit }) {
           </div>
         </div>
 
-        {/* Operators */}
-        <div className="hidden space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Operatorlar</h3>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="opr1">Operator 1</Label>
-              <Input
-                id="opr1"
-                {...register('operatorlar.opr1')}
-                placeholder="Operator 1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opr2">Operator 2</Label>
-              <Input
-                id="opr2"
-                {...register('operatorlar.opr2')}
-                placeholder="Operator 2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ronin">Ronin</Label>
-              <Input
-                id="ronin"
-                {...register('operatorlar.ronin')}
-                placeholder="Ronin"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kran">Kran</Label>
-              <Input
-                id="kran"
-                {...register('operatorlar.kran')}
-                placeholder="Kran"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="camera360">360 Kamera</Label>
-              <Input
-                id="camera360"
-                {...register('operatorlar.camera360')}
-                placeholder="360"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Fields */}
-        <div className="hidden space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Qo'shimcha maydonlar
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="foto">Foto</Label>
-              <Input
-                id="foto"
-                {...register('qoshimcha.foto')}
-                placeholder="Foto paket"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nahor">Nahor</Label>
-              <Input
-                id="nahor"
-                {...register('qoshimcha.nahor')}
-                placeholder="Nahor"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kelinSalomQoshimcha">Kelin salom</Label>
-              <Input
-                id="kelinSalomQoshimcha"
-                {...register('qoshimcha.kelinSalom')}
-                placeholder="Kelin salom"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pramoyEfirQoshimcha">Pramoy efir</Label>
-              <Input
-                id="pramoyEfirQoshimcha"
-                {...register('qoshimcha.pramoyEfir')}
-                placeholder="Pramoy efir"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="montaj">Montaj</Label>
-              <Input
-                id="montaj"
-                {...register('qoshimcha.montaj')}
-                placeholder="Montaj"
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Price */}
         <div className="space-y-4">
           <div className="space-y-2">
@@ -680,69 +671,13 @@ export default function CreateOrder({ onSubmit }) {
                 </p>
               </div>
             )}
-            {watchedOptions && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  Narx tafsiloti:
-                </p>
-                <div className="space-y-1 text-sm">
-                  {Object.entries(watchedOptions).map(
-                    ([service, isSelected]) => {
-                      if (!isSelected) return null;
-                      const servicePrices = {
-                        nikoh: 500000,
-                        fotosessiya: 300000,
-                        bazm: 400000,
-                        chimilidq: 200000,
-                        elOshi: 150000,
-                        fotixaTuy: 250000,
-                        kelinSalom: 100000,
-                        qizBazm: 350000,
-                        loveStory: 200000,
-                      };
-                      const serviceLabels = {
-                        nikoh: 'Nikoh',
-                        fotosessiya: 'Fotosessiya',
-                        bazm: 'Bazm',
-                        chimilidq: 'Chimilidq',
-                        elOshi: 'El oshi',
-                        fotixaTuy: 'Fotixa tuy',
-                        kelinSalom: 'Kelin salom',
-                        qizBazm: 'Qiz bazm',
-                        loveStory: 'Love Story',
-                      };
-                      return (
-                        <div key={service} className="flex justify-between">
-                          <span>{serviceLabels[service]}:</span>
-                          <span className="font-medium">
-                            {formatNumber(servicePrices[service])} so'm
-                          </span>
-                        </div>
-                      );
-                    }
-                  )}
-                  {watchedFleshka && (
-                    <div className="flex justify-between">
-                      <span>Fleshka:</span>
-                      <span className="font-medium">50 000 so'm</span>
-                    </div>
-                  )}
-                  {watchedPramoyEfir && (
-                    <div className="flex justify-between">
-                      <span>Pramoy efir:</span>
-                      <span className="font-medium">100 000 so'm</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Submit Button */}
         <div className="flex justify-end gap-4 pt-4">
           <Button type="submit" size="lg" className="min-w-[200px]">
-            Buyurtmani saqlash
+            Buyurtmani yangilash
           </Button>
         </div>
       </form>

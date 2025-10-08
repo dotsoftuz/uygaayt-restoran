@@ -7,6 +7,7 @@ import {
   collection,
   addDoc,
   updateDoc,
+  deleteDoc,
   getDocs,
   query,
   where,
@@ -173,10 +174,39 @@ export const AppContextProvider = ({ children }) => {
       const docRef = await addDoc(collection(db, 'users', userUid, 'orders'), {
         ...orderData,
         createdAt: new Date(),
+        updatedAt: new Date(),
       });
       return docRef.id;
     } catch (error) {
       console.error('Error adding order:', error);
+      throw error;
+    }
+  };
+
+  // Update existing order
+  const updateOrder = async (orderId, updatedData) => {
+    if (!userUid) return;
+    try {
+      const orderRef = doc(db, 'users', userUid, 'orders', orderId);
+      await updateDoc(orderRef, {
+        ...updatedData,
+        updatedAt: new Date(),
+      });
+      return orderId;
+    } catch (error) {
+      console.error('Error updating order:', error);
+      throw error;
+    }
+  };
+
+  // Delete order
+  const deleteOrder = async (orderId) => {
+    if (!userUid) return;
+    try {
+      const orderRef = doc(db, 'users', userUid, 'orders', orderId);
+      await deleteDoc(orderRef);
+    } catch (error) {
+      console.error('Error deleting order:', error);
       throw error;
     }
   };
@@ -228,8 +258,11 @@ export const AppContextProvider = ({ children }) => {
     employees,
     addClient,
     addOrder,
+    updateOrder,
+    deleteOrder,
     addEmployee,
     getClientOrders,
+    userUid,
   };
 
   return (

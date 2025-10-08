@@ -13,10 +13,12 @@ import Clients from './Clients';
 import ClientDetails from './ClientDetails';
 import CreateOrder from './CreateOrder';
 import CreateTemplate from './CreateTemplate';
+import EditOrder from './EditOrder';
 import EmployeeDetails from './EmployeeDetails';
 import Employees from './Employees';
 import ForgotPassword from './ForgotPassword';
 import NotFound from './NotFound';
+import OrderDetail from './OrderDetail';
 import OrderTemplate from './OrderTemplate';
 import Orders from './Orders';
 import Services from './Services';
@@ -54,6 +56,8 @@ function Dashboard() {
           <Route index element={<MainPage />} />
           <Route path="create-order" element={<CreateOrder />} />
           <Route path="orders" element={<Orders />} />
+          <Route path="order-detail/:orderId" element={<OrderDetail />} />
+          <Route path="edit-order/:orderId" element={<EditOrder />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/:clientId" element={<ClientDetails />} />
           <Route path="employees" element={<Employees />} />
