@@ -24,7 +24,7 @@ function CreateTemplate() {
     loading: servicesLoading,
     error: servicesError,
   } = useServices();
-  const { addTemplate } = useTemplates();
+  const { addTemplate, templates } = useTemplates();
 
   const [template, setTemplate] = useState({
     title: '',
@@ -44,6 +44,49 @@ function CreateTemplate() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+
+  // Load template data if copying from existing template
+  React.useEffect(() => {
+    if (copyFromId && templates.length > 0) {
+      const templateToCopy = templates.find((t) => t.id === copyFromId);
+      if (templateToCopy) {
+        // Convert Firestore template data to form state
+        const selectedServiceIds =
+          templateToCopy.services?.map((s) => s.id) || [];
+
+        // Convert render options back to checkboxes
+        const imageQuality = {
+          capture4k:
+            templateToCopy.render?.includes('4K tasvirga olish') || false,
+          render4kFullHD:
+            templateToCopy.render?.includes('4K + FullHD render') || false,
+          capture4kRenderFullHD:
+            templateToCopy.render?.includes(
+              '4K tasvirga olish, FullHD render'
+            ) || false,
+        };
+
+        // Convert additional services back to checkboxes
+        const additionalServices = {
+          live: templateToCopy.additionalServices?.includes('Live') || false,
+          flash: templateToCopy.additionalServices?.includes('Flash') || false,
+          album: templateToCopy.additionalServices?.includes('Albom') || false,
+          customAdditions:
+            templateToCopy.additionalServices?.filter(
+              (s) => !['Live', 'Flash', 'Albom'].includes(s)
+            ) || [],
+        };
+
+        setTemplate({
+          title: `${templateToCopy.title} (nusxa)`,
+          description: templateToCopy.description || '',
+          selectedServices: selectedServiceIds,
+          imageQuality,
+          additionalServices,
+        });
+      }
+    }
+  }, [copyFromId, templates]);
 
   // Filter only active services and group by category
   const activeServices = services.filter(
@@ -127,9 +170,9 @@ function CreateTemplate() {
       const templateData = {
         title: template.title,
         description: template.description,
-        xizmatlar: selectedServicesData, // Services array with id, name, price
+        services: selectedServicesData, // Services array with id, name, price
         render: renderOptions, // Image quality options
-        qoshimchalar: additionalServices, // Additional services
+        additionalServices: additionalServices, // Additional services
       };
 
       await addTemplate(templateData);

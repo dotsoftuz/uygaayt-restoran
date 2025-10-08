@@ -17,193 +17,44 @@ import {
   Copy,
   Trash2,
   Eye,
+  Loader2,
 } from 'lucide-react';
-
-// Mock template data (same as in OrderTemplate.jsx)
-const templates = [
-  {
-    id: 1,
-    title: 'Restaurant Order Template',
-    description:
-      'Template for restaurant food orders with menu items and pricing',
-    category: 'Food & Beverage',
-    createdAt: '2024-01-15',
-    author: 'Admin',
-    fields: [
-      'Customer Name',
-      'Order Items',
-      'Total Amount',
-      'Delivery Address',
-    ],
-    content: {
-      sections: [
-        {
-          title: 'Customer Information',
-          fields: [
-            { name: 'Customer Name', type: 'text', required: true },
-            { name: 'Phone Number', type: 'tel', required: true },
-            { name: 'Email', type: 'email', required: false },
-          ],
-        },
-        {
-          title: 'Order Details',
-          fields: [
-            { name: 'Order Items', type: 'textarea', required: true },
-            { name: 'Special Instructions', type: 'textarea', required: false },
-            { name: 'Total Amount', type: 'number', required: true },
-          ],
-        },
-        {
-          title: 'Delivery Information',
-          fields: [
-            { name: 'Delivery Address', type: 'textarea', required: true },
-            { name: 'Delivery Time', type: 'datetime-local', required: true },
-            {
-              name: 'Payment Method',
-              type: 'select',
-              required: true,
-              options: ['Cash', 'Card', 'Online'],
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 2,
-    title: 'E-commerce Order Template',
-    description:
-      'Standard template for online store orders with product details',
-    category: 'E-commerce',
-    createdAt: '2024-01-20',
-    author: 'Admin',
-    fields: ['Product Name', 'Quantity', 'Price', 'Shipping Info'],
-    content: {
-      sections: [
-        {
-          title: 'Product Information',
-          fields: [
-            { name: 'Product Name', type: 'text', required: true },
-            { name: 'Product SKU', type: 'text', required: true },
-            { name: 'Quantity', type: 'number', required: true },
-            { name: 'Price', type: 'number', required: true },
-          ],
-        },
-        {
-          title: 'Customer Details',
-          fields: [
-            { name: 'Customer Name', type: 'text', required: true },
-            { name: 'Email', type: 'email', required: true },
-            { name: 'Phone', type: 'tel', required: false },
-          ],
-        },
-        {
-          title: 'Shipping Information',
-          fields: [
-            { name: 'Shipping Address', type: 'textarea', required: true },
-            {
-              name: 'Shipping Method',
-              type: 'select',
-              required: true,
-              options: ['Standard', 'Express', 'Overnight'],
-            },
-            { name: 'Tracking Number', type: 'text', required: false },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 3,
-    title: 'Service Order Template',
-    description: 'Template for service-based orders like cleaning, maintenance',
-    category: 'Services',
-    createdAt: '2024-01-25',
-    author: 'Admin',
-    fields: ['Service Type', 'Duration', 'Location', 'Special Requirements'],
-    content: {
-      sections: [
-        {
-          title: 'Service Information',
-          fields: [
-            {
-              name: 'Service Type',
-              type: 'select',
-              required: true,
-              options: ['Cleaning', 'Maintenance', 'Repair', 'Installation'],
-            },
-            { name: 'Service Description', type: 'textarea', required: true },
-            { name: 'Duration (hours)', type: 'number', required: true },
-          ],
-        },
-        {
-          title: 'Location & Timing',
-          fields: [
-            { name: 'Location', type: 'textarea', required: true },
-            { name: 'Preferred Date', type: 'date', required: true },
-            { name: 'Preferred Time', type: 'time', required: true },
-          ],
-        },
-        {
-          title: 'Special Requirements',
-          fields: [
-            { name: 'Special Requirements', type: 'textarea', required: false },
-            { name: 'Access Instructions', type: 'textarea', required: false },
-            { name: 'Contact Person', type: 'text', required: true },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    id: 4,
-    title: 'Custom Order Template',
-    description: 'Flexible template for custom orders with multiple fields',
-    category: 'Custom',
-    createdAt: '2024-02-01',
-    author: 'Admin',
-    fields: ['Order Details', 'Custom Fields', 'Notes', 'Priority Level'],
-    content: {
-      sections: [
-        {
-          title: 'Order Information',
-          fields: [
-            { name: 'Order Details', type: 'textarea', required: true },
-            {
-              name: 'Priority Level',
-              type: 'select',
-              required: true,
-              options: ['Low', 'Medium', 'High', 'Urgent'],
-            },
-            { name: 'Expected Completion', type: 'date', required: false },
-          ],
-        },
-        {
-          title: 'Custom Fields',
-          fields: [
-            { name: 'Custom Field 1', type: 'text', required: false },
-            { name: 'Custom Field 2', type: 'text', required: false },
-            { name: 'Custom Field 3', type: 'text', required: false },
-          ],
-        },
-        {
-          title: 'Additional Information',
-          fields: [
-            { name: 'Notes', type: 'textarea', required: false },
-            { name: 'Attachments', type: 'file', required: false },
-            { name: 'Budget Range', type: 'text', required: false },
-          ],
-        },
-      ],
-    },
-  },
-];
+import { useTemplates } from '@/hooks/use-templates';
 
 function TemplateDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { templates, loading, error, deleteTemplate } = useTemplates();
 
-  const template = templates.find((t) => t.id === parseInt(id));
+  const template = templates.find((t) => t.id === id);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 my-4">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          <span className="text-gray-500">Shablon yuklanmoqda...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6 my-4">
+        <div className="text-center py-12">
+          <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Xatolik yuz berdi
+          </h3>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => navigate('/dashboard/order-template')}>
+            Shablonlar bo'limiga qaytish
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!template) {
     return (
@@ -211,11 +62,9 @@ function TemplateDetail() {
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            Shablon topilmadi   
+            Shablon topilmadi
           </h3>
-          <p className="text-gray-600 mb-4">
-            Qidirilayotgan shablon topilmadi
-          </p>
+          <p className="text-gray-600 mb-4">Qidirilayotgan shablon topilmadi</p>
           <Button onClick={() => navigate('/dashboard/order-template')}>
             Shablonlar bo'limiga qaytish
           </Button>
@@ -232,21 +81,14 @@ function TemplateDetail() {
     navigate(`/dashboard/edit-template/${template.id}`);
   };
 
-  const handleCopy = () => {
-    // Navigate to create template with this template as base
-    navigate(`/dashboard/create-template?copy=${template.id}`);
-  };
-
-  const handlePreview = () => {
-    // Open template preview in a modal or new page
-    console.log('Preview template:', template.id);
-  };
-
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this template?')) {
-      // Handle delete logic here
-      console.log('Delete template:', template.id);
-      navigate('/dashboard/order-template');
+  const handleDelete = async () => {
+    if (window.confirm("Bu shablonni o'chirishni xohlaysizmi?")) {
+      try {
+        await deleteTemplate(template.id);
+        navigate('/dashboard/order-template');
+      } catch (error) {
+        console.error('Error deleting template:', error);
+      }
     }
   };
 
@@ -267,22 +109,6 @@ function TemplateDetail() {
           <p className="text-gray-600 mt-1">{template.description}</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handlePreview}
-            className="flex items-center gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            Ko'rish
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleCopy}
-            className="flex items-center gap-2"
-          >
-            <Copy className="h-4 w-4" />
-            Nusxalash
-          </Button>
           <Button onClick={handleEdit} className="flex items-center gap-2">
             <Edit className="h-4 w-4" />
             Tahrirlash
@@ -311,22 +137,27 @@ function TemplateDetail() {
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Tur
+                  Xizmatlar soni
                 </label>
-                <p className="text-sm text-gray-900 bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
-                  {template.category}
+                <p className="text-sm text-gray-900 bg-blue-100 px-2 py-1 rounded mt-1 inline-block">
+                  {template.services?.length || 0} ta xizmat
                 </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700">
-                  Muallif
+                  Render variantlari
                 </label>
-                <div className="flex items-center gap-2 mt-1">
-                  <User className="h-4 w-4 text-gray-500" />
-                  <span className="text-sm text-gray-900">
-                    {template.author}
-                  </span>
-                </div>
+                <p className="text-sm text-gray-900 bg-green-100 px-2 py-1 rounded mt-1 inline-block">
+                  {template.render?.length || 0} ta variant
+                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">
+                  Qo'shimcha xizmatlar
+                </label>
+                <p className="text-sm text-gray-900 bg-purple-100 px-2 py-1 rounded mt-1 inline-block">
+                  {template.additionalServices?.length || 0} ta xizmat
+                </p>
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-700">
@@ -335,18 +166,29 @@ function TemplateDetail() {
                 <div className="flex items-center gap-2 mt-1">
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <span className="text-sm text-gray-900">
-                    {new Date(template.createdAt).toLocaleDateString()}
+                    {template.createdAt
+                      ? new Date(
+                          template.createdAt.seconds * 1000
+                        ).toLocaleDateString('uz-UZ')
+                      : "Noma'lum"}
                   </span>
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700">
-                  Maydonlar soni
-                </label>
-                <p className="text-sm text-gray-900 mt-1">
-                  {template.fields.length} fields
-                </p>
-              </div>
+              {template.updatedAt && (
+                <div>
+                  <label className="text-sm font-medium text-gray-700">
+                    Yangilangan
+                  </label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-900">
+                      {new Date(
+                        template.updatedAt.seconds * 1000
+                      ).toLocaleDateString('uz-UZ')}
+                    </span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -357,43 +199,92 @@ function TemplateDetail() {
             <CardHeader>
               <CardTitle>Shablon tuzilmasi</CardTitle>
               <CardDescription>
-                Bu shablon {template.content.sections.length} bo'lim va
-                shakllangan maydonlarni o'z ichiga oladi
+                Bu shablon {template.services?.length || 0} ta xizmat,{' '}
+                {template.render?.length || 0} ta render variant va{' '}
+                {template.additionalServices?.length || 0} ta qo'shimcha
+                xizmatni o'z ichiga oladi
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                {template.content.sections.map((section, sectionIndex) => (
-                  <div key={sectionIndex} className="border rounded-lg p-4">
+                {/* Services Section */}
+                {template.services && template.services.length > 0 && (
+                  <div className="border rounded-lg p-4">
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      {section.title}
+                      Tanlangan xizmatlar
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {section.fields.map((field, fieldIndex) => (
-                        <div key={fieldIndex} className="space-y-2">
-                          <div className="flex items-center gap-2">
+                      {template.services.map((service, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="flex items-center justify-between">
                             <label className="text-sm font-medium text-gray-700">
-                              {field.name}
+                              {service.name}
                             </label>
-                            {field.required && (
-                              <span className="text-red-500 text-xs">*</span>
-                            )}
+                            <span className="text-sm text-gray-500">
+                              {service.price?.toLocaleString('uz-UZ')} so'm
+                            </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                              {field.type}
+                              {service.category || "Kategoriya yo'q"}
                             </span>
-                            {field.options && (
-                              <span className="text-xs text-gray-500">
-                                {field.options.length} options
-                              </span>
-                            )}
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Render Options Section */}
+                {template.render && template.render.length > 0 && (
+                  <div className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Render variantlari
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {template.render.map((render, index) => (
+                        <div key={index} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-700">
+                              {render}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                              Render variant
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Services Section */}
+                {template.additionalServices &&
+                  template.additionalServices.length > 0 && (
+                    <div className="border rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                        Qo'shimcha xizmatlar
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {template.additionalServices.map((service, index) => (
+                          <div key={index} className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-700">
+                                {service}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                Qo'shimcha xizmat
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
             </CardContent>
           </Card>
