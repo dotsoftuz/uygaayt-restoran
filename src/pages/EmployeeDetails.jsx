@@ -16,6 +16,9 @@ import {
   MapPin,
   CircleOff,
   ArrowUpRightIcon,
+  Wallet,
+  Star,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -29,6 +32,7 @@ import {
 } from '@/components/ui/empty';
 
 export default function EmployeeDetails() {
+  // https://crafted.is/exp1 statistics
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const { employees } = useAppContext();
@@ -122,18 +126,77 @@ export default function EmployeeDetails() {
       <Separator />
 
       {/* Employee Statistics */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="text-center p-4 border rounded-lg">
-          <div className="text-2xl font-bold text-primary">0</div>
-          <div className="text-sm text-muted-foreground">Jami buyurtmalar</div>
+      <div className="grid grid-cols-2 min-[1200px]:grid-cols-4 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar">
+        {/* Jami buyurtmalar */}
+        <div className="flex items-center gap-4 relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
+          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
+            <HandCoins className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <span className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              Jami buyurtmalar
+            </span>
+            <h3 className="text-2xl font-semibold mb-2 text-primary">34 ta</h3>
+            <div className="text-xs text-muted-foreground/60">
+              <span className="font-medium text-emerald-500">+12%</span> o‘tgan
+              oyga nisbatan
+            </div>
+          </div>
         </div>
-        <div className="text-center p-4 border rounded-lg">
-          <div className="text-2xl font-bold text-primary">0</div>
-          <div className="text-sm text-muted-foreground">Bu oy buyurtmalar</div>
+
+        {/* Oylik daromad */}
+        <div className="flex items-center gap-4 relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
+          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
+            <Wallet className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <span className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              Oylik daromad
+            </span>
+            <h3 className="text-2xl font-semibold mb-2 text-primary">
+              12.4 mln so‘m
+            </h3>
+            <div className="text-xs text-muted-foreground/60">
+              <span className="font-medium text-emerald-500">+8%</span> o‘tgan
+              oyga nisbatan
+            </div>
+          </div>
         </div>
-        <div className="text-center p-4 border rounded-lg">
-          <div className="text-2xl font-bold text-primary">0</div>
-          <div className="text-sm text-muted-foreground">Daromad</div>
+
+        {/* Mijozlardan o‘rtacha baho */}
+        <div className="flex items-center gap-4 relative p-4 lg:p-5 group before:absolute before:inset-y-8 before:right-0 before:w-px before:bg-gradient-to-b before:from-input/30 before:via-input before:to-input/30 last:before:hidden">
+          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
+            <Star className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <span className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              O‘rtacha baho
+            </span>
+            <h3 className="text-2xl font-semibold mb-2 text-primary">
+              4.8 / 5
+            </h3>
+            <div className="text-xs text-muted-foreground/60">
+              <span className="font-medium text-emerald-500">+0.3</span> o‘tgan
+              oyga nisbatan
+            </div>
+          </div>
+        </div>
+
+        {/* Faol loyihalar */}
+        <div className="flex items-center gap-4 relative p-4 lg:p-5 group">
+          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
+            <BriefcaseBusiness className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <span className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              Faol loyihalar
+            </span>
+            <h3 className="text-2xl font-semibold mb-2 text-primary">5 ta</h3>
+            <div className="text-xs text-muted-foreground/60">
+              <span className="font-medium text-emerald-500">2 ta yangi</span>{' '}
+              bu oyda
+            </div>
+          </div>
         </div>
       </div>
 

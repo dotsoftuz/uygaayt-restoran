@@ -103,6 +103,7 @@ function Employees() {
           </p>
         </div>
         <Button
+          size="sm"
           onClick={() => setShowAddEmployee(true)}
           className="flex items-center gap-2"
         >

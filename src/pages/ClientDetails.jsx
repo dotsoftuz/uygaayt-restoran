@@ -52,7 +52,8 @@ import { toast } from 'sonner';
 export default function ClientDetails() {
   const { clientId } = useParams();
   const navigate = useNavigate();
-  const { clients, orders, getClientOrders, addClient } = useAppContext();
+  const { clients, orders, getClientOrders, addClient, userUid } =
+    useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [showLinksModal, setShowLinksModal] = useState(false);
   const [showAddLinkModal, setShowAddLinkModal] = useState(false);
@@ -134,7 +135,7 @@ export default function ClientDetails() {
   };
 
   const copyPinCode = () => {
-    navigator.clipboard.writeText(client.pinCode.toString());
+    navigator.clipboard.writeText(client.code.toString());
     toast('PIN kodi nusxalandi');
   };
 
@@ -148,7 +149,7 @@ export default function ClientDetails() {
         ...client,
         clientLinks: [...(client.clientLinks || []), linkData],
       };
-      await addClient(updatedClient);
+      await addClient(updatedClient, userUid);
       toast("Link muvaffaqiyatli qo'shildi");
     } catch (error) {
       console.error('Error adding link:', error);
@@ -375,8 +376,11 @@ export default function ClientDetails() {
             <div className="flex items-start justify-between p-3 group shadow-sm transition-shadow border border-border rounded-xl">
               <div>
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-2xl font-mono bg-muted">
-                    {client.pinCode}
+                  <Badge
+                    variant="outline"
+                    className="text-2xl font-mono bg-muted"
+                  >
+                    {client.code}
                   </Badge>
                   <p className="text-sm text-muted-foreground">
                     Mijozning shaxsiy Pincodi

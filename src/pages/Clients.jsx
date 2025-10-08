@@ -131,7 +131,7 @@ function Clients() {
                             variant="outline"
                             className="text-xs font-mono bg-muted ml-1"
                           >
-                            {client.pinCode}
+                            {client.code}
                           </Badge>
                         </div>
                       </TableCell>
