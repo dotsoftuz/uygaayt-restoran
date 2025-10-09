@@ -1,6 +1,13 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
@@ -13,6 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import { Controller, useForm } from 'react-hook-form';
 import { useAppContext } from '@/context/AppContext';
 import { useTemplates } from '@/hooks/use-templates';
@@ -27,6 +43,7 @@ export default function CreateOrder({ onSubmit }) {
   const [isNewClient, setIsNewClient] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [formattedPrice, setFormattedPrice] = useState('');
+  const [selectedTemplateServices, setSelectedTemplateServices] = useState([]);
 
   const {
     register,
@@ -82,6 +99,9 @@ export default function CreateOrder({ onSubmit }) {
   const applyTemplate = (templateId) => {
     const template = templates.find((t) => t.id === templateId);
     if (!template) return;
+
+    // Set selected template services for table display
+    setSelectedTemplateServices(template.services || []);
 
     // Apply services from template
     const templateServices = template.services || [];
@@ -219,203 +239,90 @@ export default function CreateOrder({ onSubmit }) {
   return (
     <div className="my-4">
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
-        {/* Client Selection */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Mijoz tanlash
-          </h3>
-          <div className="space-y-4">
-            <div className="flex gap-4">
-              <Button
-                type="button"
-                variant={!isNewClient ? 'default' : 'outline'}
-                onClick={() => {
-                  setIsNewClient(false);
-                  setSelectedClientId('');
-                }}
-              >
-                Mavjud mijoz
-              </Button>
-              <Button
-                type="button"
-                variant={isNewClient ? 'default' : 'outline'}
-                onClick={() => {
-                  setIsNewClient(true);
-                  setSelectedClientId('');
-                }}
-              >
-                Yangi mijoz
-              </Button>
-            </div>
-
-            {!isNewClient && (
-              <div className="space-y-2">
-                <Label htmlFor="clientSelect">Mijozni tanlang</Label>
-                <Controller
-                  name="clientId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      value={selectedClientId}
-                      onValueChange={(value) => {
-                        setSelectedClientId(value);
-                        field.onChange(value);
-                        const selectedClient = clients.find(
-                          (c) => c.id === value
-                        );
-                        if (selectedClient) {
-                          setValue('mijozIsmi', selectedClient.name);
-                          setValue('telefon', selectedClient.phone);
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Mijozni tanlang" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clients.map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.name} - {client.phone}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Template Selection */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Shablon tanlash (ixtiyoriy)
-          </h3>
           <div className="space-y-2">
-            <Label htmlFor="templateSelect">Shablonni tanlang</Label>
+            <Label>Shablonni tanlang</Label>
             <Controller
               name="templateId"
               control={control}
               render={({ field }) => (
-                <Select
-                  value={selectedTemplateId}
-                  onValueChange={(value) => {
-                    setSelectedTemplateId(value);
-                    field.onChange(value);
-                    if (
-                      value &&
-                      value !== 'loading' &&
-                      value !== 'no-templates'
-                    ) {
-                      applyTemplate(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Shablonni tanlang (ixtiyoriy)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templatesLoading ? (
-                      <SelectItem value="loading" disabled>
-                        Shablonlar yuklanmoqda...
-                      </SelectItem>
-                    ) : templates.length === 0 ? (
-                      <SelectItem value="no-templates" disabled>
-                        Hech qanday shablon yo'q
-                      </SelectItem>
-                    ) : (
-                      templates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>
-                          {template.title}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {selectedTemplateId &&
-              selectedTemplateId !== 'loading' &&
-              selectedTemplateId !== 'no-templates' && (
-                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-blue-700 font-medium">
-                    Shablon ma'lumotlari avtomatik to'ldirildi
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Kerakli maydonlarni qo'lda tahrirlashingiz mumkin
-                  </p>
+                <div className="space-y-4">
+                  {templatesLoading ? (
+                    <div className="flex items-center justify-center p-8">
+                      <p className="text-gray-500">Shablonlar yuklanmoqda...</p>
+                    </div>
+                  ) : templates.length === 0 ? (
+                    <div className="flex items-center justify-center p-8">
+                      <p className="text-gray-500">Hech qanday shablon yo'q</p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {templates.map((template) => (
+                        <Card
+                          key={template.id}
+                          className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                            selectedTemplateId === template.id
+                              ? 'ring-2 ring-blue-500 bg-blue-50'
+                              : 'hover:bg-gray-50'
+                          }`}
+                          onClick={() => {
+                            setSelectedTemplateId(template.id);
+                            field.onChange(template.id);
+                            applyTemplate(template.id);
+                          }}
+                        >
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">
+                              {template.title}
+                            </CardTitle>
+                            {template.description && (
+                              <CardDescription>
+                                {template.description}
+                              </CardDescription>
+                            )}
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            {template.services &&
+                              template.services.length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-sm font-medium text-gray-700">
+                                    Xizmatlar:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {template.services
+                                      .slice(0, 3)
+                                      .map((service, index) => (
+                                        <span
+                                          key={index}
+                                          className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                        >
+                                          {service.name}
+                                        </span>
+                                      ))}
+                                    {template.services.length > 3 && (
+                                      <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">
+                                        +{template.services.length - 3} boshqa
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+            />
           </div>
         </div>
 
         {/* Basic Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Asosiy ma'lumotlar
-          </h3>
+          <h3 className="text-lg font-semibold text-foreground">Ma'lumotlar</h3>
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="mijozIsmi">Mijoz ismi</Label>
-              <Input
-                id="mijozIsmi"
-                {...register('mijozIsmi', {
-                  required: 'Mijoz ismi majburiy',
-                })}
-                placeholder="Mijoz ismini kiriting"
-                disabled={!isNewClient && selectedClientId}
-              />
-              {errors.mijozIsmi && (
-                <p className="text-sm text-red-500">
-                  {errors.mijozIsmi.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="telefon">Telefon</Label>
-              <Input
-                id="telefon"
-                type="tel"
-                {...register('telefon', {
-                  required: 'Telefon raqami majburiy',
-                })}
-                placeholder="+998 90 123 45 67"
-                disabled={!isNewClient && selectedClientId}
-              />
-              {errors.telefon && (
-                <p className="text-sm text-red-500">{errors.telefon.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="toyxona">To'yxona</Label>
-              <Input
-                id="toyxona"
-                {...register('toyxona', {
-                  required: "To'yxona nomi majburiy",
-                })}
-                placeholder="To'yxona nomini kiriting"
-              />
-              {errors.toyxona && (
-                <p className="text-sm text-red-500">{errors.toyxona.message}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nikoh">Nikoh</Label>
-              <Input
-                id="nikoh"
-                {...register('nikoh')}
-                placeholder="Nikoh joyini kiriting"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bazm">Bazm</Label>
-              <Input
-                id="bazm"
-                {...register('bazm')}
-                placeholder="Bazm joyini kiriting"
-              />
-            </div>
             <div className="space-y-2">
               <Label htmlFor="sana">Sana</Label>
               <Controller
@@ -446,300 +353,104 @@ export default function CreateOrder({ onSubmit }) {
                 })}
               />
             </div>
+
+            <div>Shu sanadagi buyurtmalar</div>
           </div>
         </div>
 
-        {/* Service Options */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Xizmatlar</h3>
-          <div className="grid gap-4 md:grid-cols-3">
-            {[
-              { id: 'nikoh', label: 'Nikoh' },
-              { id: 'fotosessiya', label: 'Fotosessiya' },
-              { id: 'bazm', label: 'Bazm' },
-              { id: 'chimilidq', label: 'Chimilidq' },
-              { id: 'elOshi', label: 'El oshi' },
-              { id: 'fotixaTuy', label: 'Fotixa tuy' },
-              { id: 'kelinSalom', label: 'Kelin salom' },
-              { id: 'qizBazm', label: 'Qiz bazm' },
-              { id: 'loveStory', label: 'Love Story' },
-            ].map((option) => (
-              <div key={option.id} className="flex items-center space-x-2">
-                <Controller
-                  name={`options.${option.id}`}
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id={option.id}
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  )}
-                />
-                <Label
-                  htmlFor={option.id}
-                  className="cursor-pointer text-sm font-normal"
-                >
-                  {option.label}
-                </Label>
+        {/* Services Table - Only show after template selection */}
+        {selectedTemplateId &&
+          selectedTemplateId !== 'loading' &&
+          selectedTemplateId !== 'no-templates' &&
+          selectedTemplateServices.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                Xizmatlar
+              </h3>
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">Tanlash</TableHead>
+                      <TableHead className="w-12">Xizmat nomi</TableHead>
+                      <TableHead className="w-6">Sana</TableHead>
+                      <TableHead className="w-60">
+                        Qo'shimcha ma'lumot
+                      </TableHead>
+                      <TableHead className="w-32">Narx</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {selectedTemplateServices.map((service, index) => (
+                      <TableRow key={index} className="h-12">
+                        <TableCell className="py-2 border-r">
+                          <Controller
+                            name={`templateServices.${index}.selected`}
+                            control={control}
+                            defaultValue={true}
+                            render={({ field }) => (
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium py-2 border-r">
+                          {service.name}
+                        </TableCell>
+                        <TableCell className="py-2 border-r">
+                          <Controller
+                            name={`templateServices.${index}.date`}
+                            control={control}
+                            render={({ field }) => (
+                              <DatePicker
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-8 h-8"
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="py-2 border-r">
+                          <Controller
+                            name={`templateServices.${index}.notes`}
+                            control={control}
+                            render={({ field }) => (
+                              <Textarea
+                                placeholder="Qo'shimcha ma'lumot..."
+                                className="min-h-[32px] h-8 resize-none"
+                                {...field}
+                              />
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Controller
+                            name={`templateServices.${index}.price`}
+                            control={control}
+                            defaultValue={service.price || 0}
+                            render={({ field }) => (
+                              <Input
+                                type="number"
+                                placeholder="Narx"
+                                className="h-8"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseInt(e.target.value) || 0)
+                                }
+                              />
+                            )}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          )}
 
-        {/* Album Selection */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Albom tanlash
-          </h3>
-          <Controller
-            name="albom"
-            control={control}
-            render={({ field }) => (
-              <RadioGroup
-                value={field.value}
-                onValueChange={field.onChange}
-                className="flex gap-4"
-              >
-                {['A4', '30x30', 'A3'].map((size) => (
-                  <div key={size} className="flex items-center space-x-2">
-                    <RadioGroupItem value={size} id={size} />
-                    <Label
-                      htmlFor={size}
-                      className="cursor-pointer font-normal"
-                    >
-                      {size}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            )}
-          />
-        </div>
-
-        {/* Additional Options */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Qo'shimcha</h3>
-          <div className="flex gap-6">
-            <div className="flex items-center space-x-2">
-              <Controller
-                name="fleshka"
-                control={control}
-                render={({ field }) => (
-                  <Checkbox
-                    id="fleshka"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label htmlFor="fleshka" className="cursor-pointer font-normal">
-                Fleshkaga yozish
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Controller
-                name="pramoyEfir"
-                control={control}
-                render={({ field }) => (
-                  <Checkbox
-                    id="pramoyEfir"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label
-                htmlFor="pramoyEfir"
-                className="cursor-pointer font-normal"
-              >
-                Pramoy efir
-              </Label>
-            </div>
-          </div>
-        </div>
-
-        {/* Operators */}
-        <div className="hidden space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">Operatorlar</h3>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="opr1">Operator 1</Label>
-              <Input
-                id="opr1"
-                {...register('operatorlar.opr1')}
-                placeholder="Operator 1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="opr2">Operator 2</Label>
-              <Input
-                id="opr2"
-                {...register('operatorlar.opr2')}
-                placeholder="Operator 2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ronin">Ronin</Label>
-              <Input
-                id="ronin"
-                {...register('operatorlar.ronin')}
-                placeholder="Ronin"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kran">Kran</Label>
-              <Input
-                id="kran"
-                {...register('operatorlar.kran')}
-                placeholder="Kran"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="camera360">360 Kamera</Label>
-              <Input
-                id="camera360"
-                {...register('operatorlar.camera360')}
-                placeholder="360"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Fields */}
-        <div className="hidden space-y-4">
-          <h3 className="text-lg font-semibold text-foreground">
-            Qo'shimcha maydonlar
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="foto">Foto</Label>
-              <Input
-                id="foto"
-                {...register('qoshimcha.foto')}
-                placeholder="Foto paket"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="nahor">Nahor</Label>
-              <Input
-                id="nahor"
-                {...register('qoshimcha.nahor')}
-                placeholder="Nahor"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="kelinSalomQoshimcha">Kelin salom</Label>
-              <Input
-                id="kelinSalomQoshimcha"
-                {...register('qoshimcha.kelinSalom')}
-                placeholder="Kelin salom"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pramoyEfirQoshimcha">Pramoy efir</Label>
-              <Input
-                id="pramoyEfirQoshimcha"
-                {...register('qoshimcha.pramoyEfir')}
-                placeholder="Pramoy efir"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="montaj">Montaj</Label>
-              <Input
-                id="montaj"
-                {...register('qoshimcha.montaj')}
-                placeholder="Montaj"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Price */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="narx">Narx (so'm)</Label>
-            <Input
-              id="narx"
-              type="text"
-              value={formattedPrice}
-              onChange={handlePriceChange}
-              placeholder="Narx avtomatik hisoblanadi"
-              className="text-left"
-            />
-            <p className="text-sm text-blue-600 font-medium">
-              💡 Narx avtomatik hisoblanadi, lekin qo'lda o'zgartirish mumkin
-            </p>
-            <p className="text-xs text-gray-500">
-              Xizmatlar tanlanganda narx avtomatik yangilanadi
-            </p>
-            {watchedNarx && watchedNarx > 0 && (
-              <div className="mt-2 p-2 bg-green-50 rounded-lg">
-                <p className="text-sm font-semibold text-green-800">
-                  Jami: {formatNumber(watchedNarx)} so'm
-                </p>
-              </div>
-            )}
-            {watchedOptions && (
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  Narx tafsiloti:
-                </p>
-                <div className="space-y-1 text-sm">
-                  {Object.entries(watchedOptions).map(
-                    ([service, isSelected]) => {
-                      if (!isSelected) return null;
-                      const servicePrices = {
-                        nikoh: 500000,
-                        fotosessiya: 300000,
-                        bazm: 400000,
-                        chimilidq: 200000,
-                        elOshi: 150000,
-                        fotixaTuy: 250000,
-                        kelinSalom: 100000,
-                        qizBazm: 350000,
-                        loveStory: 200000,
-                      };
-                      const serviceLabels = {
-                        nikoh: 'Nikoh',
-                        fotosessiya: 'Fotosessiya',
-                        bazm: 'Bazm',
-                        chimilidq: 'Chimilidq',
-                        elOshi: 'El oshi',
-                        fotixaTuy: 'Fotixa tuy',
-                        kelinSalom: 'Kelin salom',
-                        qizBazm: 'Qiz bazm',
-                        loveStory: 'Love Story',
-                      };
-                      return (
-                        <div key={service} className="flex justify-between">
-                          <span>{serviceLabels[service]}:</span>
-                          <span className="font-medium">
-                            {formatNumber(servicePrices[service])} so'm
-                          </span>
-                        </div>
-                      );
-                    }
-                  )}
-                  {watchedFleshka && (
-                    <div className="flex justify-between">
-                      <span>Fleshka:</span>
-                      <span className="font-medium">50 000 so'm</span>
-                    </div>
-                  )}
-                  {watchedPramoyEfir && (
-                    <div className="flex justify-between">
-                      <span>Pramoy efir:</span>
-                      <span className="font-medium">100 000 so'm</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Submit Button */}
         <div className="flex justify-end gap-4 pt-4">
           <Button type="submit" size="lg" className="min-w-[200px]">
             Buyurtmani saqlash
