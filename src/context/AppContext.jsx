@@ -13,6 +13,7 @@ import {
   where,
   orderBy,
   onSnapshot,
+  setDoc,
 } from 'firebase/firestore';
 
 export const AppContext = createContext({});
@@ -68,7 +69,8 @@ export const AppContextProvider = ({ children }) => {
     if (!userUid) return;
 
     const q = query(
-      collection(db, 'users', userUid, 'clients'),
+      collection(db, 'clients'),
+      where('userId', '==', userUid),
       orderBy('createdAt', 'desc')
     );
 
@@ -141,25 +143,58 @@ export const AppContextProvider = ({ children }) => {
     return () => unsubscribe();
   }, [userUid]);
 
-  // Add new client
-  const addClient = async (clientData) => {
+  async function generateUniqueClientCode(userUid) {
+    let code;
+    let isUnique = false;
+
+    while (!isUnique) {
+      // 6 xonali random raqam
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      const codeRef = doc(db, 'codes', code);
+      const snapshot = await getDoc(codeRef);
+
+      if (!snapshot.exists()) {
+        isUnique = true;
+        // code’ni rezervatsiya qilamiz
+        await setDoc(codeRef, {
+          reserved: true,
+          userId: userUid,
+          createdAt: Date.now(),
+        });
+      }
+    }
+
+    return code;
+  }
+
+  const addClient = async (clientData, userUid) => {
     if (!userUid) return;
+
     try {
-      // If clientData has an id, it means we're updating an existing client
       if (clientData.id) {
-        const clientRef = doc(db, 'users', userUid, 'clients', clientData.id);
+        const clientRef = doc(db, 'clients', clientData.id);
         await updateDoc(clientRef, clientData);
         return clientData.id;
       } else {
-        // Creating a new client
-        const docRef = await addDoc(
-          collection(db, 'users', userUid, 'clients'),
-          {
-            ...clientData,
-            createdAt: new Date(),
-          }
-        );
-        return docRef.id;
+        const code = await generateUniqueClientCode(userUid);
+
+        const newClient = {
+          ...clientData,
+          userId: userUid,
+          code,
+          createdAt: Date.now(),
+        };
+
+        const clientRef = await addDoc(collection(db, 'clients'), newClient);
+
+        await setDoc(doc(db, 'codes', code), {
+          clientId: clientRef.id,
+          userId: userUid,
+          createdAt: Date.now(),
+        });
+
+        return clientRef.id;
       }
     } catch (error) {
       console.error('Error adding/updating client:', error);
@@ -248,6 +283,31 @@ export const AppContextProvider = ({ children }) => {
     return orders.filter((order) => order.clientId === clientId);
   };
 
+  // Get client by code
+  const getClientByCode = async (code) => {
+    try {
+      const codeRef = doc(db, 'codes', code);
+      const codeSnapshot = await getDoc(codeRef);
+
+      if (codeSnapshot.exists()) {
+        const codeData = codeSnapshot.data();
+        const clientRef = doc(db, 'clients', codeData.clientId);
+        const clientSnapshot = await getDoc(clientRef);
+
+        if (clientSnapshot.exists()) {
+          return {
+            id: clientSnapshot.id,
+            ...clientSnapshot.data(),
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting client by code:', error);
+      return null;
+    }
+  };
+
   const contextValue = {
     user,
     userData,
@@ -262,6 +322,7 @@ export const AppContextProvider = ({ children }) => {
     deleteOrder,
     addEmployee,
     getClientOrders,
+    getClientByCode,
     userUid,
   };
 

@@ -14,7 +14,7 @@ import { Link, Plus, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ClientLinksModal({ open, onOpenChange, client }) {
-  const { addClient } = useAppContext();
+  const { addClient, userUid } = useAppContext();
   const [showAddLink, setShowAddLink] = useState(false);
 
   if (!client) return null;
@@ -25,14 +25,14 @@ export default function ClientLinksModal({ open, onOpenChange, client }) {
         ...client,
         clientLinks: [...(client.clientLinks || []), linkData],
       };
-      await addClient(updatedClient);
+      await addClient(updatedClient, userUid);
     } catch (error) {
       console.error('Error adding link:', error);
     }
   };
 
   const copyPinCode = () => {
-    navigator.clipboard.writeText(client.pinCode.toString());
+    navigator.clipboard.writeText(client.code.toString());
     toast('PIN kodi nusxalandi');
   };
 
@@ -62,7 +62,7 @@ export default function ClientLinksModal({ open, onOpenChange, client }) {
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-2xl font-mono">
-                    {client.pinCode}
+                    {client.code}
                   </Badge>
                   <Button
                     size="sm"

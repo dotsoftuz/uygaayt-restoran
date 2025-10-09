@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/empty';
 
 export default function EmployeeDetails() {
+  // https://crafted.is/exp1 statistics
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const { employees } = useAppContext();

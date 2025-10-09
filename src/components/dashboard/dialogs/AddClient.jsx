@@ -13,34 +13,29 @@ import { useForm } from 'react-hook-form';
 import { useAppContext } from '@/context/AppContext';
 
 export default function AddClient({ open, onOpenChange, onSubmit }) {
-  const { addClient } = useAppContext();
+  const { addClient, userUid } = useAppContext();
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm({
     defaultValues: {
       name: '',
-      phone: '',
+      phone: '+998',
       email: '',
       address: '',
       notes: '',
     },
   });
 
-  const generatePinCode = () => {
-    return Math.floor(100000 + Math.random() * 900000);
-  };
-
   const onFormSubmit = async (data) => {
     try {
       const clientData = {
         ...data,
-        pinCode: generatePinCode(),
         clientLinks: [],
       };
-      await addClient(clientData);
+      await addClient(clientData, userUid);
       reset();
       onOpenChange(false);
       if (onSubmit) {
@@ -61,6 +56,7 @@ export default function AddClient({ open, onOpenChange, onSubmit }) {
           <div className="space-y-2">
             <Label htmlFor="name">Ism</Label>
             <Input
+              disabled={isSubmitting}
               id="name"
               {...register('name', {
                 required: 'Ism majburiy',
@@ -75,6 +71,7 @@ export default function AddClient({ open, onOpenChange, onSubmit }) {
           <div className="space-y-2">
             <Label htmlFor="phone">Telefon</Label>
             <Input
+              disabled={isSubmitting}
               id="phone"
               type="tel"
               {...register('phone', {
@@ -94,6 +91,7 @@ export default function AddClient({ open, onOpenChange, onSubmit }) {
           <div className="space-y-2">
             <Label htmlFor="address">Manzil (ixtiyoriy)</Label>
             <Input
+              disabled={isSubmitting}
               id="address"
               {...register('address')}
               placeholder="Manzilni kiriting"
@@ -103,6 +101,7 @@ export default function AddClient({ open, onOpenChange, onSubmit }) {
           <div className="space-y-2">
             <Label htmlFor="notes">Qo'shimcha ma'lumotlar (ixtiyoriy)</Label>
             <Input
+              disabled={isSubmitting}
               id="notes"
               {...register('notes')}
               placeholder="Qo'shimcha ma'lumotlar"
@@ -111,13 +110,16 @@ export default function AddClient({ open, onOpenChange, onSubmit }) {
 
           <DialogFooter>
             <Button
+              disabled={isSubmitting}
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
               Bekor qilish
             </Button>
-            <Button type="submit">Mijozni qo'shish</Button>
+            <Button disabled={isSubmitting} type="submit">
+              {isSubmitting ? 'Saqlanmoqda...' : 'Saqlash'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
