@@ -149,7 +149,7 @@ function Employees() {
 
       {/* Employees Table */}
       <div className="space-y-4">
-        <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-96">
+        <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-[30rem]">
           {filteredEmployees.length > 0 ? (
             <Table>
               <TableHeader>

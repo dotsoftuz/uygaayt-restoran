@@ -98,7 +98,7 @@ function Clients() {
       {/* Clients Table */}
       <div>
         {filteredClients.length > 0 ? (
-          <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-96">
+          <div className="bg-background overflow-hidden rounded-md border [&>div]:max-h-[30rem]">
             <Table>
               <TableHeader>
                 <TableRow className="*:border-border hover:bg-transparent [&>:not(:last-child)]:border-r bg-muted">
