@@ -34,6 +34,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { UserSettings } from './UserSettings';
 import { Input } from '../ui/input';
 import { Kbd } from '../ui/kbd';
+import { SearchCommandDialog } from '../dashboard/dialogs/search-comman';
 
 export function AppSidebar({ ...props }) {
   const { user } = useAppContext();
@@ -99,14 +100,7 @@ export function AppSidebar({ ...props }) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup className="space-y-0.5">
-          <div className="my-3 relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-10" placeholder="Search" />
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-              <Kbd>⌘</Kbd>
-              <Kbd>K</Kbd>
-            </div>
-          </div>
+          <SearchCommandDialog />
           <SidebarGroupLabel className="hidden group-data-[collapsible=icon]:hidden">
             Asosiy bo'limlar
           </SidebarGroupLabel>
