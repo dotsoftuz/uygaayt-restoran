@@ -28,7 +28,8 @@ import {
 
 import { useAppContext } from '@/context/AppContext';
 import { Link, useLocation } from 'react-router-dom';
-import { NavUser } from './NavUser';
+// import { NavUser } from './NavUser';
+import { UserSettings } from './UserSettings';
 
 export function AppSidebar({ ...props }) {
   const { user } = useAppContext();
@@ -127,7 +128,7 @@ export function AppSidebar({ ...props }) {
             );
           })}
 
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
+          {/* <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">
             Sozlamalar
           </SidebarGroupLabel>
           <Link to="/dashboard/settings">
@@ -145,11 +146,11 @@ export function AppSidebar({ ...props }) {
                 Sozlamalar
               </span>
             </SidebarMenuButton>
-          </Link>
+          </Link> */}
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <UserSettings />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

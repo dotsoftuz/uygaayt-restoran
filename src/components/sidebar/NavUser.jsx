@@ -1,12 +1,26 @@
-import { ChevronsUpDown, LogOut, Settings } from 'lucide-react';
+import {
+  ChevronsUpDown,
+  LogOut,
+  Settings,
+  Sun,
+  Moon,
+  Monitor,
+  SunMoon,
+} from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -20,12 +34,14 @@ import { auth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTheme } from '@/provider/ThemeProvider';
 
 export function NavUser() {
   const { isMobile, state } = useSidebar();
   const { userData, user } = useAppContext();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { setTheme } = useTheme();
 
   const handleSignOut = async () => {
     try {
@@ -48,49 +64,25 @@ export function NavUser() {
                   ? userData?.displayName || 'User'
                   : undefined
               }
-              className={`bg-transparent border border-border hover:bg-muted/90 data-[state=open]:bg-muted data-[state=open]:text-sidebar-accent-foreground rounded-lg group-data-[collapsible=icon]:!size-10 group-data-[collapsible=icon]:!p-2 group-data-[collapsible=icon]:!w-10 group-data-[collapsible=icon]:!h-10 group-data-[collapsible=icon]:!mx-auto ${
-                state === 'collapsed' ? 'justify-center' : ''
-              }`}
+              className={`data-[state=open]:text-sidebar-accent-foreground 
+     transition-all duration-200 rounded-full overflow-hidden 
+    group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!mx-auto 
+    ${state === 'collapsed' ? 'justify-center' : ''}`}
             >
-              <Avatar
-                className={`rounded-lg group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 ${
-                  state === 'collapsed' ? 'h-8 w-8' : 'h-8 w-8'
-                }`}
-              >
+              <Avatar className={`rounded-full h-8 w-8 lg:h-8 lg:w-8 object-cover`}>
                 <AvatarImage
-                  src={
-                    userData?.photoURL
-                      ? userData?.photoURL
-                      : 'https://firebasestorage.googleapis.com/v0/b/wedding-invitation-58993.appspot.com/o/user_photos%2Funknown.jpg?alt=media&token=e95bc7b0-01b1-4254-b321-e4ee39d1eb55'
-                  }
-                  alt={
-                    userData?.displayName ? userData?.displayName : 'Anonymous'
-                  }
+                  src="/assets/logos/uygaayt-shape.svg"
+                  alt={userData?.displayName || 'Anonymous'}
                 />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-full text-xs font-medium">
+                  CN
+                </AvatarFallback>
               </Avatar>
-              <div
-                className={`grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden ${
-                  state === 'collapsed' ? 'hidden' : ''
-                }`}
-              >
-                <span className="truncate font-semibold">
-                  {userData?.displayName ? userData?.displayName : 'Anonymous'}
-                </span>
-                <span className="truncate text-xs">
-                  {user?.isAnonymous ? 'anonymous@gmail.com' : user?.email}
-                </span>
-              </div>
-              <ChevronsUpDown
-                className={`ml-auto w-5 h-5 group-data-[collapsible=icon]:hidden ${
-                  state === 'collapsed' ? 'hidden' : ''
-                }`}
-              />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-56 rounded-lg"
-            side={isMobile ? 'bottom' : 'right'}
+            side="bottom"
             align="end"
             sideOffset={4}
           >
@@ -98,11 +90,7 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src={
-                      userData?.photoURL
-                        ? userData?.photoURL
-                        : 'https://firebasestorage.googleapis.com/v0/b/wedding-invitation-58993.appspot.com/o/user_photos%2Funknown.jpg?alt=media&token=e95bc7b0-01b1-4254-b321-e4ee39d1eb55'
-                    }
+                    src="/assets/logos/uygaayt-shape.svg"
                     alt={
                       userData?.displayName
                         ? userData?.displayName
@@ -112,7 +100,7 @@ export function NavUser() {
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
+                  <span className="hidden truncate font-semibold">
                     {' '}
                     {userData?.displayName
                       ? userData?.displayName
@@ -133,9 +121,38 @@ export function NavUser() {
               </DropdownMenuItem>
             </Link>
             <DropdownMenuSeparator />
+            <DropdownMenuGroup>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <SunMoon className="mr-2 h-4 w-4" />
+                  <span>Mavzu</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuSubContent className="w-40">
+                    <DropdownMenuItem onClick={() => setTheme('light')}>
+                      <Sun className="mr-2 h-4 w-4" />
+                      <span>Kunduzgi</span>
+                      <DropdownMenuShortcut>⌘F</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme('dark')}>
+                      <Moon className="mr-2 h-4 w-4" />
+                      <span>Tungi</span>
+                      <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setTheme('system')}>
+                      <Monitor className="mr-2 h-4 w-4" />
+                      <span>Sistema</span>
+                      <DropdownMenuShortcut>⌘G</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                  </DropdownMenuSubContent>
+                </DropdownMenuPortal>
+              </DropdownMenuSub>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="w-4 h-4 mr-2" />
               {t('logout')}
+              <DropdownMenuShortcut>⌘Q</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

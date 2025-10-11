@@ -188,7 +188,7 @@ function Products() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-8 lg:py-12 border rounded-lg">
+        <div className="text-center py-8 lg:py-12 border rounded-lg bg-muted/50">
           <Empty>
             <EmptyHeader>
               <EmptyMedia variant="icon">
