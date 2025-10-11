@@ -7,6 +7,12 @@ import {
   UserCog,
   Users,
   FileText,
+  Store,
+  Apple,
+  Truck,
+  Users2,
+  Target,
+  ChartPie,
 } from 'lucide-react';
 
 import {
@@ -35,9 +41,9 @@ export function AppSidebar({ ...props }) {
       icon: LayoutDashboard,
     },
     {
-      title: 'Yangi Buyurtma',
-      url: '/dashboard/create-order',
-      icon: PlusCircle,
+      title: "Do'konlar",
+      url: '/dashboard/stores',
+      icon: Store,
     },
     {
       title: 'Buyurtmalar',
@@ -45,42 +51,45 @@ export function AppSidebar({ ...props }) {
       icon: ClipboardList,
     },
     {
-      title: 'Mijozlar',
-      url: '/dashboard/clients',
-      icon: Users,
+      title: 'Tovarlar',
+      url: '/dashboard/products',
+      icon: Apple,
     },
     {
-      title: 'Xodimlar',
-      url: '/dashboard/employees',
-      icon: UserCog,
+      title: 'Kuryerlar',
+      url: '/dashboard/couriers',
+      icon: Truck,
     },
     {
-      title: 'Xizmatlar',
-      url: '/dashboard/services',
-      icon: Briefcase,
+      title: 'Foydalanuvchilar',
+      url: '/dashboard/users',
+      icon: Users2,
     },
     {
-      title: 'Buyurtma shablonlari',
-      url: '/dashboard/order-template',
-      icon: FileText,
+      title: 'Marketing',
+      url: '/dashboard/marketing',
+      icon: Target,
+    },
+    {
+      title: 'Analitika & Hisobotlar',
+      url: '/dashboard/analytics',
+      icon: ChartPie,
     },
   ];
 
   return (
     <Sidebar collapsible="icon" className="px-2" {...props}>
       <SidebarHeader className="pt-4">
-        {/* Show full logo when expanded */}
         <img
-          src="/assets/logos/dark.png"
+          src="/assets/logos/uygaayt-super-admin.svg"
           alt="Creative Studio"
-          className="w-40 mx-auto group-data-[collapsible=icon]:hidden"
+          className="w-32 mx-auto group-data-[collapsible=icon]:hidden"
         />
 
-        {/* Show shape logo when collapsed */}
         <img
-          src="/assets/logos/shape.png"
+          src="/assets/logos/uygaayt-shape.svg"
           alt="Creative Studio"
-          className="w-10 h-10 mx-auto hidden group-data-[collapsible=icon]:block"
+          className="w-8 h-8 mx-auto hidden group-data-[collapsible=icon]:block"
         />
       </SidebarHeader>
       <SidebarContent>

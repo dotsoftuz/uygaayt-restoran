@@ -47,11 +47,7 @@ function ProfileHeader({
       <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
         <div className="relative w-28 h-28">
           <img
-            src={
-              imageSrc
-                ? imageSrc
-                : 'https://firebasestorage.googleapis.com/v0/b/wedding-invitation-58993.appspot.com/o/user_photos%2Funknown.jpg?alt=media&token=e95bc7b0-01b1-4254-b321-e4ee39d1eb55'
-            }
+            src={imageSrc ? imageSrc : '/assets/logos/uygaayt-shape.svg'}
             alt="Editable avatar"
             className="w-full h-full object-cover rounded-lg cursor-pointer"
             onClick={handleImageClick}
@@ -80,12 +76,10 @@ function ProfileHeader({
           </div>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">
-            08:00 - 00:00
-          </p>
+          <p className="text-xs text-muted-foreground">08:00 - 00:00</p>
           <span className="flex items-center gap-1.5">
             <h3 className="text-lg font-medium">
-              {userData?.displayName ? userData.displayName : 'John Doe'}
+              {userData?.displayName ? userData.displayName : 'Uygaayt Super Admin'}
             </h3>
             <svg
               title="Verified"
@@ -102,7 +96,9 @@ function ProfileHeader({
             </svg>
           </span>
           <p className="text-sm">
-            {userData?.location ? ` in ${userData.location}` : 'Jizzakh, Uzbekistan'}
+            {userData?.location
+              ? ` in ${userData.location}`
+              : 'Jizzakh, Uzbekistan'}
           </p>
         </div>
       </div>
