@@ -20,9 +20,12 @@ import {
   MapPin,
   Camera,
   Loader2,
+  Layers,
+  PlusCircle,
 } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useOrders } from '@/hooks/use-orders';
+import { formatDate } from '@/lib/utils';
 
 function OrderDetail() {
   const { orderId } = useParams();
@@ -45,18 +48,6 @@ function OrderDetail() {
         console.error('Error deleting order:', error);
       }
     }
-  };
-
-  const formatDate = (date) => {
-    if (!date) return 'N/A';
-    const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleDateString('uz-UZ', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
   };
 
   const formatPrice = (price) => {
@@ -86,117 +77,132 @@ function OrderDetail() {
   }
 
   return (
-    <div className="space-y-6 my-4">
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/dashboard/orders')}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Orqaga
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">
+    <div className="space-y-4 my-2">
+      {/* --- Header --- */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
             Buyurtma tafsilotlari
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {order.mijozIsmi} - {order.toyxona}
+          </h2>
+          <p className="text-muted-foreground">
+            {order.mijozIsmi} — {order.toyxona}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={handleEdit} className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleEdit}
+            className="flex items-center gap-2"
+          >
             <Edit className="h-4 w-4" />
             Tahrirlash
           </Button>
           <Button
+            size="sm"
+            variant="destructive"
             onClick={handleDelete}
-            variant="outline"
-            className="text-red-600 hover:text-red-700 flex items-center gap-2"
+            className="flex items-center gap-2"
           >
             <Trash2 className="h-4 w-4" />
-            O'chirish
+            O‘chirish
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Client Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Mijoz ma'lumotlari
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">{order.mijozIsmi}</span>
-            </div>
-            {order.telefon && (
-              <div className="flex items-center gap-2">
-                <Phone className="h-4 w-4 text-gray-500" />
-                <span>{order.telefon}</span>
-              </div>
-            )}
-            {order.clientId && (
-              <div className="text-sm text-gray-600">
-                Mijoz ID: {order.clientId}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* --- Top Info Badges --- */}
+      <div className="flex flex-wrap items-center gap-2 mt-2">
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-full bg-purple-50 text-purple-700">
+          <Layers className="h-4 w-4" />
+          {Object.values(order.options || {}).filter(Boolean).length || 0} ta
+          xizmat
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-full bg-green-50 text-green-700">
+          <Camera className="h-4 w-4" />
+          {order.kameraSoni || 0} ta kamera
+        </span>
+        {order.sana && (
+          <span className="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700">
+            <Calendar className="h-4 w-4" />
+            {formatDate(order.sana)}
+          </span>
+        )}
+      </div>
 
-        {/* Event Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Tadbir ma'lumotlari
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-gray-500" />
-              <span className="font-medium">{order.toyxona}</span>
-            </div>
-            {order.nikoh && (
-              <div className="text-sm">
-                <span className="text-gray-500">Nikoh:</span> {order.nikoh}
-              </div>
-            )}
-            {order.bazm && (
-              <div className="text-sm">
-                <span className="text-gray-500">Bazm:</span> {order.bazm}
-              </div>
-            )}
-            {order.sana && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-500" />
-                <span>{formatDate(order.sana)}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Camera className="h-4 w-4 text-gray-500" />
-              <span>Kamera soni: {order.kameraSoni}</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* --- Main Card --- */}
+      <Card className="border border-border shadow-sm hover:shadow-md transition-all duration-300">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">
+            Buyurtma ma’lumotlari
+          </CardTitle>
+          <CardDescription className="text-sm">
+            Buyurtma {order.mijozIsmi} tomonidan {order.toyxona} joyida
+            berilgan.
+          </CardDescription>
+        </CardHeader>
 
-        {/* Services */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Xizmatlar</CardTitle>
-            <CardDescription>Tanlangan xizmatlar ro'yxati</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {order.options ? (
-              <div className="space-y-2">
+        <CardContent className="space-y-5">
+          {/* --- Mijoz ma’lumotlari --- */}
+          <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-5">
+            <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Mijoz ma’lumotlari
+            </h3>
+            <div className="space-y-2 text-sm text-gray-800">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-gray-500" />
+                <span className="font-medium">{order.mijozIsmi}</span>
+              </div>
+              {order.telefon && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-gray-500" />
+                  <span>{order.telefon}</span>
+                </div>
+              )}
+              {order.clientId && (
+                <p className="text-gray-600">Mijoz ID: {order.clientId}</p>
+              )}
+            </div>
+          </div>
+
+          {/* --- Tadbir ma’lumotlari --- */}
+          <div className="bg-green-50/50 border border-green-100 rounded-xl p-5">
+            <h3 className="text-base font-semibold text-green-800 mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Tadbir ma’lumotlari
+            </h3>
+            <div className="space-y-2 text-sm text-gray-800">
+              <p>
+                <span className="font-medium">Joy:</span> {order.toyxona}
+              </p>
+              {order.nikoh && (
+                <p>
+                  <span className="font-medium">Nikoh:</span> {order.nikoh}
+                </p>
+              )}
+              {order.bazm && (
+                <p>
+                  <span className="font-medium">Bazm:</span> {order.bazm}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* --- Xizmatlar --- */}
+          {order.options && (
+            <div className="bg-yellow-50/50 border border-yellow-100 rounded-xl p-5">
+              <h3 className="text-base font-semibold text-yellow-800 mb-3 flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Tanlangan xizmatlar
+              </h3>
+              <div className="flex flex-wrap gap-2">
                 {Object.entries(order.options)
                   .filter(([_, selected]) => selected)
-                  .map(([service, _]) => (
-                    <Badge key={service} variant="secondary" className="mr-2">
+                  .map(([service]) => (
+                    <Badge
+                      key={service}
+                      variant="secondary"
+                      className="text-sm"
+                    >
                       {service}
                     </Badge>
                   ))}
@@ -206,126 +212,62 @@ function OrderDetail() {
                   </p>
                 )}
               </div>
-            ) : (
-              <p className="text-gray-500 text-sm">Xizmatlar ma'lumoti yo'q</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Additional Services */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Qo'shimcha xizmatlar</CardTitle>
-            <CardDescription>
-              Albom va boshqa qo'shimcha xizmatlar
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span>Albom o'lchami:</span>
-              <Badge variant="outline">{order.albom || 'N/A'}</Badge>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={order.fleshka || false}
-                  disabled
-                  className="rounded"
-                />
-                <span className="text-sm">Fleshkaga yozish</span>
+          )}
+
+          {/* --- Qo‘shimcha xizmatlar --- */}
+          <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-5">
+            <h3 className="text-base font-semibold text-purple-800 mb-3 flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              Qo‘shimcha xizmatlar
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between items-center">
+                <span>Albom o‘lchami:</span>
+                <Badge variant="outline">{order.albom || 'Noma’lum'}</Badge>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={order.pramoyEfir || false}
-                  disabled
-                  className="rounded"
-                />
-                <span className="text-sm">Pramoy efir</span>
+              <div className="flex flex-col gap-1 mt-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={order.fleshka || false}
+                    disabled
+                  />
+                  <span>Fleshkaga yozish</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={order.pramoyEfir || false}
+                    disabled
+                  />
+                  <span>Pramoy efir</span>
+                </label>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Price Information */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Narx ma'lumotlari
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          {/* --- Narx ma’lumotlari --- */}
+          <div className="bg-gray-50 border border-border rounded-xl p-5">
+            <h3 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Narx ma’lumotlari
+            </h3>
             <div className="flex items-center justify-between text-lg font-semibold">
-              <span>Jami narx:</span>
+              <span>Jami:</span>
               <span className="text-green-600">{formatPrice(order.narx)}</span>
             </div>
-            {order.createdAt && (
-              <div className="mt-4 text-sm text-gray-500">
-                Yaratilgan: {formatDate(order.createdAt)}
-              </div>
-            )}
-            {order.updatedAt && (
-              <div className="text-sm text-gray-500">
-                Yangilangan: {formatDate(order.updatedAt)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Operators (if available) */}
-        {order.operatorlar &&
-          Object.values(order.operatorlar).some((op) => op) && (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Operatorlar</CardTitle>
-                <CardDescription>Tadbir operatorlari ro'yxati</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(order.operatorlar).map(
-                    ([role, name]) =>
-                      name && (
-                        <div key={role} className="text-sm">
-                          <span className="text-gray-500 capitalize">
-                            {role}:
-                          </span>
-                          <span className="ml-2 font-medium">{name}</span>
-                        </div>
-                      )
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-        {/* Additional Fields (if available) */}
-        {order.qoshimcha &&
-          Object.values(order.qoshimcha).some((field) => field) && (
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Qo'shimcha maydonlar</CardTitle>
-                <CardDescription>Boshqa qo'shimcha ma'lumotlar</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(order.qoshimcha).map(
-                    ([field, value]) =>
-                      value && (
-                        <div key={field} className="text-sm">
-                          <span className="text-gray-500 capitalize">
-                            {field}:
-                          </span>
-                          <span className="ml-2">{value}</span>
-                        </div>
-                      )
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-      </div>
+            <div className="mt-3 text-sm text-gray-500 space-y-1">
+              {order.createdAt && (
+                <p>Yaratilgan: {formatDate(order.createdAt)}</p>
+              )}
+              {order.updatedAt && (
+                <p>Yangilangan: {formatDate(order.updatedAt)}</p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
