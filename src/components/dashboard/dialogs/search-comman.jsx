@@ -22,6 +22,11 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function SearchCommandDialog() {
   const [open, setOpen] = React.useState(false);
@@ -41,18 +46,30 @@ export function SearchCommandDialog() {
   return (
     <>
       {/* Custom div as input */}
-      <div
-        onClick={() => setOpen(true)}
-        className="my-3 relative cursor-pointer rounded-lg border border-border hover:bg-muted/50 px-3 py-2 transition-colors flex items-center gap-2"
-        title="Click or press Ctrl+K"
-      >
-        <Search className="w-4 h-4 text-muted-foreground" />
-        <span className="text-muted-foreground text-sm">Search...</span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <Kbd>⌘</Kbd>
-          <Kbd>K</Kbd>
-        </div>
-      </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            onClick={() => setOpen(true)}
+            className="my-3 relative cursor-pointer rounded-lg border border-border hover:bg-muted/50 px-3 py-2 transition-colors flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
+            title="Click or press Ctrl+K"
+          >
+            <Search className="w-4 h-4 text-muted-foreground group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
+            <span className="text-muted-foreground text-sm group-data-[collapsible=icon]:hidden">
+              Search...
+            </span>
+            <div className="ml-auto flex items-center gap-0.5 group-data-[collapsible=icon]:hidden">
+              <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent
+          side="right"
+          className="group-data-[collapsible=icon]:block hidden"
+        >
+          <p>Search (⌘K)</p>
+        </TooltipContent>
+      </Tooltip>
 
       {/* Command Dialog */}
       <CommandDialog open={open} onOpenChange={setOpen}>
