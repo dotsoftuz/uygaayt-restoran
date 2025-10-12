@@ -5,7 +5,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 
 import { Separator } from '@/components/ui/separator';
 

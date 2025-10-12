@@ -26,7 +26,6 @@
     "@radix-ui/react-switch": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.2",
     "@radix-ui/react-tooltip": "^1.1.6",
-    "@vercel/speed-insights": "^1.2.0",
     "cmdk": "^1.1.1",
     "date-fns": "3.0.0",
     "firebase": "^11.1.0",
