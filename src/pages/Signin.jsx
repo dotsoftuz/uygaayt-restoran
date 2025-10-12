@@ -83,6 +83,11 @@ const Signin = () => {
       </Select>
       <div className="mx-auto flex w-full flex-col justify-center gap-6 sm:w-[350px]">
         <div className="flex flex-col gap-2 text-center">
+          <img
+            src="/assets/logos/uygaayt-shape.svg"
+            alt="Uygaayt Logo"
+            className="w-10 h-10 mx-auto"
+          />
           <h1 className="text-2xl font-semibold tracking-tight">
             {t('Uygaayt Super Admin')}
           </h1>
