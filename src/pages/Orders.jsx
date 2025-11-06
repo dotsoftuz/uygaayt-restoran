@@ -1,295 +1,392 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  Plus,
-  Edit,
-  Trash2,
   Eye,
-  Calendar,
-  User,
   Phone,
-  DollarSign,
-  Loader2,
   Search,
-  CircleOff,
-  Users,
-  MoreHorizontal,
-  Camera,
-  Briefcase,
+  Filter,
+  ArrowUpDown,
+  Calendar,
 } from 'lucide-react';
-import { useOrders } from '@/hooks/use-orders';
-import { formatNumber, formatDate } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import {
-  Empty,
-  EmptyContent,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { formatNumber, formatDate } from '@/lib/utils';
+
+// Fake data
+const generateFakeOrders = () => {
+  const statuses = ['pending', 'processing', 'completed', 'cancelled'];
+  const paymentTypes = ['cash', 'card', 'online'];
+  const deliveryTypes = ['pickup', 'delivery'];
+  const names = [
+    'Ali Valiyev',
+    'Dilshoda Karimova',
+    'Javohir Toshmatov',
+    'Malika Yusupova',
+    'Sardor Rahimov',
+    'Gulnoza Alimova',
+    'Farhod Bekmurodov',
+    'Nigora Toshmatova',
+    'Bekzod Karimov',
+    'Zarina Alimova',
+    'Shohruh Valiyev',
+    'Madina Yusupova',
+    'Jasur Rahimov',
+    'Dilbar Karimova',
+    'Aziz Toshmatov',
+  ];
+
+  const orders = [];
+  const now = new Date();
+
+  for (let i = 1; i <= 50; i++) {
+    const randomDate = new Date(
+      now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000
+    );
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const paymentType = paymentTypes[Math.floor(Math.random() * paymentTypes.length)];
+    const deliveryType = deliveryTypes[Math.floor(Math.random() * deliveryTypes.length)];
+    const name = names[Math.floor(Math.random() * names.length)];
+    const phone = `+998${Math.floor(900000000 + Math.random() * 99999999)}`;
+    const amount = Math.floor(Math.random() * 500000) + 50000;
+
+    orders.push({
+      id: `ORD-${String(i).padStart(6, '0')}`,
+      clientName: name,
+      phone: phone,
+      amount: amount,
+      paymentType: paymentType,
+      status: status,
+      deliveryType: deliveryType,
+      createdAt: randomDate,
+    });
+  }
+
+  return orders;
+};
 
 function Orders() {
   const navigate = useNavigate();
-  const { orders, loading, removeOrder } = useOrders();
-  const [deletingId, setDeletingId] = useState(null);
+  const [fakeOrders] = useState(generateFakeOrders());
 
-  const handleCreateNew = () => {
-    navigate('/dashboard/create-order');
-  };
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
+  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState('all');
+  const [periodFilter, setPeriodFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
 
-  const handleEdit = (orderId) => {
-    navigate(`/dashboard/edit-order/${orderId}`);
-  };
+  // Filter and sort orders
+  const filteredAndSortedOrders = useMemo(() => {
+    let filtered = [...fakeOrders];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (order) =>
+          order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          order.phone.includes(searchTerm) ||
+          order.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((order) => order.status === statusFilter);
+    }
+
+    // Payment type filter
+    if (paymentTypeFilter !== 'all') {
+      filtered = filtered.filter(
+        (order) => order.paymentType === paymentTypeFilter
+      );
+    }
+
+    // Delivery type filter
+    if (deliveryTypeFilter !== 'all') {
+      filtered = filtered.filter(
+        (order) => order.deliveryType === deliveryTypeFilter
+      );
+    }
+
+    // Period filter
+    if (periodFilter !== 'all') {
+      const now = new Date();
+      let startDate;
+
+      switch (periodFilter) {
+        case 'today':
+          startDate = new Date(now.setHours(0, 0, 0, 0));
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          startDate = null;
+      }
+
+      if (startDate) {
+        filtered = filtered.filter(
+          (order) => new Date(order.createdAt) >= startDate
+        );
+      }
+    }
+
+    // Sort
+    if (sortBy === 'newest') {
+      filtered.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+    } else if (sortBy === 'highest') {
+      filtered.sort((a, b) => b.amount - a.amount);
+    }
+
+    return filtered;
+  }, [
+    fakeOrders,
+    searchTerm,
+    statusFilter,
+    paymentTypeFilter,
+    deliveryTypeFilter,
+    periodFilter,
+    sortBy,
+  ]);
 
   const handleView = (orderId) => {
     navigate(`/dashboard/order-detail/${orderId}`);
   };
 
-  const handleDelete = async (orderId) => {
-    if (window.confirm("Bu buyurtmani o'chirishni xohlaysizmi?")) {
-      setDeletingId(orderId);
-      try {
-        await removeOrder(orderId);
-      } catch (error) {
-        console.error('Error deleting order:', error);
-      } finally {
-        setDeletingId(null);
-      }
-    }
+  const handleContact = (phone) => {
+    window.open(`tel:${phone}`, '_self');
   };
 
-  console.log(orders[0]);
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { label: 'Kutilmoqda', variant: 'secondary' },
+      processing: { label: 'Jarayonda', variant: 'default' },
+      completed: { label: 'Tugallangan', variant: 'default' },
+      cancelled: { label: 'Bekor qilingan', variant: 'destructive' },
+    };
 
-  const formatPrice = (price) => {
-    return formatNumber(price) + " so'm";
-  };
-
-  if (loading) {
+    const config = statusConfig[status] || statusConfig.pending;
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin mr-2" />
-        <span className="text-gray-500">Buyurtmalar yuklanmoqda...</span>
-      </div>
+      <Badge variant={config.variant} className="capitalize">
+        {config.label}
+      </Badge>
     );
-  }
+  };
+
+  const getPaymentTypeLabel = (type) => {
+    const labels = {
+      cash: 'Naqd',
+      card: 'Karta',
+      online: 'Online',
+    };
+    return labels[type] || type;
+  };
+
+  const getDeliveryTypeLabel = (type) => {
+    const labels = {
+      pickup: 'Olib ketish',
+      delivery: 'Yetkazib berish',
+    };
+    return labels[type] || type;
+  };
 
   return (
     <div className="space-y-4 my-2">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">
-            Buyurtmalar ro'yxati
-          </h2>
+          <h2 className="text-2xl font-bold tracking-tight">Buyurtmalar</h2>
           <p className="text-muted-foreground">
-            Tizimga yangi buyurtma qo'shish uchun "Buyurtma qo'shish" tugmasini
-            bosing.
+            Barcha buyurtmalarni ko'rib chiqing va boshqaring
           </p>
         </div>
-        <Button
-          onClick={handleCreateNew}
-          size="sm"
-          className="flex items-center gap-2"
-        >
-          Yangi buyurtma
-        </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Buyurtmalarni qidirish..."
-          // value={searchTerm}
-          // onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Filters */}
+
+      <div className="space-y-4 gap-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="ID, telefon yoki ism bo'yicha qidirish..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Holat" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Barcha holatlar</SelectItem>
+              <SelectItem value="pending">Kutilmoqda</SelectItem>
+              <SelectItem value="processing">Jarayonda</SelectItem>
+              <SelectItem value="completed">Tugallangan</SelectItem>
+              <SelectItem value="cancelled">Bekor qilingan</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Payment Type Filter */}
+          <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="To'lov turi" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Barcha to'lov turlari</SelectItem>
+              <SelectItem value="cash">Naqd</SelectItem>
+              <SelectItem value="card">Karta</SelectItem>
+              <SelectItem value="online">Online</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Delivery Type Filter */}
+          <Select value={deliveryTypeFilter} onValueChange={setDeliveryTypeFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Yetkazib berish" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Barcha</SelectItem>
+              <SelectItem value="pickup">Olib ketish</SelectItem>
+              <SelectItem value="delivery">Yetkazib berish</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Period Filter */}
+          <Select value={periodFilter} onValueChange={setPeriodFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Davr" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Barcha vaqt</SelectItem>
+              <SelectItem value="today">Bugun</SelectItem>
+              <SelectItem value="week">Oxirgi hafta</SelectItem>
+              <SelectItem value="month">Oxirgi oy</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Eng yangilari</SelectItem>
+              <SelectItem value="highest">Eng yuqori summa</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
       </div>
 
-      {orders.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-muted/50 border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow transition-all duration-300"
-            >
-              {/* --- Upper badges --- */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Kamera soni */}
-                  {order.kameraSoni && (
-                    <span className="px-2 py-[2px] text-xs rounded-full shadow-sm bg-blue-100 text-blue-700 font-medium flex items-center gap-1">
-                      <Camera className="h-3.5 w-3.5" />
-                      {order.kameraSoni} ta kamera
-                    </span>
-                  )}
-
-                  {/* Xizmatlar soni */}
-                  {order.options && (
-                    <span className="px-2 py-[2px] text-xs rounded-full bg-white border border-border shadow-sm black flex items-center gap-1">
-                      <Briefcase className="h-3.5 w-3.5" />
-                      {Object.values(order.options).filter(Boolean).length} ta
-                      xizmat
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* --- Main content --- */}
-              <div className="mb-4">
-                <div className="flex items-center gap-2 pb-4">
-                  <h3 className="text-xl font-semibold leading-tight">
-                    {order.toyxona + " to'yxonasi" || "To'yxona ko‘rsatilmagan"}
-                  </h3>
-                  {order.sana && (
-                    <span className="text-muted-foreground text- mt-0.5">
-                      ({formatDate(order.sana)})
-                    </span>
-                  )}
-                </div>
-
-                {/* Qo‘shimcha joylar (nikoh, bazm, albom, pramoy efir) */}
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {order.nikoh && (
-                    <Badge className="text-[14px] px-2 py-[2px] shadow-sm rounded-full bg-pink-50 hover:bg-pink-100 duration-300 text-pink-700 border border-pink-100">
-                      Nikoh: {order.nikoh}
-                    </Badge>
-                  )}
-                  {order.bazm && (
-                    <Badge className="text-[14px] px-2 py-[2px] shadow-sm rounded-full bg-amber-50 hover:bg-amber-100 duration-300 text-amber-700 border border-amber-100">
-                      Bazm: {order.bazm}
-                    </Badge>
-                  )}
-                  {order.albom && (
-                    <Badge className="text-[14px] px-2 py-[2px] shadow-sm rounded-full bg-indigo-50 hover:bg-indigo-100 duration-300 text-indigo-700 border border-indigo-100">
-                      Albom: {order.albom}
-                    </Badge>
-                  )}
-                  {order.pramoyEfir && (
-                    <Badge className="text-[14px] px-2 py-[2px] shadow-sm rounded-full bg-green-50 hover:bg-green-100 duration-300 text-green-700 border border-green-100">
-                      Pramoy efir
-                    </Badge>
-                  )}
-                </div>
-
-                {/* Asosiy xizmatlar */}
-                <div className="flex flex-wrap gap-1 mt-3">
-                  {Object.entries(order.options)
-                    .filter(([_, selected]) => selected)
-                    .slice(0, 5)
-                    .map(([service]) => (
-                      <span
-                        key={service}
-                        className="text-[14px] px-2 py-[2px] rounded-full bg-white border border-border shadow-sm black"
-                      >
-                        {service}
+      {/* Table */}
+      <div>
+        {/* <h3 className="text-lg font-bold tracking-tight mb-4">Buyurtmalar ro'yxati</h3> */}
+        {filteredAndSortedOrders.length > 0 ? (
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Order ID</TableHead>
+                  <TableHead>Mijoz ismi</TableHead>
+                  <TableHead>Summa</TableHead>
+                  <TableHead>To'lov turi</TableHead>
+                  <TableHead>Yetkazib berish</TableHead>
+                  <TableHead>Holat</TableHead>
+                  <TableHead>Vaqt</TableHead>
+                  <TableHead className="text-right">Amal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAndSortedOrders.map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{order.id}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{order.clientName}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {order.phone}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-semibold">
+                        {formatNumber(order.amount)} so'm
                       </span>
-                    ))}
-                  {Object.values(order.options).filter(Boolean).length > 5 && (
-                    <span className="text-[14px] px-2 py-[2px] rounded-full bg-white border border-border shadow-sm black">
-                      +{Object.values(order.options).filter(Boolean).length - 5}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center justify-between pb-3">
-                <div className="flex items-center gap-2">
-                  {/* Initials avatar */}
-                  <div className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-100 text-xs font-semibold text-gray-700">
-                    {order.mijozIsmi
-                      ? order.mijozIsmi
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')
-                      : 'N/A'}
-                  </div>
-
-                  {/* Client name & phone */}
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-800">
-                      {order.mijozIsmi || order.clientName || 'Noma’lum mijoz'}
-                    </span>
-                    {order.telefon && (
-                      <span className="text-xs text-gray-500">
-                        {order.telefon}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Price */}
-                <span className="text-lg font-semibold whitespace-nowrap">
-                  {formatPrice(order.narx || 0)}
-                </span>
-              </div>
-              {/* Footerni shu yerga joylashtir  */}
-              {/* Actions */}{' '}
-              <div className="flex gap-2 pt-3 border-t border-border">
-                {' '}
-                <Button
-                  size="sm"
-                  onClick={() => handleView(order.id)}
-                  className="flex-1"
-                >
-                  {' '}
-                  <Eye className="h-4 w-4 mr-1" /> Ko'rish{' '}
-                </Button>{' '}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(order.id)}
-                  className="flex-1"
-                >
-                  {' '}
-                  <Edit className="h-4 w-4 mr-1" /> Tahrir{' '}
-                </Button>{' '}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(order.id)}
-                  disabled={deletingId === order.id}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  {' '}
-                  {deletingId === order.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-4 w-4" />
-                  )}{' '}
-                </Button>{' '}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-8 lg:py-12 border rounded-lg bg-muted/50">
-          <Empty>
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CircleOff />
-              </EmptyMedia>
-              <EmptyTitle>Hali buyurtmalar mavjud emas!</EmptyTitle>
-              <EmptyDescription>
-                Yangi buyurtma qo‘shish uchun "Buyurtma qo‘shish" tugmasini
-                bosing.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent>
-              <Button onClick={handleCreateNew} size="sm">
-                Buyurtma qo‘shish
-              </Button>
-            </EmptyContent>
-          </Empty>
-        </div>
-      )}
+                    </TableCell>
+                    <TableCell>{getPaymentTypeLabel(order.paymentType)}</TableCell>
+                    <TableCell>
+                      {getDeliveryTypeLabel(order.deliveryType)}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(order.status)}</TableCell>
+                    <TableCell>
+                      {order.createdAt instanceof Date
+                        ? formatDate(order.createdAt.getTime())
+                        : formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleView(order.id)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ko'rish
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleContact(order.phone)}
+                        >
+                          <Phone className="h-4 w-4 mr-1" />
+                          Contact
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            Hech qanday buyurtma topilmadi
+          </div>
+        )}
+      </div>
     </div>
   );
 }
