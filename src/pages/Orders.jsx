@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -15,6 +15,8 @@ import {
   Filter,
   ArrowUpDown,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -98,6 +100,10 @@ function Orders() {
   const [periodFilter, setPeriodFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
+  // Pagination states
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [currentPage, setCurrentPage] = useState(1);
+
   // Filter and sort orders
   const filteredAndSortedOrders = useMemo(() => {
     let filtered = [...fakeOrders];
@@ -176,6 +182,28 @@ function Orders() {
     periodFilter,
     sortBy,
   ]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredAndSortedOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedOrders = filteredAndSortedOrders.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, paymentTypeFilter, deliveryTypeFilter, periodFilter, sortBy]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   const handleView = (orderId) => {
     navigate(`/dashboard/order-detail/${orderId}`);
@@ -330,7 +358,7 @@ function Orders() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedOrders.map((order) => (
+                {paginatedOrders.map((order) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.id}</TableCell>
                     <TableCell>
@@ -387,6 +415,60 @@ function Orders() {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredAndSortedOrders.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Sahifada ko'rsatish:
+            </span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={handleItemsPerPageChange}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="30">30</SelectItem>
+                <SelectItem value="40">40</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground">
+              {startIndex + 1}-{Math.min(endIndex, filteredAndSortedOrders.length)} dan{' '}
+              {filteredAndSortedOrders.length} ta
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Oldingi
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Sahifa {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              Keyingi
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
