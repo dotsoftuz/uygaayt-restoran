@@ -15,6 +15,11 @@ import {
   XCircle,
   Percent,
   Image as ImageIcon,
+  Package,
+  Upload,
+  Settings,
+  AlertTriangle,
+  TrendingDown,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -45,6 +50,9 @@ import { Label } from '@/components/ui/label';
 import { formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import ProductForm from '@/components/dashboard/dialogs/ProductForm';
+import StockAdjustment from '@/components/dashboard/dialogs/StockAdjustment';
+import CSVImport from '@/components/dashboard/dialogs/CSVImport';
+import LowStockSettings from '@/components/dashboard/dialogs/LowStockSettings';
 
 // Fake data generator
 const generateFakeProducts = () => {
@@ -121,6 +129,11 @@ function Products() {
   const [pricePercent, setPricePercent] = useState('');
   const [productFormOpen, setProductFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [stockAdjustmentOpen, setStockAdjustmentOpen] = useState(false);
+  const [adjustingProduct, setAdjustingProduct] = useState(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [lowStockSettingsOpen, setLowStockSettingsOpen] = useState(false);
+  const [lowStockThreshold, setLowStockThreshold] = useState(10);
 
   // Filter and sort products
   const filteredAndSortedProducts = useMemo(() => {
@@ -335,6 +348,62 @@ function Products() {
     setEditingProduct(null);
   };
 
+  const handleStockAdjust = (productId) => {
+    const product = fakeProducts.find((p) => p.id === productId);
+    if (product) {
+      setAdjustingProduct(product);
+      setStockAdjustmentOpen(true);
+    }
+  };
+
+  const handleStockAdjustment = async (adjustment) => {
+    // In a real app, this would save to Firebase/database
+    console.log('Stock adjustment:', adjustment);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Update local product stock (in real app, this would come from API)
+    // This is just for demo purposes
+    toast.success(
+      `Ombordagi miqdor ${adjustment.adjustmentType === 'add' ? 'qo\'shildi' : adjustment.adjustmentType === 'remove' ? 'ayirildi' : 'o\'rnatildi'}`
+    );
+    setStockAdjustmentOpen(false);
+    setAdjustingProduct(null);
+  };
+
+  const handleCSVImport = async (products) => {
+    // In a real app, this would save to Firebase/database
+    console.log('Importing products:', products);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    toast.success(`${products.length} ta mahsulot import qilindi`);
+  };
+
+  const handleLowStockSettingsSave = async (settings) => {
+    // In a real app, this would save to localStorage or database
+    console.log('Saving low stock settings:', settings);
+    setLowStockThreshold(settings.threshold);
+    // Store in localStorage for persistence
+    localStorage.setItem('lowStockThreshold', settings.threshold.toString());
+    localStorage.setItem('lowStockEnabled', settings.enabled.toString());
+  };
+
+  // Get low stock products
+  const lowStockProducts = useMemo(() => {
+    return fakeProducts.filter(
+      (product) => product.stock !== undefined && product.stock <= lowStockThreshold
+    );
+  }, [fakeProducts, lowStockThreshold]);
+
+  // Load low stock threshold from localStorage
+  useEffect(() => {
+    const savedThreshold = localStorage.getItem('lowStockThreshold');
+    const savedEnabled = localStorage.getItem('lowStockEnabled');
+    if (savedThreshold) {
+      setLowStockThreshold(parseInt(savedThreshold));
+    }
+  }, []);
+
   const handleDelete = (productId) => {
     if (window.confirm("Bu mahsulotni o'chirishni xohlaysizmi?")) {
       toast.success('Mahsulot o\'chirildi');
@@ -368,11 +437,62 @@ function Products() {
             Barcha mahsulotlarni ko'rib chiqing va boshqaring
           </p>
         </div>
-        <Button onClick={handleCreateNew} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
-          Yangi mahsulot
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCsvImportOpen(true)}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            CSV Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLowStockSettingsOpen(true)}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Sozlamalar
+          </Button>
+          <Button onClick={handleCreateNew} size="sm">
+            <Plus className="h-4 w-4 mr-2" />
+            Yangi mahsulot
+          </Button>
+        </div>
       </div>
+
+      {/* Low Stock Alert */}
+      {lowStockProducts.length > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+                Past ombordagi miqdor ogohlantirishi
+              </h3>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+                {lowStockProducts.length} ta mahsulotning ombordagi miqdori {lowStockThreshold} donadan past
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {lowStockProducts.slice(0, 5).map((product) => (
+                  <Badge
+                    key={product.id}
+                    variant="outline"
+                    className="bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-700"
+                  >
+                    {product.name}: {product.stock} dona
+                  </Badge>
+                ))}
+                {lowStockProducts.length > 5 && (
+                  <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/50">
+                    +{lowStockProducts.length - 5} ta boshqa
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="space-y-4 gap-4">
@@ -547,17 +667,32 @@ function Products() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={
-                          product.stock > 0
-                            ? 'text-green-600 font-medium'
-                            : 'text-red-600 font-medium'
-                        }
-                      >
-                        {product.stock > 0
-                          ? `${product.stock} dona`
-                          : 'Mavjud emas'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            product.stock > lowStockThreshold
+                              ? 'text-green-600 font-medium'
+                              : product.stock > 0
+                                ? 'text-yellow-600 font-medium'
+                                : 'text-red-600 font-medium'
+                          }
+                        >
+                          {product.stock > 0
+                            ? `${product.stock} dona`
+                            : 'Mavjud emas'}
+                        </span>
+                        {product.stock > 0 && product.stock <= lowStockThreshold && (
+                          <TrendingDown className="h-4 w-4 text-yellow-600" />
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStockAdjust(product.id)}
+                          className="ml-2"
+                        >
+                          <Package className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell>{getStatusBadge(product.status)}</TableCell>
                     <TableCell className="text-right">
@@ -703,6 +838,34 @@ function Products() {
         }}
         product={editingProduct}
         onSave={handleSaveProduct}
+      />
+
+      {/* Stock Adjustment Dialog */}
+      <StockAdjustment
+        open={stockAdjustmentOpen}
+        onOpenChange={(open) => {
+          setStockAdjustmentOpen(open);
+          if (!open) {
+            setAdjustingProduct(null);
+          }
+        }}
+        product={adjustingProduct}
+        onAdjust={handleStockAdjustment}
+      />
+
+      {/* CSV Import Dialog */}
+      <CSVImport
+        open={csvImportOpen}
+        onOpenChange={setCsvImportOpen}
+        onImport={handleCSVImport}
+      />
+
+      {/* Low Stock Settings Dialog */}
+      <LowStockSettings
+        open={lowStockSettingsOpen}
+        onOpenChange={setLowStockSettingsOpen}
+        threshold={lowStockThreshold}
+        onSave={handleLowStockSettingsSave}
       />
     </div>
   );
