@@ -64,6 +64,12 @@ function CustomBreadcrumb({ showBackButton = false }) {
           return template?.name || `Template #${id}`;
         }
         break;
+      case 'product-detail':
+        if (id) {
+          // In a real app, this would fetch from a products hook/context
+          return `Product #${id}`;
+        }
+        break;
       default:
         return null;
     }
@@ -100,6 +106,18 @@ function CustomBreadcrumb({ showBackButton = false }) {
         path: '/dashboard/orders',
         hasDetail: true,
         detailLabel: entityName || t('Buyurtma tafsilotlari'),
+        detailPath: location.pathname,
+      },
+      products: {
+        label: t('Mahsulotlar'),
+        path: '/dashboard/products',
+        hasDetail: false,
+      },
+      'product-detail': {
+        label: t('Mahsulotlar'),
+        path: '/dashboard/products',
+        hasDetail: true,
+        detailLabel: entityName || t('Mahsulot tafsilotlari'),
         detailPath: location.pathname,
       },
       'edit-order': {

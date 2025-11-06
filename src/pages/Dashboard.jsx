@@ -14,6 +14,7 @@ import Orders from './Orders';
 import OrderDetail from './OrderDetail';
 import Stores from './Stores';
 import Products from './Products';
+import ProductDetail from './ProductDetail';
 import Couriers from './Couriers';
 import Users from './Users';
 import Marketing from './Marketing';
@@ -66,6 +67,7 @@ function Dashboard() {
           <Route path="orders" element={<Orders />} />
           <Route path="order-detail/:orderId" element={<OrderDetail />} />
           <Route path="products" element={<Products />} />
+          <Route path="product-detail/:productId" element={<ProductDetail />} />
           <Route path="catalog" element={<Catalog />} />
           <Route path="finance" element={<Finance />} />
           <Route path="promotions" element={<Promotions />} />

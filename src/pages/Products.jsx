@@ -321,8 +321,7 @@ function Products() {
   };
 
   const handleView = (productId) => {
-    // navigate(`/dashboard/product-detail/${productId}`);
-    console.log('View product:', productId);
+    navigate(`/dashboard/product-detail/${productId}`);
   };
 
   const handleEdit = (productId) => {

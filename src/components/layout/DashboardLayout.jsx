@@ -36,6 +36,7 @@ function DashboardLayout() {
       'order-detail',
       'edit-order',
       'template-detail',
+      'product-detail',
     ];
     return detailPages.includes(mainRoute) && !!id;
   };
