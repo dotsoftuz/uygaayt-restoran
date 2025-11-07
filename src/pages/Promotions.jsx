@@ -43,6 +43,14 @@ import { toast } from 'sonner';
 import PromotionForm from '@/components/dashboard/dialogs/PromotionForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatDate } from '@/lib/utils';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 
 // Mock promotions data generator
 const generateFakePromotions = () => {
@@ -620,18 +628,23 @@ function Promotions() {
           </Card>
         )
       ) : (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center text-muted-foreground">
-              <Tag className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-sm sm:text-base">
-                {searchTerm
-                  ? 'Qidiruv bo\'yicha promo kod topilmadi'
-                  : 'Hech qanday promo kod yo\'q'}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <Tag className="h-6 w-6" />
+            </EmptyMedia>
+            <EmptyTitle>
+              {searchTerm
+                ? 'Promo kod topilmadi'
+                : 'Hech qanday promo kod yo\'q'}
+            </EmptyTitle>
+            <EmptyDescription>
+              {searchTerm
+                ? 'Qidiruv natijasiga mos promo kod topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
+                : 'Hali hech qanday promo kod yaratilmagan. "Yangi promo kod" tugmasini bosing va birinchi promo kodingizni yarating.'}
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
       )}
 
       {/* Promotion Form */}

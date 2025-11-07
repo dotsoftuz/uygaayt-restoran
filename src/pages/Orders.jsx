@@ -35,6 +35,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { formatNumber, formatDate } from '@/lib/utils';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 
 // Fake data
 const generateFakeOrders = () => {
@@ -410,9 +418,23 @@ function Orders() {
             </Table>
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            Hech qanday buyurtma topilmadi
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Search className="h-6 w-6" />
+              </EmptyMedia>
+              <EmptyTitle>
+                {searchTerm || statusFilter !== 'all' || paymentTypeFilter !== 'all' || deliveryTypeFilter !== 'all' || periodFilter !== 'all'
+                  ? 'Buyurtma topilmadi'
+                  : 'Hech qanday buyurtma yo\'q'}
+              </EmptyTitle>
+              <EmptyDescription>
+                {searchTerm || statusFilter !== 'all' || paymentTypeFilter !== 'all' || deliveryTypeFilter !== 'all' || periodFilter !== 'all'
+                  ? 'Qidiruv yoki filtrlash natijasiga mos buyurtma topilmadi. Boshqa qidiruv so\'zlarini yoki filtrlarni sinab ko\'ring.'
+                  : 'Hali hech qanday buyurtma qo\'shilmagan. Yangi buyurtmalar shu yerda ko\'rinadi.'}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
 

@@ -49,6 +49,14 @@ import { toast } from 'sonner';
 import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
 import AssignProductsToCategory from '@/components/dashboard/dialogs/AssignProductsToCategory';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 
 // Mock categories data generator
 const generateFakeCategories = () => {
@@ -571,14 +579,23 @@ function Catalog() {
               </Table>
             </div>
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <FolderTree className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-sm sm:text-base">
-                {searchTerm
-                  ? 'Qidiruv bo\'yicha kategoriya topilmadi'
-                  : 'Hech qanday kategoriya yo\'q'}
-              </p>
-            </div>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FolderTree className="h-6 w-6" />
+                </EmptyMedia>
+                <EmptyTitle>
+                  {searchTerm
+                    ? 'Kategoriya topilmadi'
+                    : 'Hech qanday kategoriya yo\'q'}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {searchTerm
+                    ? 'Qidiruv natijasiga mos kategoriya topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
+                    : 'Hali hech qanday kategoriya yaratilmagan. "Yangi kategoriya" tugmasini bosing va birinchi kategoriyangizni yarating.'}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           )}
         </CardContent>
       </Card>

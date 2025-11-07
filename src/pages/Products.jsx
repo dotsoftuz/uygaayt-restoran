@@ -66,6 +66,14 @@ import StockAdjustment from '@/components/dashboard/dialogs/StockAdjustment';
 import CSVImport from '@/components/dashboard/dialogs/CSVImport';
 import LowStockSettings from '@/components/dashboard/dialogs/LowStockSettings';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 
 // Fake data generator
 const generateFakeProducts = () => {
@@ -951,10 +959,23 @@ function Products() {
             </div>
           )
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm sm:text-base">Hech qanday mahsulot topilmadi</p>
-          </div>
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Package className="h-6 w-6" />
+              </EmptyMedia>
+              <EmptyTitle>
+                {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
+                  ? 'Mahsulot topilmadi'
+                  : 'Hech qanday mahsulot yo\'q'}
+              </EmptyTitle>
+              <EmptyDescription>
+                {searchTerm || statusFilter !== 'all' || categoryFilter !== 'all'
+                  ? 'Qidiruv yoki filtrlash natijasiga mos mahsulot topilmadi. Boshqa qidiruv so\'zlarini yoki filtrlarni sinab ko\'ring.'
+                  : 'Hali hech qanday mahsulot qo\'shilmagan. "Yangi mahsulot" tugmasini bosing va birinchi mahsulotingizni yarating.'}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </div>
 
