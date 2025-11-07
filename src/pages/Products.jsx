@@ -20,6 +20,10 @@ import {
   Settings,
   AlertTriangle,
   TrendingDown,
+  MoreVertical,
+  Filter,
+  Grid3x3,
+  List,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
@@ -46,13 +50,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
 import { formatNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import ProductForm from '@/components/dashboard/dialogs/ProductForm';
 import StockAdjustment from '@/components/dashboard/dialogs/StockAdjustment';
 import CSVImport from '@/components/dashboard/dialogs/CSVImport';
 import LowStockSettings from '@/components/dashboard/dialogs/LowStockSettings';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Fake data generator
 const generateFakeProducts = () => {
@@ -106,15 +119,164 @@ const generateFakeProducts = () => {
   return products;
 };
 
+// Status Badge Component
+const StatusBadge = ({ status }) => {
+  return status === 'active' ? (
+    <Badge variant="default" className="flex items-center gap-1 w-fit text-xs">
+      <CheckCircle2 className="w-3 h-3" />
+      Faol
+    </Badge>
+  ) : (
+    <Badge variant="secondary" className="flex items-center gap-1 w-fit text-xs">
+      <XCircle className="w-3 h-3" />
+      Yashirilgan
+    </Badge>
+  );
+};
+
+// Product Card Component (for mobile view)
+const ProductCard = ({
+  product,
+  isSelected,
+  onSelect,
+  onView,
+  onEdit,
+  onDelete,
+  onStockAdjust,
+  lowStockThreshold,
+}) => {
+  const getStockColor = () => {
+    if (product.stock > lowStockThreshold) return 'text-green-600';
+    if (product.stock > 0) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  return (
+    <Card className="hover:shadow-md transition-shadow">
+      <CardContent className="p-4">
+        <div className="space-y-3">
+          {/* Header with Checkbox and Product Name */}
+          <div className="flex items-start gap-2">
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={onSelect}
+              className="mt-1 flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base truncate">
+                {product.name}
+              </h3>
+              <p className="text-xs text-muted-foreground font-mono">
+                {product.sku}
+              </p>
+            </div>
+            <div className="w-12 h-12 rounded-md overflow-hidden bg-muted flex-shrink-0">
+              {product.thumbnail ? (
+                <img
+                  src={product.thumbnail}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+              ) : null}
+              <div
+                className="w-full h-full items-center justify-center hidden"
+                style={{ display: product.thumbnail ? 'none' : 'flex' }}
+              >
+                <ImageIcon className="w-6 h-6 text-muted-foreground" />
+              </div>
+            </div>
+          </div>
+
+          {/* Product Details */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-muted-foreground">Kategoriya:</span>
+              <span className="font-medium">{product.category}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-muted-foreground">Narx:</span>
+              <span className="font-semibold">
+                {formatNumber(product.price)} so'm
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-muted-foreground">Ombordagi miqdor:</span>
+              <div className="flex items-center gap-2">
+                <span className={`font-medium ${getStockColor()}`}>
+                  {product.stock > 0 ? `${product.stock} dona` : 'Mavjud emas'}
+                </span>
+                {product.stock > 0 && product.stock <= lowStockThreshold && (
+                  <TrendingDown className="h-3 w-3 text-yellow-600" />
+                )}
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="text-muted-foreground">Holat:</span>
+              <StatusBadge status={product.status} />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onView}
+              className="flex-1 text-xs"
+            >
+              <Eye className="h-3 w-3 mr-1" />
+              Ko'rish
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onStockAdjust}
+              className="flex-1 text-xs"
+            >
+              <Package className="h-3 w-3 mr-1" />
+              Ombordagi miqdor
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="px-2">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Tahrirlash
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  O'chirish
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 function Products() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [fakeProducts] = useState(generateFakeProducts());
+  const [viewMode, setViewMode] = useState('table');
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Pagination states
   const [itemsPerPage, setItemsPerPage] = useState(20);
@@ -139,7 +301,6 @@ function Products() {
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...fakeProducts];
 
-    // Search filter
     if (searchTerm) {
       filtered = filtered.filter(
         (product) =>
@@ -148,19 +309,16 @@ function Products() {
       );
     }
 
-    // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter((product) => product.status === statusFilter);
     }
 
-    // Category filter
     if (categoryFilter !== 'all') {
       filtered = filtered.filter(
         (product) => product.category === categoryFilter
       );
     }
 
-    // Sort
     if (sortBy === 'newest') {
       filtered.sort((a, b) => a.id.localeCompare(b.id));
     } else if (sortBy === 'price_low') {
@@ -190,13 +348,14 @@ function Products() {
     setCurrentPage(1);
     setSelectedProducts([]);
     setSelectAll(false);
-  }, [
-    searchTerm,
-    statusFilter,
-    categoryFilter,
-    sortBy,
-    itemsPerPage,
-  ]);
+  }, [searchTerm, statusFilter, categoryFilter, sortBy, itemsPerPage]);
+
+  // Auto set view mode based on screen size
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('grid');
+    }
+  }, [isMobile]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -228,7 +387,6 @@ function Products() {
     }
   };
 
-  // Update select all when individual selections change
   useEffect(() => {
     if (paginatedProducts.length > 0) {
       const allSelected = paginatedProducts.every((p) =>
@@ -338,9 +496,7 @@ function Products() {
   };
 
   const handleSaveProduct = async (productData) => {
-    // In a real app, this would save to Firebase/database
     console.log('Saving product:', productData);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500));
     toast.success(editingProduct ? 'Mahsulot yangilandi' : 'Mahsulot yaratildi');
     setProductFormOpen(false);
@@ -356,46 +512,36 @@ function Products() {
   };
 
   const handleStockAdjustment = async (adjustment) => {
-    // In a real app, this would save to Firebase/database
     console.log('Stock adjustment:', adjustment);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Update local product stock (in real app, this would come from API)
-    // This is just for demo purposes
-    toast.success(
-      `Ombordagi miqdor ${adjustment.adjustmentType === 'add' ? 'qo\'shildi' : adjustment.adjustmentType === 'remove' ? 'ayirildi' : 'o\'rnatildi'}`
-    );
+    toast.success('Ombordagi miqdor yangilandi');
     setStockAdjustmentOpen(false);
     setAdjustingProduct(null);
   };
 
   const handleCSVImport = async (products) => {
-    // In a real app, this would save to Firebase/database
     console.log('Importing products:', products);
-    // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
     toast.success(`${products.length} ta mahsulot import qilindi`);
   };
 
   const handleLowStockSettingsSave = async (settings) => {
-    // In a real app, this would save to localStorage or database
     console.log('Saving low stock settings:', settings);
     setLowStockThreshold(settings.threshold);
-    // Store in localStorage for persistence
     localStorage.setItem('lowStockThreshold', settings.threshold.toString());
     localStorage.setItem('lowStockEnabled', settings.enabled.toString());
   };
 
+  // Get low stock products
   const lowStockProducts = useMemo(() => {
     return fakeProducts.filter(
       (product) => product.stock !== undefined && product.stock <= lowStockThreshold
     );
   }, [fakeProducts, lowStockThreshold]);
 
+  // Load low stock threshold from localStorage
   useEffect(() => {
     const savedThreshold = localStorage.getItem('lowStockThreshold');
-    const savedEnabled = localStorage.getItem('lowStockEnabled');
     if (savedThreshold) {
       setLowStockThreshold(parseInt(savedThreshold));
     }
@@ -407,82 +553,92 @@ function Products() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    return status === 'active' ? (
-      <Badge variant="default" className="flex items-center gap-1 w-fit">
-        <CheckCircle2 className="w-3 h-3" />
-        Faol
-      </Badge>
-    ) : (
-      <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-        <XCircle className="w-3 h-3" />
-        Yashirilgan
-      </Badge>
-    );
-  };
-
   const getCategories = () => {
     return [...new Set(fakeProducts.map((p) => p.category))];
   };
 
   return (
-    <div className="space-y-4 my-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
           <h2 className="title">Mahsulotlar</h2>
           <p className="paragraph">
             Barcha mahsulotlarni ko'rib chiqing va boshqaring
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCsvImportOpen(true)}
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            CSV Import
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLowStockSettingsOpen(true)}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Sozlamalar
-          </Button>
-          <Button onClick={handleCreateNew} size="sm">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!isMobile && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCsvImportOpen(true)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                CSV Import
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLowStockSettingsOpen(true)}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Sozlamalar
+              </Button>
+            </>
+          )}
+          <Button onClick={handleCreateNew} size="sm" className="flex-1 sm:flex-initial">
             <Plus className="h-4 w-4 mr-2" />
-            Yangi mahsulot
+            <span className="text-xs sm:text-sm">Yangi mahsulot</span>
           </Button>
+          {isMobile && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setCsvImportOpen(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  CSV Import
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLowStockSettingsOpen(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Sozlamalar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
       {/* Low Stock Alert */}
       {lowStockProducts.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4">
+          <div className="flex items-start gap-2 sm:gap-3">
+            <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-sm sm:text-base text-yellow-900 dark:text-yellow-100 mb-1">
                 Past ombordagi miqdor ogohlantirishi
               </h3>
-              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
+              <p className="text-xs sm:text-sm text-yellow-800 dark:text-yellow-200 mb-2">
                 {lowStockProducts.length} ta mahsulotning ombordagi miqdori {lowStockThreshold} donadan past
               </p>
               <div className="flex flex-wrap gap-2">
-                {lowStockProducts.slice(0, 5).map((product) => (
+                {lowStockProducts.slice(0, isMobile ? 3 : 5).map((product) => (
                   <Badge
                     key={product.id}
                     variant="outline"
-                    className="bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-700"
+                    className="bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-700 text-xs"
                   >
                     {product.name}: {product.stock} dona
                   </Badge>
                 ))}
-                {lowStockProducts.length > 5 && (
-                  <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/50">
-                    +{lowStockProducts.length - 5} ta boshqa
+                {lowStockProducts.length > (isMobile ? 3 : 5) && (
+                  <Badge variant="outline" className="bg-yellow-100 dark:bg-yellow-900/50 text-xs">
+                    +{lowStockProducts.length - (isMobile ? 3 : 5)} ta boshqa
                   </Badge>
                 )}
               </div>
@@ -492,7 +648,7 @@ function Products() {
       )}
 
       {/* Filters */}
-      <div className="space-y-4 gap-4">
+      <div className="space-y-3 sm:space-y-4">
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -501,248 +657,319 @@ function Products() {
             placeholder="Nom yoki SKU bo'yicha qidirish..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 text-sm sm:text-base"
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Holat" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Barcha holatlar</SelectItem>
-              <SelectItem value="active">Faol</SelectItem>
-              <SelectItem value="hidden">Yashirilgan</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Category Filter */}
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Kategoriya" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Barcha kategoriyalar</SelectItem>
-              {getCategories().map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Sort */}
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Eng yangilari</SelectItem>
-              <SelectItem value="name">Nom bo'yicha</SelectItem>
-              <SelectItem value="price_low">Narx (pastdan yuqoriga)</SelectItem>
-              <SelectItem value="price_high">Narx (yuqoridan pastga)</SelectItem>
-            </SelectContent>
-          </Select>
-          {/* Export Button */}
-          <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={handleExportCSV}>
-              <Download className="w-4 h-4 mr-2" />
-              CSV Export
+        {/* Filters Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+          {isMobile ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="w-full sm:w-auto"
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              Filtrlar
             </Button>
-          </div>
+          ) : null}
 
+          {(!isMobile || filtersOpen) && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Holat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Barcha holatlar</SelectItem>
+                  <SelectItem value="active">Faol</SelectItem>
+                  <SelectItem value="hidden">Yashirilgan</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="Kategoriya" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Barcha kategoriyalar</SelectItem>
+                  {getCategories().map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Eng yangilari</SelectItem>
+                  <SelectItem value="name">Nom bo'yicha</SelectItem>
+                  <SelectItem value="price_low">Narx (pastdan yuqoriga)</SelectItem>
+                  <SelectItem value="price_high">Narx (yuqoridan pastga)</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {!isMobile && (
+                <Button variant="outline" size="sm" onClick={handleExportCSV} className="ml-auto">
+                  <Download className="w-4 h-4 mr-2" />
+                  CSV Export
+                </Button>
+              )}
+            </div>
+          )}
+
+          {!isMobile && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === 'table' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('table')}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Bulk Actions */}
+      {/* Bulk Actions - Fixed Bottom (Right Side Only) */}
       {selectedProducts.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-          <span className="text-sm font-medium">
-            {selectedProducts.length} ta tanlangan
-          </span>
-          <div className="flex items-center gap-2 ml-auto">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkActivate}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-1" />
-              Faollashtirish
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkDeactivate}
-            >
-              <XCircle className="w-4 h-4 mr-1" />
-              Yashirish
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleBulkDelete}
-            >
-              <Trash2 className="w-4 h-4 mr-1" />
-              O'chirish
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setUpdatePriceDialogOpen(true)}
-            >
-              <Percent className="w-4 h-4 mr-1" />
-              Narxni o'zgartirish
-            </Button>
+        <div
+          className="fixed bottom-4 z-50 transition-all duration-300 ease-in-out"
+          style={{
+            left: 'var(--sidebar-width, 16rem)',
+            right: '1rem',
+            transform: 'translateX(0)',
+          }}
+        >
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2 p-3 sm:p-4 bg-background border shadow-lg rounded-lg max-w-2xl mx-auto animate-in slide-in-from-bottom-5 duration-300 fade-in">
+            <span className="text-xs sm:text-sm font-medium text-center sm:text-left">
+              {selectedProducts.length} ta tanlangan
+            </span>
+            <div className="flex flex-wrap items-center gap-2 sm:ml-auto justify-center sm:justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkActivate}
+                className="flex-1 sm:flex-initial text-xs"
+              >
+                <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                Faollashtirish
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDeactivate}
+                className="flex-1 sm:flex-initial text-xs"
+              >
+                <XCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                Yashirish
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="flex-1 sm:flex-initial text-xs"
+              >
+                <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                O'chirish
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setUpdatePriceDialogOpen(true)}
+                className="flex-1 sm:flex-initial text-xs"
+              >
+                <Percent className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                Narxni o'zgartirish
+              </Button>
+            </div>
           </div>
         </div>
       )}
-      {/* Table */}
+
+      {/* Products List/Grid */}
       <div>
         {paginatedProducts.length > 0 ? (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={selectAll}
-                      onCheckedChange={handleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead>Thumbnail</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>SKU</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Stock/Availability</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amal</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedProducts.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
+          viewMode === 'grid' || isMobile ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {paginatedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isSelected={selectedProducts.includes(product.id)}
+                  onSelect={(checked) => handleSelectProduct(product.id, checked)}
+                  onView={() => handleView(product.id)}
+                  onEdit={() => handleEdit(product.id)}
+                  onDelete={() => handleDelete(product.id)}
+                  onStockAdjust={() => handleStockAdjust(product.id)}
+                  lowStockThreshold={lowStockThreshold}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-md border overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedProducts.includes(product.id)}
-                        onCheckedChange={(checked) =>
-                          handleSelectProduct(product.id, checked)
-                        }
+                        checked={selectAll}
+                        onCheckedChange={handleSelectAll}
                       />
-                    </TableCell>
-                    <TableCell>
-                      <div className="w-12 h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                        {product.thumbnail ? (
-                          <img
-                            src={product.thumbnail}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div
-                          className="w-full h-full items-center justify-center hidden"
-                          style={{ display: product.thumbnail ? 'none' : 'flex' }}
-                        >
-                          <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{product.name}</TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {product.sku}
-                    </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>
-                      <span className="font-semibold">
-                        {formatNumber(product.price)} so'm
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={
-                            product.stock > lowStockThreshold
-                              ? 'text-green-600 font-medium'
-                              : product.stock > 0
-                                ? 'text-yellow-600 font-medium'
-                                : 'text-red-600 font-medium'
-                          }
-                        >
-                          {product.stock > 0
-                            ? `${product.stock} dona`
-                            : 'Mavjud emas'}
-                        </span>
-                        {product.stock > 0 && product.stock <= lowStockThreshold && (
-                          <TrendingDown className="h-4 w-4 text-yellow-600" />
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleStockAdjust(product.id)}
-                          className="ml-2"
-                        >
-                          <Package className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(product.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleView(product.id)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Ko'rish
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(product.id)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Tahrir
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(product.id)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    </TableHead>
+                    <TableHead className="w-16">Rasm</TableHead>
+                    <TableHead>Nomi</TableHead>
+                    <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                    <TableHead className="hidden md:table-cell">Kategoriya</TableHead>
+                    <TableHead>Narx</TableHead>
+                    <TableHead>Ombordagi miqdor</TableHead>
+                    <TableHead className="hidden lg:table-cell">Holat</TableHead>
+                    <TableHead className="text-right">Amal</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {paginatedProducts.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedProducts.includes(product.id)}
+                          onCheckedChange={(checked) =>
+                            handleSelectProduct(product.id, checked)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                          {product.thumbnail ? (
+                            <img
+                              src={product.thumbnail}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-full items-center justify-center hidden"
+                            style={{ display: product.thumbnail ? 'none' : 'flex' }}
+                          >
+                            <ImageIcon className="w-4 h-4 sm:w-6 sm:h-6 text-muted-foreground" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium text-sm sm:text-base">
+                        {product.name}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs sm:text-sm hidden sm:table-cell">
+                        {product.sku}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-sm">
+                        {product.category}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-sm sm:text-base">
+                          {formatNumber(product.price)} so'm
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <span
+                            className={`text-xs sm:text-sm font-medium ${product.stock > lowStockThreshold
+                              ? 'text-green-600'
+                              : product.stock > 0
+                                ? 'text-yellow-600'
+                                : 'text-red-600'
+                              }`}
+                          >
+                            {product.stock > 0
+                              ? `${product.stock} dona`
+                              : 'Mavjud emas'}
+                          </span>
+                          {product.stock > 0 && product.stock <= lowStockThreshold && (
+                            <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600" />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleStockAdjust(product.id)}
+                            className="h-7 w-7 sm:h-8 sm:w-8"
+                          >
+                            <Package className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <StatusBadge status={product.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1 sm:gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleView(product.id)}
+                            className="h-8 w-8"
+                          >
+                            <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleEdit(product.id)}
+                            className="h-8 w-8"
+                          >
+                            <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => handleDelete(product.id)}
+                            className="h-8 w-8"
+                          >
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            Hech qanday mahsulot topilmadi
+          <div className="text-center py-12 text-muted-foreground">
+            <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm sm:text-base">Hech qanday mahsulot topilmadi</p>
           </div>
         )}
       </div>
 
       {/* Pagination */}
       {filteredAndSortedProducts.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+            <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               Sahifada ko'rsatish:
             </span>
             <Select
               value={itemsPerPage.toString()}
               onValueChange={handleItemsPerPageChange}
             >
-              <SelectTrigger className="w-[100px]">
+              <SelectTrigger className="w-full sm:w-[100px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -753,32 +980,34 @@ function Products() {
                 <SelectItem value="50">50</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               {startIndex + 1}-{Math.min(endIndex, filteredAndSortedProducts.length)} dan{' '}
               {filteredAndSortedProducts.length} ta
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
+              className="flex-1 sm:flex-initial"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Oldingi
+              <span className="text-xs sm:text-sm">Oldingi</span>
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Sahifa {currentPage} / {totalPages}
+            <span className="text-xs sm:text-sm text-muted-foreground px-2">
+              {currentPage} / {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
+              className="flex-1 sm:flex-initial"
             >
-              Keyingi
+              <span className="text-xs sm:text-sm">Keyingi</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -787,7 +1016,7 @@ function Products() {
 
       {/* Update Price Dialog */}
       <Dialog open={updatePriceDialogOpen} onOpenChange={setUpdatePriceDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Narxni foiz bo'yicha o'zgartirish</DialogTitle>
             <DialogDescription>
@@ -807,17 +1036,18 @@ function Products() {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => {
                 setUpdatePriceDialogOpen(false);
                 setPricePercent('');
               }}
+              className="w-full sm:w-auto"
             >
               Bekor qilish
             </Button>
-            <Button onClick={handleUpdatePricePercent}>
+            <Button onClick={handleUpdatePricePercent} className="w-full sm:w-auto">
               O'zgartirish
             </Button>
           </DialogFooter>
