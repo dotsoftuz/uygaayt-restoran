@@ -70,7 +70,8 @@ function OrderSettings() {
           <h3 className="text-base sm:text-lg font-semibold">Yetkazib berish sozlamalari</h3>
         </div>
         <div className="space-y-4">
-          <div className="space-y-2">
+          <div className="flex items-center gap-2">
+          <div className="space-y-2 w-full">
             <Label className="text-xs sm:text-sm">Yetkazib berish to'lovi</Label>
             <div className="flex items-center gap-2">
               <Input
@@ -79,7 +80,7 @@ function OrderSettings() {
                 step="1000"
                 value={deliveryFee}
                 onChange={(e) => setDeliveryFee(parseInt(e.target.value) || 0)}
-                className="w-full sm:w-[200px] text-sm sm:text-base"
+                className="w-full sm:w-full text-sm sm:text-base"
               />
               <span className="text-xs sm:text-sm text-muted-foreground">so'm</span>
             </div>
@@ -88,7 +89,7 @@ function OrderSettings() {
             </p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 w-full">
             <Label className="text-xs sm:text-sm">Yetkazib berish radiusi</Label>
             <div className="flex items-center gap-2">
               <Input
@@ -97,13 +98,15 @@ function OrderSettings() {
                 step="100"
                 value={deliveryRadius}
                 onChange={(e) => setDeliveryRadius(parseInt(e.target.value) || 0)}
-                className="w-full sm:w-[200px] text-sm sm:text-base"
+                className="w-full sm:w-full text-sm sm:text-base"
               />
               <span className="text-xs sm:text-sm text-muted-foreground">metr</span>
             </div>
             <p className="text-xs text-muted-foreground">
               Do'kon atrofidagi yetkazib berish radiusi
             </p>
+          </div>
+
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
