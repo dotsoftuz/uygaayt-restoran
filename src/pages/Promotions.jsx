@@ -594,8 +594,8 @@ function Promotions() {
           </div>
         ) : (
           // Desktop Table View
-          <Card>
-            <CardContent className="p-0">
+      <Card>
+        <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -627,16 +627,16 @@ function Promotions() {
             </CardContent>
           </Card>
         )
-      ) : (
+          ) : (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Tag className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>
-              {searchTerm
+                {searchTerm
                 ? 'Promo kod topilmadi'
-                : 'Hech qanday promo kod yo\'q'}
+                  : 'Hech qanday promo kod yo\'q'}
             </EmptyTitle>
             <EmptyDescription>
               {searchTerm

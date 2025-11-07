@@ -1,33 +1,31 @@
 import { useState, useMemo } from 'react';
-import { useAppContext } from '@/context/AppContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Package,
-  Store,
-  Bike,
-  Users,
   CreditCard,
-  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Plus,
+  Eye,
+  DollarSign,
   ArrowRight,
+  Clock,
 } from 'lucide-react';
-import { MonthPicker } from '@/components/ui/month-picker';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import {
-  LineChart,
+  ComposedChart,
   Line,
-  BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   Legend,
 } from 'recharts';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-
 import {
   Card,
   CardContent,
@@ -35,39 +33,128 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { formatNumber, formatDate } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+// Mock data generator
+const generateFakeOrders = () => {
+  const statuses = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
+  const names = [
+    'Ali Valiyev',
+    'Dilshoda Karimova',
+    'Javohir Toshmatov',
+    'Malika Yusupova',
+    'Sardor Rahimov',
+  ];
+
+  return names.map((name, index) => ({
+    id: `ORD-${String(index + 1).padStart(6, '0')}`,
+    clientName: name,
+    amount: Math.floor(Math.random() * 500000) + 50000,
+    status: statuses[Math.floor(Math.random() * statuses.length)],
+    createdAt: new Date(Date.now() - index * 60 * 60 * 1000),
+  }));
+};
+
+const generateChartData = (days) => {
+  const data = [];
+  const now = new Date();
+  
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i);
+    const dayName = date.toLocaleDateString('uz-UZ', { weekday: 'short' });
+    
+    data.push({
+      name: dayName,
+      orders: Math.floor(Math.random() * 50) + 20,
+      revenue: Math.floor(Math.random() * 5000000) + 2000000,
+    });
+  }
+  
+  return data;
+};
 
 function AdminDashboard() {
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const { orders, clients, couriers, stores } = useAppContext();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [chartPeriod, setChartPeriod] = useState('7');
 
-  // Demo statistik ma'lumotlar (keyinchalik backenddan olinadi)
+  // Mock orders data
+  const allOrders = useMemo(() => generateFakeOrders(), []);
+  const last5Orders = useMemo(() => allOrders.slice(0, 5), [allOrders]);
+
+  // Calculate statistics
   const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todayOrders = allOrders.filter(
+      (order) => new Date(order.createdAt) >= today
+    );
+    
+    const newOrders = allOrders.filter(
+      (order) => order.status === 'pending' || order.status === 'accepted'
+    );
+    
+    const todayRevenue = todayOrders.reduce((sum, order) => sum + order.amount, 0);
+    const totalRevenue = allOrders.reduce((sum, order) => sum + order.amount, 0);
+    const averageOrderValue = allOrders.length > 0 
+      ? Math.round(totalRevenue / allOrders.length) 
+      : 0;
+
     return {
-      todayOrders: 122,
-      activeStores: 57,
-      activeCouriers: 34,
-      newUsers: 18,
-      todayRevenue: 16250000,
-      deliveredOrders: 109,
+      todayOrders: todayOrders.length,
+      todayRevenue,
+      newOrders: newOrders.length,
+      averageOrderValue,
     };
-  }, []);
+  }, [allOrders]);
+
+  const chartData = useMemo(() => {
+    return generateChartData(Number(chartPeriod));
+  }, [chartPeriod]);
+
+  const getStatusBadge = (status) => {
+    const configs = {
+      pending: { label: 'Kutilmoqda', variant: 'secondary' },
+      accepted: { label: 'Qabul qilindi', variant: 'default' },
+      preparing: { label: 'Tayyorlanmoqda', variant: 'default' },
+      ready: { label: 'Tayyor', variant: 'default' },
+      delivered: { label: 'Yetkazilgan', variant: 'default' },
+    };
+
+    const config = configs[status] || configs.pending;
+    return (
+      <Badge variant={config.variant} className="text-xs">
+        {config.label}
+      </Badge>
+    );
+  };
+
+  const handleOrderClick = (orderId) => {
+    navigate(`/dashboard/order-detail/${orderId}`);
+  };
 
   return (
-    <div className="space-y-4 my-2">
-      <div className="items-center justify-between hidden">
-        <h2 className="hidden md:block text-xl font-bold tracking-tight">
-          Hi, Welcome back 👋
-        </h2>
-        <MonthPicker
-          className="md:w-44"
-          month={selectedMonth}
-          setMonth={setSelectedMonth}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 min-[1200px]:grid-cols-3 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar overflow-hidden">
-        {/* 📦 Bugungi buyurtmalar */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
+    <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 min-[1200px]:grid-cols-4 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar overflow-hidden">
+        {/* Bugungi buyurtmalar */}
+        <div 
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/orders')}
+        >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
             <Package className="h-6 w-6 text-primary" />
           </div>
@@ -85,74 +172,20 @@ function AdminDashboard() {
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        {/* 🏪 Faol do‘konlar */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
-          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <Store className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Faol do‘konlar
-            </p>
-            <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.activeStores} ta
-            </h3>
-            <p className="text-xs text-muted-foreground/60">
-              Bugun ishlayotganlar
-            </p>
-          </div>
-          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
-        </div>
-
-        {/* 🚚 Faol kuryerlar */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
-          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <Bike className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Faol kuryerlar
-            </p>
-            <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.activeCouriers} ta
-            </h3>
-            <p className="text-xs text-muted-foreground/60">
-              Onlayn yoki yetkazmoqda
-            </p>
-          </div>
-          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
-        </div>
-
-        {/* 👥 Yangi foydalanuvchilar */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
-          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <Users className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Yangi foydalanuvchilar
-            </p>
-            <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.newUsers} ta
-            </h3>
-            <p className="text-xs text-muted-foreground/60">
-              Bugun ro‘yxatdan o‘tganlar
-            </p>
-          </div>
-          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
-        </div>
-
-        {/* 💳 Bugungi tushum */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
+        {/* Bugungi daromad */}
+        <div 
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/finance')}
+        >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
             <CreditCard className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Bugungi tushum
+              Bugungi daromad
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.todayRevenue.toLocaleString()} so‘m
+              {formatNumber(stats.todayRevenue)} so'm
             </h3>
             <p className="text-xs text-muted-foreground/60">
               Karta + naqd + bonus
@@ -161,177 +194,233 @@ function AdminDashboard() {
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        {/* ✅ Yetkazilgan buyurtmalar */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
+        {/* Yangi buyurtmalar */}
+        <div 
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/orders?status=pending')}
+        >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <CheckCircle className="h-6 w-6 text-primary" />
+            <AlertCircle className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Yetkazilgan buyurtmalar
+              Yangi buyurtmalar
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.deliveredOrders} ta
+              {stats.newOrders} ta
             </h3>
             <p className="text-xs text-muted-foreground/60">
-              Muvaffaqiyatli yakunlanganlar
+              Ochilmagan buyurtmalar
+            </p>
+          </div>
+          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
+        </div>
+
+        {/* O'rtacha buyurtma qiymati */}
+        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
+          <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
+            <TrendingUp className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              O'rtacha buyurtma
+            </p>
+            <h3 className="text-2xl font-semibold mb-1 text-primary">
+              {formatNumber(stats.averageOrderValue)} so'm
+            </h3>
+            <p className="text-xs text-muted-foreground/60">
+              O'rtacha qiymat
             </p>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
       </div>
 
-      {/* 📈 Faollik va daromad */}
-      <div className="mt-8 space-y-4 hidden">
-        <Tabs defaultValue="day" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="day">Kunlik</TabsTrigger>
-            <TabsTrigger value="week">Haftalik</TabsTrigger>
-            <TabsTrigger value="month">Oylik</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="day" className="space-y-4">
-            <Card className="pt-0">
-              <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-                <div className="grid flex-1 gap-1">
-                  <CardTitle>Kunlik buyurtmalar faolligi</CardTitle>
-                  <CardDescription>
-                    Soatlik buyurtmalar soni asosida shakllangan real vaqt
-                    tahlili
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                <ChartContainer config={{}}>
-                  <LineChart
-                    data={[
-                      { name: '08:00', orders: 12 },
-                      { name: '10:00', orders: 30 },
-                      { name: '12:00', orders: 55 },
-                      { name: '14:00', orders: 70 },
-                      { name: '16:00', orders: 40 },
-                      { name: '18:00', orders: 65 },
-                      { name: '20:00', orders: 50 },
-                    ]}
-                    margin={{ top: 10, right: 20, bottom: 0, left: -10 }}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* So'nggi 5 buyurtma */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base sm:text-lg">So'nggi buyurtmalar</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Eng so'nggi 5 ta buyurtma
+                </CardDescription>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/dashboard/orders')}
+                className="text-xs sm:text-sm"
+              >
+                Barchasi
+                <ArrowRight className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isMobile ? (
+              <div className="space-y-2 p-4">
+                {last5Orders.map((order) => (
+                  <div
+                    key={order.id}
+                    onClick={() => handleOrderClick(order.id)}
+                    className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
                   >
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: 'var(--muted-foreground)' }}
-                    />
-                    <YAxis tick={{ fill: 'var(--muted-foreground)' }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="orders"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: 'hsl(var(--primary))' }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{order.clientName}</p>
+                      <p className="text-xs text-muted-foreground">{order.id}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                      <span className="text-sm font-semibold">
+                        {formatNumber(order.amount)} so'm
+                      </span>
+                      {getStatusBadge(order.status)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px]">ID</TableHead>
+                    <TableHead>Mijoz</TableHead>
+                    <TableHead className="text-right">Summa</TableHead>
+                    <TableHead className="w-[140px]">Holat</TableHead>
+                    <TableHead className="w-[120px] text-right">Vaqt</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {last5Orders.map((order) => (
+                    <TableRow
+                      key={order.id}
+                      onClick={() => handleOrderClick(order.id)}
+                      className="cursor-pointer hover:bg-accent"
+                    >
+                      <TableCell className="font-mono text-xs sm:text-sm">
+                        {order.id}
+                      </TableCell>
+                      <TableCell className="font-medium text-sm sm:text-base">
+                        {order.clientName}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-sm sm:text-base">
+                        {formatNumber(order.amount)} so'm
+                      </TableCell>
+                      <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell className="text-right text-xs sm:text-sm text-muted-foreground">
+                        {formatDate(order.createdAt.getTime())}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
-          <TabsContent value="week" className="space-y-4">
-            <Card className="pt-0">
-              <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-                <div className="grid flex-1 gap-1">
-                  <CardTitle>Daromad o‘zgarishi (haftalik)</CardTitle>
-                  <CardDescription>
-                    Kartadan va naqd tushumlardan iborat haftalik daromad
-                    taqsimoti
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                <ChartContainer config={{}} className="h-[300px]">
-                  <BarChart
-                    data={[
-                      { name: 'Dushanba', card: 4500000, cash: 2000000 },
-                      { name: 'Seshanba', card: 3800000, cash: 1800000 },
-                      { name: 'Chorshanba', card: 5100000, cash: 2500000 },
-                      { name: 'Payshanba', card: 4700000, cash: 2100000 },
-                      { name: 'Juma', card: 6200000, cash: 3000000 },
-                      { name: 'Shanba', card: 7000000, cash: 3200000 },
-                      { name: 'Yakshanba', card: 4000000, cash: 1700000 },
-                    ]}
-                    margin={{ top: 10, right: 20, bottom: 0, left: -10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: 'var(--muted-foreground)' }}
-                    />
-                    <YAxis tick={{ fill: 'var(--muted-foreground)' }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Bar
-                      dataKey="card"
-                      name="Karta to‘lovlari"
-                      fill="hsl(var(--primary))"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="cash"
-                      name="Naqd tushum"
-                      fill="hsl(var(--success))"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="month" className="space-y-4">
-            <Card className="pt-0">
-              <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
-                <div className="grid flex-1 gap-1">
-                  <CardTitle>Oylik umumiy tahlil</CardTitle>
-                  <CardDescription>
-                    So‘nggi 6 oy davomida oylik daromadning o‘sish dinamikasi
-                  </CardDescription>
-                </div>
-              </CardHeader>
-              <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-                <ChartContainer config={{}} className="h-[300px]">
-                  <LineChart
-                    data={[
-                      { name: 'Yan', revenue: 32000000 },
-                      { name: 'Fev', revenue: 28000000 },
-                      { name: 'Mar', revenue: 41000000 },
-                      { name: 'Apr', revenue: 38000000 },
-                      { name: 'May', revenue: 50000000 },
-                      { name: 'Iyun', revenue: 47000000 },
-                    ]}
-                    margin={{ top: 10, right: 20, bottom: 0, left: -10 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: 'var(--muted-foreground)' }}
-                    />
-                    <YAxis tick={{ fill: 'var(--muted-foreground)' }} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="hsl(var(--chart-3))"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: 'hsl(var(--chart-3))' }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {/* Tezkor amallar */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg">Tezkor amallar</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Tez kirish tugmalari
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              className="w-full justify-start"
+              onClick={() => navigate('/dashboard/products')}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="text-xs sm:text-sm">Mahsulot qo'shish</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => navigate('/dashboard/orders')}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              <span className="text-xs sm:text-sm">Buyurtmalarni ko'rish</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => navigate('/dashboard/finance')}
+            >
+              <DollarSign className="mr-2 h-4 w-4" />
+              <span className="text-xs sm:text-sm">Payout so'rov</span>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Grafik: Buyurtma va daromad */}
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-base sm:text-lg">Buyurtma va daromad</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Haftalik/oylik statistika
+              </CardDescription>
+            </div>
+            <Tabs value={chartPeriod} onValueChange={setChartPeriod} className="w-full sm:w-auto">
+              <TabsList className="grid w-full sm:w-auto grid-cols-3">
+                <TabsTrigger value="7" className="text-xs sm:text-sm">7 kun</TabsTrigger>
+                <TabsTrigger value="30" className="text-xs sm:text-sm">30 kun</TabsTrigger>
+                <TabsTrigger value="90" className="text-xs sm:text-sm">90 kun</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={{}} className="h-[300px] sm:h-[400px]">
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 20, bottom: 0, left: -10 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+              <XAxis
+                dataKey="name"
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+              />
+              <YAxis 
+                yAxisId="left"
+                label={{ value: 'Buyurtmalar', angle: -90, position: 'insideLeft' }}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+              />
+              <YAxis 
+                yAxisId="right"
+                orientation="right"
+                label={{ value: 'Daromad', angle: 90, position: 'insideRight' }}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
+                tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
+              />
+              <ChartTooltip 
+                content={<ChartTooltipContent />}
+              />
+              <Legend />
+              <Bar
+                yAxisId="left"
+                dataKey="orders"
+                name="Buyurtmalar"
+                fill="hsl(var(--primary))"
+                radius={[4, 4, 0, 0]}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="revenue"
+                name="Daromad"
+                stroke="hsl(var(--chart-2))"
+                strokeWidth={2}
+                dot={{ r: 4, fill: 'hsl(var(--chart-2))' }}
+              />
+            </ComposedChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
