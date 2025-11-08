@@ -23,10 +23,23 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
 
-export function Notifications() {
-  const { state } = useSidebar();
+export function Notifications({ variant = 'auto' }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+
+  // Get sidebar state - hook must be called unconditionally per React rules
+  // If not in SidebarProvider context, this will throw, which we handle
+  let sidebarState = null;
+  let sidebarContext = null;
+  try {
+    sidebarContext = useSidebar();
+    sidebarState = sidebarContext?.state;
+  } catch (e) {
+    // Not in sidebar context - this is expected when used in header
+    // Hook is still called unconditionally, which satisfies React rules
+    sidebarState = null;
+    sidebarContext = null;
+  }
 
   const notifications = [
     {
@@ -120,6 +133,120 @@ export function Notifications() {
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
+  // Determine if used in header or sidebar
+  const isInHeader = variant === 'header' || (variant === 'auto' && !sidebarState);
+
+  if (isInHeader) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative h-10 w-10 mt-2 rounded-md hover:bg-muted transition-colors"
+            aria-label="Bildirishnomalar"
+          >
+            <Bell className="!h-6 !w-6" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-medium text-destructive-foreground ring-2 ring-background">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[380px] p-0"
+          side="bottom"
+          align="end"
+          sideOffset={8}
+        >
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <div>
+              <h3 className="font-semibold text-base">Bildirishnomalar</h3>
+              {unreadCount > 0 && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {unreadCount} ta o'qilmagan
+                </p>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setOpen(false)}
+              className="h-7 w-7"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <ScrollArea className="h-[400px]">
+            <div className="p-2">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Bell className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Bildirishnomalar yo'q
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    onClick={() => handleNotificationClick(notification)}
+                    className={`relative p-3 rounded-lg cursor-pointer transition-colors mb-1 ${notification.unread
+                        ? 'bg-accent/50 hover:bg-accent'
+                        : 'hover:bg-muted/50'
+                      }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-sm font-medium leading-tight">
+                            {notification.title}
+                          </h4>
+                          {notification.unread && (
+                            <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                          {notification.message}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-xs text-muted-foreground">
+                            {notification.time}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+
+          {notifications.length > 0 && (
+            <div className="border-t p-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  navigate('/dashboard/orders');
+                  setOpen(false);
+                }}
+              >
+                Barcha bildirishnomalarni ko'rish
+              </Button>
+            </div>
+          )}
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -127,91 +254,81 @@ export function Notifications() {
           <PopoverTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              tooltip={state === 'collapsed' ? 'Bildirishnomalar' : undefined}
+              tooltip={sidebarState === 'collapsed' ? 'Bildirishnomalar' : undefined}
               className="relative data-[state=open]:text-sidebar-accent-foreground transition-all duration-200 rounded-full group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!mx-auto overflow-visible"
             >
               <Bell className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
               {unreadCount > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="absolute -top-0.5 -right-0.5 h-5 w-4 rounded-full p-0 flex items-center justify-center text-xs z-10 min-w-[20px]"
-                >
+                <span className="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-medium text-destructive-foreground ring-2 ring-background">
                   {unreadCount > 99 ? '99+' : unreadCount}
-                </Badge>
+                </span>
               )}
             </SidebarMenuButton>
           </PopoverTrigger>
           <PopoverContent
-            className="w-80 p-0"
+            className="w-[380px] p-0"
             side="bottom"
             align="end"
             sideOffset={8}
           >
-            <div className="p-4 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-lg">Bildirishnomalar</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setOpen(false)}
-                  className="h-6 w-6 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div>
+                <h3 className="font-semibold text-base">Bildirishnomalar</h3>
+                {unreadCount > 0 && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {unreadCount} ta o'qilmagan
+                  </p>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Shikoyat, muhim buyurtmalar haqida ogohlantirish
-              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setOpen(false)}
+                className="h-7 w-7"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
 
-            <ScrollArea className="h-80">
+            <ScrollArea className="h-[400px]">
               <div className="p-2">
                 {notifications.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Bildirishnomalar yo'q</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Bell className="h-10 w-10 text-muted-foreground/50 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      Bildirishnomalar yo'q
+                    </p>
                   </div>
                 ) : (
                   notifications.map((notification) => (
                     <div
                       key={notification.id}
                       onClick={() => handleNotificationClick(notification)}
-                      className={`p-3 rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                        notification.unread
-                          ? 'bg-blue-50/50 border-l-4 border-l-blue-500'
-                          : ''
-                      }`}
+                      className={`relative p-3 rounded-lg cursor-pointer transition-colors mb-1 ${notification.unread
+                          ? 'bg-accent/50 hover:bg-accent'
+                          : 'hover:bg-muted/50'
+                        }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 mt-0.5">
                           {getNotificationIcon(notification.type)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="text-sm font-medium leading-tight">
                               {notification.title}
                             </h4>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${getPriorityColor(notification.priority)}`}
-                            >
-                              {notification.priority === 'high'
-                                ? 'Yuqori'
-                                : notification.priority === 'medium'
-                                  ? "O'rta"
-                                  : 'Past'}
-                            </Badge>
+                            {notification.unread && (
+                              <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                            )}
                           </div>
-                          <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
                             {notification.message}
                           </p>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-xs text-muted-foreground">
                               {notification.time}
                             </span>
-                            {notification.unread && (
-                              <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -222,7 +339,7 @@ export function Notifications() {
             </ScrollArea>
 
             {notifications.length > 0 && (
-              <div className="p-3 border-t">
+              <div className="border-t p-3">
                 <Button
                   variant="outline"
                   size="sm"

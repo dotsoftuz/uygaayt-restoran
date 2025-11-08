@@ -55,7 +55,7 @@ function DashboardLayout() {
               <CustomBreadcrumb showBackButton={showBackButton} />
             </div>
             <div className="flex items-center gap-2">
-              <Notifications />
+              <Notifications variant="header" />
               <NavUser user={user} />
             </div>
           </header>
