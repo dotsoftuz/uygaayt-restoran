@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/services/api';
 
 const storeInfoSchema = z.object({
   name: z.string().min(1, 'Do\'kon nomi majburiy'),
@@ -20,26 +21,110 @@ const storeInfoSchema = z.object({
 
 function StoreInfo() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [mapAddress, setMapAddress] = useState('');
-
-  // Mock initial data
-  const defaultValues = {
-    name: 'Uygaayt Restoran',
-    legalName: 'Uygaayt MChJ',
-    taxId: '123456789',
-    phone: '+998901234567',
-    email: 'info@uygaayt.uz',
-    address: 'Toshkent shahar, Yunusobod tumani, Amir Temur ko\'chasi, 15-uy',
-  };
 
   const form = useForm({
     resolver: zodResolver(storeInfoSchema),
-    defaultValues,
+    defaultValues: {
+      name: '',
+      legalName: '',
+      taxId: '',
+      phone: '',
+      email: '',
+      address: '',
+    },
   });
 
-  React.useEffect(() => {
-    setMapAddress(defaultValues.address);
-  }, []);
+  // API orqali store ma'lumotlarini olish
+  useEffect(() => {
+    const fetchStoreData = async () => {
+      // Token mavjudligini tekshirish
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsLoading(false);
+        // Token yo'q bo'lsa, localStorage'dan olish
+        try {
+          const storeDataStr = localStorage.getItem('storeData');
+          if (storeDataStr) {
+            const storeData = JSON.parse(storeDataStr);
+            const formData = {
+              name: storeData.name || '',
+              legalName: storeData.legalName || '',
+              taxId: storeData.taxId || '',
+              phone: storeData.phoneNumber || '',
+              email: storeData.email || '',
+              address: storeData.addressName || storeData.address || '',
+            };
+            form.reset(formData);
+            if (formData.address) {
+              setMapAddress(formData.address);
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing cached store data:', parseError);
+        }
+        return;
+      }
+
+      // Kichik kechikish - login qilgandan keyin token to'g'ri ishlashini kutish
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      setIsLoading(true);
+      try {
+        const response = await api.get('/store/get');
+        const storeData = response?.data || response;
+        
+        if (storeData) {
+          const formData = {
+            name: storeData.name || '',
+            legalName: storeData.legalName || '',
+            taxId: storeData.taxId || '',
+            phone: storeData.phoneNumber || '',
+            email: storeData.email || '',
+            address: storeData.addressName || storeData.address || '',
+          };
+          
+          form.reset(formData);
+          if (formData.address) {
+            setMapAddress(formData.address);
+          }
+          
+          // localStorage'ga ham saqlash (cache uchun)
+          localStorage.setItem('storeData', JSON.stringify(storeData));
+        }
+      } catch (error) {
+        console.error('Error fetching store data:', error);
+        toast.error('Do\'kon ma\'lumotlarini yuklashda xatolik yuz berdi');
+        
+        // Agar API xato bersa, localStorage'dan olish
+        try {
+          const storeDataStr = localStorage.getItem('storeData');
+          if (storeDataStr) {
+            const storeData = JSON.parse(storeDataStr);
+            const formData = {
+              name: storeData.name || '',
+              legalName: storeData.legalName || '',
+              taxId: storeData.taxId || '',
+              phone: storeData.phoneNumber || '',
+              email: storeData.email || '',
+              address: storeData.addressName || storeData.address || '',
+            };
+            form.reset(formData);
+            if (formData.address) {
+              setMapAddress(formData.address);
+            }
+          }
+        } catch (parseError) {
+          console.error('Error parsing cached store data:', parseError);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchStoreData();
+  }, [form]);
 
   const handleSubmit = async (data) => {
     setIsSubmitting(true);
@@ -60,6 +145,14 @@ function StoreInfo() {
     form.setValue('address', value);
     setMapAddress(value);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-6">

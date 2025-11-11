@@ -29,7 +29,10 @@ const Signin = () => {
     if (!DEV_MODE_BYPASS_AUTH) {
       const token = localStorage.getItem('token');
       if (token) {
-        navigate('/dashboard', { replace: true });
+        // Kichik kechikish - middleware bilan conflict bo'lmasligi uchun
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 100);
       }
     }
   }, [navigate]);
@@ -62,12 +65,18 @@ const Signin = () => {
       if (token) {
         // Store token and store data
         localStorage.setItem('token', token);
+        // Login vaqtini saqlash - API interceptor'da 401 xatolarini e'tiborsiz qoldirish uchun
+        localStorage.setItem('lastLoginTime', Date.now().toString());
         if (store && store._id) {
           localStorage.setItem('storeId', store._id);
+          // Store ma'lumotlarini localStorage'ga saqlash
+          localStorage.setItem('storeData', JSON.stringify(store));
         }
         
         toast.success(t('general.success') || 'Muvaffaqiyatli kirildi');
-        navigate('/dashboard');
+        // Navigate'ni darhol chaqirish - token allaqachon saqlangan
+        // ProtectedRoute token'ni to'g'ri tekshiradi
+        navigate('/dashboard', { replace: true });
       } else {
         setError('Login failed. Please check your credentials.');
         toast.error('Login failed. Please check your credentials.');

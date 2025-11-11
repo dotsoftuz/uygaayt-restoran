@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import {
   ChevronsUpDown,
   LogOut,
@@ -31,11 +32,11 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAppContext } from '@/context/AppContext';
-import { auth } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/provider/ThemeProvider';
+import { logout } from '@/middleware/authMiddleware';
+import api from '@/services/api';
 
 export function NavUser() {
   const { isMobile, state } = useSidebar();
@@ -43,14 +44,58 @@ export function NavUser() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { setTheme } = useTheme();
+  const [storeData, setStoreData] = useState(null);
+
+  // API orqali store ma'lumotlarini olish
+  useEffect(() => {
+    const fetchStoreData = async () => {
+      // Token mavjudligini tekshirish
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // Token yo'q bo'lsa, localStorage'dan olish
+        try {
+          const storeDataStr = localStorage.getItem('storeData');
+          if (storeDataStr) {
+            setStoreData(JSON.parse(storeDataStr));
+          }
+        } catch (parseError) {
+          console.error('Error parsing cached store data:', parseError);
+        }
+        return;
+      }
+
+      // Kichik kechikish - login qilgandan keyin token to'g'ri ishlashini kutish
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      try {
+        const response = await api.get('/store/get');
+        const data = response?.data || response;
+        
+        if (data) {
+          setStoreData(data);
+          // localStorage'ga ham saqlash (cache uchun)
+          localStorage.setItem('storeData', JSON.stringify(data));
+        }
+      } catch (error) {
+        console.error('Error fetching store data:', error);
+        
+        // Agar API xato bersa, localStorage'dan olish
+        try {
+          const storeDataStr = localStorage.getItem('storeData');
+          if (storeDataStr) {
+            setStoreData(JSON.parse(storeDataStr));
+          }
+        } catch (parseError) {
+          console.error('Error parsing cached store data:', parseError);
+        }
+      }
+    };
+
+    fetchStoreData();
+  }, []);
 
   const handleSignOut = async () => {
-    try {
-      await signOut(auth);
-      navigate('/signin');
-    } catch (error) {
-      console.error('Error signing out:', error.message);
-    }
+    logout();
   };
 
   const changeLanguage = (lng) => {
@@ -67,7 +112,7 @@ export function NavUser() {
               size="lg"
               tooltip={
                 state === 'collapsed'
-                  ? userData?.displayName || 'User'
+                  ? storeData?.name || userData?.displayName || 'Do\'kon'
                   : undefined
               }
               className={`data-[state=open]:text-sidebar-accent-foreground 
@@ -106,15 +151,11 @@ export function NavUser() {
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="hidden truncate font-semibold">
-                    {' '}
-                    {userData?.displayName
-                      ? userData?.displayName
-                      : 'Anonymous'}
+                  <span className="truncate font-semibold">
+                    {storeData?.name || userData?.displayName || 'Do\'kon'}
                   </span>
-                  <span className="truncate text-xs">
-                    {' '}
-                    {user?.isAnonymous ? 'anonymous@gmail.com' : user?.email}
+                  <span className="truncate text-xs text-muted-foreground">
+                    {storeData?.email || user?.email || 'email@example.com'}
                   </span>
                 </div>
               </div>

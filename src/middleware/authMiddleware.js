@@ -16,26 +16,27 @@ export const useAuthMiddleware = () => {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    const isPublicRoute = ['/signin', '/signup', '/forgot-password'].includes(location.pathname);
-    const isProtectedRoute = location.pathname.startsWith('/dashboard') || location.pathname === '/';
+    // Kichik kechikish - localStorage o'zgarishlarini kutish uchun
+    const checkAuth = () => {
+      const token = localStorage.getItem('token');
+      const isPublicRoute = ['/signin', '/signup', '/forgot-password'].includes(location.pathname);
+      const isProtectedRoute = location.pathname.startsWith('/dashboard') || location.pathname === '/';
 
-    // Agar protected route'ga kirishga harakat qilayotgan bo'lsa va token yo'q bo'lsa
-    if (isProtectedRoute && !token) {
-      // Navigate'ni setTimeout bilan chaqirish - React Router'ning render sikli tugagandan keyin
-      setTimeout(() => {
-        navigate('/signin', { replace: true });
-      }, 0);
-      return;
-    }
-
-    // Agar public route'ga kirishga harakat qilayotgan bo'lsa va token bo'lsa
-    if (isPublicRoute && token) {
-      setTimeout(() => {
+      // Protected route'lar uchun ProtectedRoute komponenti ishlaydi, shuning uchun middleware faqat public route'lar uchun ishlaydi
+      // Faqat public route'ga kirishga harakat qilayotgan bo'lsa va token bo'lsa, dashboard'ga yo'naltirish
+      if (isPublicRoute && token) {
         navigate('/dashboard', { replace: true });
-      }, 0);
-      return;
-    }
+        return;
+      }
+
+      // Protected route'lar uchun ProtectedRoute komponenti ishlaydi, middleware bu yerda ishlamaydi
+      // Bu middleware va ProtectedRoute o'rtasidagi conflict'ni oldini oladi
+    };
+
+    // Kichik kechikish - login qilgandan keyin token saqlanishini kutish uchun
+    const timeoutId = setTimeout(checkAuth, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [location.pathname, navigate]);
 };
 
