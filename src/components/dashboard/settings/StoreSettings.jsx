@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -126,25 +126,81 @@ function StoreSettings() {
   // Work days state
   const [workDays, setWorkDays] = useState([]);
 
-  // Fetch store data
+  // Ref to track if fetch is in progress
+  const fetchInProgressRef = useRef(false);
+
+  // Fetch store data - faqat birinchi marta yoki komponent mount bo'lganda
   useEffect(() => {
     const fetchStoreData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        // Try to get from localStorage
+      // SessionStorage yordamida birinchi yuklanishni tekshirish
+      // Agar bu session'da allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
+      const sessionFetched = sessionStorage.getItem('storeSettingsFetched');
+      
+      if (sessionFetched === 'true') {
+        // Agar allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
         try {
           const storeDataStr = localStorage.getItem('storeData');
           if (storeDataStr) {
-            const data = JSON.parse(storeDataStr);
-            setStoreData(data);
-            populateForms(data);
+            const cachedData = JSON.parse(storeDataStr);
+            if (cachedData && Object.keys(cachedData).length > 0) {
+              if (!storeData) {
+                setStoreData(cachedData);
+                populateForms(cachedData);
+              }
+              setIsLoading(false);
+            } else {
+              setIsLoading(false);
+            }
+          } else {
+            setIsLoading(false);
           }
         } catch (error) {
           console.error('Error parsing cached store data:', error);
+          setIsLoading(false);
         }
-        setIsLoading(false);
         return;
       }
+
+      // Agar fetch hozir ishlamoqda bo'lsa, kutish
+      if (fetchInProgressRef.current) {
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      
+      // Avval localStorage'dan ma'lumotni tekshirish
+      // Agar ma'lumot mavjud bo'lsa, darhol ko'rsatish
+      let hasCachedData = false;
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const cachedData = JSON.parse(storeDataStr);
+          if (cachedData && Object.keys(cachedData).length > 0) {
+            setStoreData(cachedData);
+            populateForms(cachedData);
+            hasCachedData = true;
+            setIsLoading(false); // Cached data bor bo'lsa, loading'ni darhol to'xtatish
+          }
+        }
+      } catch (error) {
+        console.error('Error parsing cached store data:', error);
+      }
+
+      // Token yo'q bo'lsa, faqat cached data bilan ishlash
+      if (!token) {
+        if (!hasCachedData) {
+          setIsLoading(false);
+        }
+        sessionStorage.setItem('storeSettingsFetched', 'true');
+        return;
+      }
+
+      // API so'rovini faqat birinchi marta yoki cached data bo'lmasa qilish
+      if (!hasCachedData) {
+        setIsLoading(true);
+      }
+
+      fetchInProgressRef.current = true;
 
       try {
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -155,34 +211,32 @@ function StoreSettings() {
           setStoreData(data);
           populateForms(data);
           localStorage.setItem('storeData', JSON.stringify(data));
+          sessionStorage.setItem('storeSettingsFetched', 'true');
         }
       } catch (error) {
         console.error('Error fetching store data:', error);
         
-        // Try to get from localStorage
-        let hasCachedData = false;
-        try {
-          const storeDataStr = localStorage.getItem('storeData');
-          if (storeDataStr) {
-            const data = JSON.parse(storeDataStr);
-            setStoreData(data);
-            populateForms(data);
-            hasCachedData = true;
-          }
-        } catch (parseError) {
-          console.error('Error parsing cached store data:', parseError);
+        // Agar cached data bo'lmasa va xatolik bo'lsa, xatolik xabarini ko'rsatish
+        // Lekin 401 xatolik bo'lsa va cached data bo'lsa, xatolik xabarini ko'rsatmaslik
+        // Chunki 401 xatolik API interceptor tomonidan boshqariladi
+        const is401Error = error?.statusCode === 401 || error?.response?.status === 401;
+        
+        if (!hasCachedData && !is401Error) {
+          toast.error('Do\'kon ma\'lumotlarini yuklashda xatolik yuz berdi');
         }
         
-        // Faqat localStorage'da ma'lumot bo'lmasa, xatolik xabarini ko'rsatish
-        if (!hasCachedData) {
-          toast.error('Do\'kon ma\'lumotlarini yuklashda xatolik yuz berdi');
+        // Agar cached data bo'lsa, fetch qilingan deb belgilash
+        if (hasCachedData) {
+          sessionStorage.setItem('storeSettingsFetched', 'true');
         }
       } finally {
         setIsLoading(false);
+        fetchInProgressRef.current = false;
       }
     };
 
     fetchStoreData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const populateForms = (data) => {

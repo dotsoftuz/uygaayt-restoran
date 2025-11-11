@@ -90,9 +90,9 @@ api.interceptors.response.use(
         }
         
         const currentTime = Date.now();
-        const timeWindow = 10000; // 10 soniya
+        const timeWindow = 15000; // 15 soniya (10 dan 15 ga oshirildi)
         
-        // 10 soniyadan eski xatolarni olib tashlash
+        // 15 soniyadan eski xatolarni olib tashlash
         failed401Data.errors = failed401Data.errors.filter(
           (errorTime) => currentTime - errorTime < timeWindow
         );
@@ -102,8 +102,9 @@ api.interceptors.response.use(
         failed401Data.lastErrorTime = currentTime;
         failed401Data.count = failed401Data.errors.length;
         
-        // Agar 10 soniya ichida 5 martadan ko'p 401 xatosi bo'lmasa, token'ni o'chirmaslik
-        if (failed401Data.count < 5) {
+        // Agar 15 soniya ichida 3 martadan ko'p 401 xatosi bo'lmasa, token'ni o'chirmaslik
+        // (5 dan 3 ga kamaytirildi - faqat haqiqiy muammolarda o'chirish)
+        if (failed401Data.count < 3) {
           sessionStorage.setItem('failed401Requests', JSON.stringify(failed401Data));
           
           // Token'ni o'chirmaslik, faqat xatoni qaytarish
@@ -116,8 +117,10 @@ api.interceptors.response.use(
           );
         }
         
-        // Agar 10 soniya ichida 5 martadan ko'p 401 xatosi bo'lsa, token'ni o'chirish va redirect qilish
+        // Agar 15 soniya ichida 3 martadan ko'p 401 xatosi bo'lsa, token'ni o'chirish va redirect qilish
+        // Bu haqiqiy autentifikatsiya muammosi ekanligini ko'rsatadi
         sessionStorage.removeItem('failed401Requests');
+        sessionStorage.removeItem('storeSettingsFetched'); // StoreSettings fetch flag'ini ham tozalash
         localStorage.removeItem('token');
         localStorage.removeItem('storeId');
         localStorage.removeItem('storeData');

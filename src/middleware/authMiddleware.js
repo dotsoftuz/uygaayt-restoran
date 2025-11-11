@@ -35,7 +35,7 @@ export const useAuthMiddleware = () => {
 
     // Kichik kechikish - login qilgandan keyin token saqlanishini kutish uchun
     const timeoutId = setTimeout(checkAuth, 100);
-    
+
     return () => clearTimeout(timeoutId);
   }, [location.pathname, navigate]);
 };

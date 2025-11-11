@@ -56,9 +56,11 @@ const ProtectedRoute = ({ children }) => {
   }, []);
 
   // Path o'zgarganda token'ni qayta tekshirish
+  // Faqat pathname o'zgarganda tekshirish, query parametrlar o'zgarganda emas
   useEffect(() => {
     // Path o'zgarganda, token hali ham mavjudligini tekshirish
     // Bu API interceptor token'ni o'chirgan bo'lsa, uni aniqlash uchun
+    // Lekin faqat pathname o'zgarganda, query parametrlar o'zgarganda emas
     const token = localStorage.getItem('token');
     const hasToken = !!token;
     setIsAuth(hasToken);
