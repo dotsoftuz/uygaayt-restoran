@@ -2,7 +2,7 @@ import MainPage from '@/components/dashboard/MainPage';
 import SettingsPage from '@/components/dashboard/settings/Settings';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import { auth } from '@/firebase';
+import AuthGuard from '@/components/AuthGuard';
 import { DEV_MODE_BYPASS_AUTH } from '@/config/dev';
 import {
   Navigate,
@@ -30,50 +30,52 @@ function Dashboard() {
 
   return (
     <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <Navigate
-              to={
-                DEV_MODE_BYPASS_AUTH
-                  ? '/dashboard'
-                  : auth.currentUser
+      <AuthGuard>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Navigate
+                to={
+                  DEV_MODE_BYPASS_AUTH
                     ? '/dashboard'
-                    : '/signin'
-              }
-              replace
-            />
-          }
-        />
-        <Route path="/signin" element={<Signin />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+                    : localStorage.getItem('token')
+                      ? '/dashboard'
+                      : '/signin'
+                }
+                replace
+              />
+            }
+          />
+          <Route path="/signin" element={<Signin />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<MainPage />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="order-detail/:orderId" element={<OrderDetail />} />
-          <Route path="products" element={<Products />} />
-          <Route path="product-detail/:productId" element={<ProductDetail />} />
-          <Route path="catalog" element={<Catalog />} />
-          <Route path="finance" element={<Finance />} />
-          <Route path="promotions" element={<Promotions />} />
-          <Route path="reviews" element={<Reviews />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="activity-log" element={<ActivityLog />} />
-          <Route path="help" element={<Help />} />
-        </Route>
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<MainPage />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="order-detail/:orderId" element={<OrderDetail />} />
+            <Route path="products" element={<Products />} />
+            <Route path="product-detail/:productId" element={<ProductDetail />} />
+            <Route path="catalog" element={<Catalog />} />
+            <Route path="finance" element={<Finance />} />
+            <Route path="promotions" element={<Promotions />} />
+            <Route path="reviews" element={<Reviews />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="activity-log" element={<ActivityLog />} />
+            <Route path="help" element={<Help />} />
+          </Route>
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthGuard>
     </Router>
   );
 }

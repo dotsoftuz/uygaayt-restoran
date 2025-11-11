@@ -8,20 +8,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { auth } from '@/firebase';
 import { cn } from '@/lib/utils';
-import { signInAnonymously, signInWithEmailAndPassword } from 'firebase/auth';
 import { ChevronLeft } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import api from '@/services/api';
+import { DEV_MODE_BYPASS_AUTH } from '@/config/dev';
 
 const Signin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+
+  // Redirect to dashboard if already logged in
+  // Middleware ham buni qiladi, lekin bu yerda ham tekshirish yaxshi
+  useEffect(() => {
+    if (!DEV_MODE_BYPASS_AUTH) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [navigate]);
 
   const changeLanguage = (lng) => {
     i18n.changeLanguage(lng);
@@ -34,23 +45,37 @@ const Signin = () => {
   } = useForm();
 
   const handleSignIn = async (data) => {
-    const { email, password } = data;
+    const { phoneNumber, password } = data;
+    setError('');
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/dashboard');
-    } catch (error) {
-      setError(error.message);
-    }
-  };
+      const response = await api.post('/store/login', {
+        phoneNumber,
+        password,
+      });
 
-  const handleAnonymousSignIn = async () => {
-    try {
-      const userCredential = await signInAnonymously(auth);
-      const user = userCredential.user;
-      navigate('/dashboard');
-      toast('Signed in anonymously:');
+      // API interceptor returns response.data, so response is already the data part
+      // NestJS might wrap it as { statusCode: 200, data: { store, token } } or return { store, token } directly
+      // Check both nested data and direct response
+      const token = response?.data?.token || response?.token;
+      const store = response?.data?.store || response?.store;
+      
+      if (token) {
+        // Store token and store data
+        localStorage.setItem('token', token);
+        if (store && store._id) {
+          localStorage.setItem('storeId', store._id);
+        }
+        
+        toast.success(t('general.success') || 'Muvaffaqiyatli kirildi');
+        navigate('/dashboard');
+      } else {
+        setError('Login failed. Please check your credentials.');
+        toast.error('Login failed. Please check your credentials.');
+      }
     } catch (error) {
-      console.error('Error signing in anonymously:', error.message);
+      const errorMessage = error?.message || error?.data?.message || 'Login failed. Please try again.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -92,7 +117,7 @@ const Signin = () => {
             {t('Uygaayt Super Admin')}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {t('Hisobga kirish uchun email va parol kiriting')}
+            {t('Hisobga kirish uchun telefon raqami va parol kiriting')}
           </p>
         </div>
         <form
@@ -101,33 +126,39 @@ const Signin = () => {
         >
           <div className="space-y-1">
             <Label
-              htmlFor="email"
+              htmlFor="phoneNumber"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Email
+              {t('Telefon raqami') || 'Telefon raqami'}
             </Label>
             <Input
-              type="email"
-              id="email"
-              placeholder="example@gmail.com"
-              {...register('email', { required: 'Email is required' })}
+              type="tel"
+              id="phoneNumber"
+              placeholder="+998901234567"
+              {...register('phoneNumber', { 
+                required: 'Telefon raqami majburiy',
+                pattern: {
+                  value: /^\+[1-9]\d{7,14}$/,
+                  message: 'Telefon raqami noto\'g\'ri formatda'
+                }
+              })}
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            {errors.email && (
+            {errors.phoneNumber && (
               <p className="text-sm text-red-500 mt-2">
-                {errors.email.message}
+                {errors.phoneNumber.message}
               </p>
             )}
           </div>
 
           <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <Label
-                htmlFor="password"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Password
-              </Label>
+            <Label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              {t('Parol') || 'Parol'}
+            </Label>
               <p className="hidden text-muted-foreground text-xs">
                 <Link
                   to="/forgot-password"
@@ -141,7 +172,7 @@ const Signin = () => {
               type="password"
               id="password"
               placeholder="********"
-              {...register('password', { required: 'Password is required' })}
+              {...register('password', { required: 'Parol majburiy' })}
               className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {errors.password && (

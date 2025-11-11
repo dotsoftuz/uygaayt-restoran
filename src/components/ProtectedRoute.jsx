@@ -1,53 +1,25 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/firebase';
-import { Loader } from 'lucide-react';
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 import { DEV_MODE_BYPASS_AUTH } from '@/config/dev';
 
 const ProtectedRoute = ({ children }) => {
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    // In development mode, bypass authentication check
-    if (DEV_MODE_BYPASS_AUTH) {
-      setIsAuthenticated(true);
-      setLoading(false);
-      return;
-    }
-
-    // Normal authentication flow for production
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="bg-background h-screen w-full flex items-center justify-center">
-        <Loader className="w-6 h-6 animate-spin" />
-      </div>
-    );
-  }
-
-  // In development mode, always allow access
+  const location = useLocation();
+  
+  // Development mode'da darhol ruxsat berish
   if (DEV_MODE_BYPASS_AUTH) {
     return children;
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/signin" replace />;
+  // Darhol token tekshiruvi - loading holatini minimallashtirish
+  const token = localStorage.getItem('token');
+  const isAuth = !!token;
+
+  // Agar token yo'q bo'lsa, darhol signin'ga yo'naltirish
+  if (!isAuth) {
+    return <Navigate to="/signin" replace state={{ from: location }} />;
   }
 
+  // Token bor bo'lsa, children'ni ko'rsatish
   return children;
 };
 
