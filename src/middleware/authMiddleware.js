@@ -24,13 +24,18 @@ export const useAuthMiddleware = () => {
 
       // Protected route'lar uchun ProtectedRoute komponenti ishlaydi, shuning uchun middleware faqat public route'lar uchun ishlaydi
       // Faqat public route'ga kirishga harakat qilayotgan bo'lsa va token bo'lsa, dashboard'ga yo'naltirish
+      // Lekin refresh berilgan URL protected route bo'lsa, o'sha URL'da qolish kerak
       if (isPublicRoute && token) {
-        navigate('/dashboard', { replace: true });
+        // Agar location.state.from bo'lsa (masalan, protected route'dan kelgan bo'lsa), o'sha URL'ga yo'naltirish
+        const from = location.state?.from?.pathname;
+        const redirectTo = from && from.startsWith('/dashboard') ? from : '/dashboard';
+        navigate(redirectTo, { replace: true });
         return;
       }
 
       // Protected route'lar uchun ProtectedRoute komponenti ishlaydi, middleware bu yerda ishlamaydi
       // Bu middleware va ProtectedRoute o'rtasidagi conflict'ni oldini oladi
+      // Refresh berilganda, agar token bo'lsa, ProtectedRoute o'sha URL'da qoladi
     };
 
     // Kichik kechikish - login qilgandan keyin token saqlanishini kutish uchun

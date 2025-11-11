@@ -13,7 +13,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import api from '@/services/api';
 import { DEV_MODE_BYPASS_AUTH } from '@/config/dev';
@@ -21,6 +21,7 @@ import { DEV_MODE_BYPASS_AUTH } from '@/config/dev';
 const Signin = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
 
   // Redirect to dashboard if already logged in
@@ -31,7 +32,11 @@ const Signin = () => {
       if (token) {
         // Kichik kechikish - middleware bilan conflict bo'lmasligi uchun
         setTimeout(() => {
-          navigate('/dashboard', { replace: true });
+          // Agar location.state.from bo'lsa (masalan, protected route'dan kelgan bo'lsa), o'sha URL'ga yo'naltirish
+          // Aks holda dashboard'ga
+          const from = location.state?.from?.pathname;
+          const redirectTo = from && from !== '/signin' ? from : '/dashboard';
+          navigate(redirectTo, { replace: true });
         }, 100);
       }
     }

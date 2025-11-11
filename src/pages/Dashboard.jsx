@@ -9,6 +9,7 @@ import {
   Route,
   BrowserRouter as Router,
   Routes,
+  useLocation,
 } from 'react-router-dom';
 import Orders from './Orders';
 import OrderDetail from './OrderDetail';
@@ -25,6 +26,25 @@ import Signup from './Signup';
 import ForgotPassword from './ForgotPassword';
 import NotFound from './NotFound';
 
+// Root redirect komponenti - refresh berilgan URL'ni saqlab qoladi
+const RootRedirect = () => {
+  const location = useLocation();
+  const token = localStorage.getItem('token');
+  
+  // Development mode'da darhol dashboard'ga
+  if (DEV_MODE_BYPASS_AUTH) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  // Token bo'lsa, dashboard'ga yo'naltirish
+  if (token) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
+  // Token yo'q bo'lsa, signin'ga yo'naltirish
+  return <Navigate to="/signin" replace state={{ from: location }} />;
+};
+
 function Dashboard() {
 // yarn vite --host 127.0.0.1 --port 3000
 
@@ -34,18 +54,7 @@ function Dashboard() {
         <Routes>
           <Route
             path="/"
-            element={
-              <Navigate
-                to={
-                  DEV_MODE_BYPASS_AUTH
-                    ? '/dashboard'
-                    : localStorage.getItem('token')
-                      ? '/dashboard'
-                      : '/signin'
-                }
-                replace
-              />
-            }
+            element={<RootRedirect />}
           />
           <Route path="/signin" element={<Signin />} />
           <Route path="/signup" element={<Signup />} />

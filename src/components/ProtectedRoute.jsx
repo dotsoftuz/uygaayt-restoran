@@ -5,13 +5,18 @@ import { Loader } from 'lucide-react';
 
 const ProtectedRoute = ({ children }) => {
   const location = useLocation();
-  const [isChecking, setIsChecking] = useState(true);
-  const [isAuth, setIsAuth] = useState(false);
 
   // Development mode'da darhol ruxsat berish
   if (DEV_MODE_BYPASS_AUTH) {
     return children;
   }
+
+  // Token'ni darhol tekshirish - refresh'da tez ishlash uchun
+  const token = localStorage.getItem('token');
+  const hasToken = !!token;
+
+  const [isChecking, setIsChecking] = useState(!hasToken); // Agar token bo'lsa, checking'ni false qilish
+  const [isAuth, setIsAuth] = useState(hasToken); // Darhol token borligini belgilash
 
   useEffect(() => {
     // Token tekshiruvi
@@ -23,7 +28,14 @@ const ProtectedRoute = ({ children }) => {
       setIsChecking(false);
     };
 
-    // Darhol tekshirish
+    // Agar token bo'lsa, darhol ruxsat berish
+    if (hasToken) {
+      setIsAuth(true);
+      setIsChecking(false);
+      return;
+    }
+
+    // Token yo'q bo'lsa, tekshirish
     checkAuth();
 
     // Storage o'zgarishlarini kuzatish (token o'chirilganda yoki qo'shilganda)
