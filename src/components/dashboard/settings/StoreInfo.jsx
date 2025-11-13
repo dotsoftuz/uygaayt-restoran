@@ -129,13 +129,41 @@ function StoreInfo() {
   const handleSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log('Store info saved:', data);
+      // API'ga so'rov yuborish
+      const updateData = {
+        name: data.name,
+        phoneNumber: data.phone,
+        email: data.email || undefined,
+        legalName: data.legalName || undefined,
+        taxId: data.taxId || undefined,
+        addressName: data.address,
+      };
+
+      const response = await api.patch('/store/update', updateData);
+      
+      // Muvaffaqiyatli saqlangan ma'lumotlarni localStorage'ga yangilash
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const storeData = JSON.parse(storeDataStr);
+          const updatedData = {
+            ...storeData,
+            ...updateData,
+            // phoneNumber va addressName'ni ham to'g'ri saqlash
+            phoneNumber: data.phone,
+            addressName: data.address,
+          };
+          localStorage.setItem('storeData', JSON.stringify(updatedData));
+        }
+      } catch (parseError) {
+        console.error('Error updating localStorage:', parseError);
+      }
+
       toast.success('Do\'kon ma\'lumotlari saqlandi');
     } catch (error) {
       console.error('Error saving store info:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.message || error?.data?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -276,7 +304,18 @@ function StoreInfo() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => form.reset(defaultValues)}
+          onClick={() => {
+            // Form'ni default qiymatlarga qaytarish
+            form.reset({
+              name: '',
+              legalName: '',
+              taxId: '',
+              phone: '',
+              email: '',
+              address: '',
+            });
+            setMapAddress('');
+          }}
           className="text-xs sm:text-sm"
         >
           Bekor qilish

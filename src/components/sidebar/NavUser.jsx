@@ -94,7 +94,7 @@ export function NavUser() {
     fetchStoreData();
   }, []);
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     logout();
   };
 

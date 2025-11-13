@@ -24,6 +24,13 @@ export const useServices = () => {
     setLoading(true);
     setError(null);
 
+    // Agar userUid bo'sh bo'lsa, xizmatlarni yuklamaslik
+    if (!userUid) {
+      setServices([]);
+      setLoading(false);
+      return null;
+    }
+
     try {
       const servicesCollection = collection(db, `users/${userUid}/services`);
       const q = query(servicesCollection, orderBy('createdAt', 'desc'));
@@ -40,7 +47,14 @@ export const useServices = () => {
         },
         (error) => {
           console.error('Error fetching services:', error);
-          setError(error.message);
+          // Firebase permission xatoliklarini to'g'ri boshqarish
+          if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+            setError('Firebase ruxsatlari yetarli emas. Iltimos, Firestore Security Rules\'ni tekshiring.');
+            // Xatolikni ko'rsatmaslik, faqat bo'sh ro'yxat qaytarish
+            setServices([]);
+          } else {
+            setError(error.message);
+          }
           setLoading(false);
         }
       );
@@ -48,12 +62,26 @@ export const useServices = () => {
       return unsubscribe;
     } catch (error) {
       console.error('Error setting up services listener:', error);
-      setError(error.message);
+      // Firebase permission xatoliklarini to'g'ri boshqarish
+      if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        setError('Firebase ruxsatlari yetarli emas. Iltimos, Firestore Security Rules\'ni tekshiring.');
+        setServices([]);
+      } else {
+        setError(error.message);
+      }
       setLoading(false);
+      return null;
     }
   };
 
   const addService = async (serviceData) => {
+    if (!userUid) {
+      const error = new Error('Foydalanuvchi ID mavjud emas');
+      setError(error.message);
+      toast.error("Xizmat qo'shishda xatolik yuz berdi");
+      throw error;
+    }
+
     try {
       setError(null);
       const servicesCollection = collection(db, `users/${userUid}/services`);
@@ -67,13 +95,27 @@ export const useServices = () => {
       toast.success("Xizmat muvaffaqiyatli qo'shildi");
     } catch (error) {
       console.error('Error adding service:', error);
-      setError(error.message);
-      toast.error("Xizmat qo'shishda xatolik yuz berdi");
+      // Firebase permission xatoliklarini to'g'ri boshqarish
+      if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        const errorMessage = 'Firebase ruxsatlari yetarli emas. Iltimos, Firestore Security Rules\'ni tekshiring.';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } else {
+        setError(error.message);
+        toast.error("Xizmat qo'shishda xatolik yuz berdi");
+      }
       throw error;
     }
   };
 
   const updateService = async (serviceId, updatedData) => {
+    if (!userUid) {
+      const error = new Error('Foydalanuvchi ID mavjud emas');
+      setError(error.message);
+      toast.error('Xizmat yangilashda xatolik yuz berdi');
+      throw error;
+    }
+
     try {
       setError(null);
       const serviceDoc = doc(db, `users/${userUid}/services`, serviceId);
@@ -86,13 +128,27 @@ export const useServices = () => {
       toast.success('Xizmat muvaffaqiyatli yangilandi');
     } catch (error) {
       console.error('Error updating service:', error);
-      setError(error.message);
-      toast.error('Xizmat yangilashda xatolik yuz berdi');
+      // Firebase permission xatoliklarini to'g'ri boshqarish
+      if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        const errorMessage = 'Firebase ruxsatlari yetarli emas. Iltimos, Firestore Security Rules\'ni tekshiring.';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } else {
+        setError(error.message);
+        toast.error('Xizmat yangilashda xatolik yuz berdi');
+      }
       throw error;
     }
   };
 
   const deleteService = async (serviceId) => {
+    if (!userUid) {
+      const error = new Error('Foydalanuvchi ID mavjud emas');
+      setError(error.message);
+      toast.error("Xizmat o'chirishda xatolik yuz berdi");
+      throw error;
+    }
+
     try {
       setError(null);
       const serviceDoc = doc(db, `users/${userUid}/services`, serviceId);
@@ -100,20 +156,34 @@ export const useServices = () => {
       toast.success("Xizmat muvaffaqiyatli o'chirildi");
     } catch (error) {
       console.error('Error deleting service:', error);
-      setError(error.message);
-      toast.error("Xizmat o'chirishda xatolik yuz berdi");
+      // Firebase permission xatoliklarini to'g'ri boshqarish
+      if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+        const errorMessage = 'Firebase ruxsatlari yetarli emas. Iltimos, Firestore Security Rules\'ni tekshiring.';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      } else {
+        setError(error.message);
+        toast.error("Xizmat o'chirishda xatolik yuz berdi");
+      }
       throw error;
     }
   };
 
   useEffect(() => {
+    // Faqat userUid mavjud bo'lganda xizmatlarni yuklash
+    if (!userUid) {
+      setServices([]);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = fetchServices();
     return () => {
       if (unsubscribe) {
         unsubscribe();
       }
     };
-  }, []);
+  }, [userUid]);
 
   return {
     services,

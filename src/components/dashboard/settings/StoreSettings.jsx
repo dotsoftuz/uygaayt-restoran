@@ -303,23 +303,38 @@ function StoreSettings() {
   const handleBasicSubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
         name: data.name,
         phoneNumber: data.phoneNumber,
         email: data.email || undefined,
         website: data.website || undefined,
+        workTime: storeData?.workTime || '08:00-20:00', // Majburiy maydon
       };
 
-      const response = await api.patch('/store/update', updateData);
-      toast.success('Asosiy ma\'lumotlar saqlandi');
+      const response = await api.put('/store/update', updateData);
       
-      // Update local state
-      const updatedData = { ...storeData, ...updateData };
-      setStoreData(updatedData);
-      localStorage.setItem('storeData', JSON.stringify(updatedData));
+      // Response'dan kelgan ma'lumotlarni ishlatish (agar backend yangilangan ma'lumotlarni qaytarsa)
+      const updatedStoreData = response?.data || response || updateData;
+      
+      // Update local state va localStorage
+      const finalData = { ...storeData, ...updatedStoreData };
+      setStoreData(finalData);
+      localStorage.setItem('storeData', JSON.stringify(finalData));
+      
+      // Form'ni yangilash
+      basicForm.reset({
+        name: updatedStoreData.name || data.name,
+        phoneNumber: updatedStoreData.phoneNumber || data.phoneNumber,
+        email: updatedStoreData.email || data.email,
+        website: updatedStoreData.website || data.website,
+      });
+      
+      toast.success('Asosiy ma\'lumotlar saqlandi');
     } catch (error) {
       console.error('Error updating basic info:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -328,26 +343,54 @@ function StoreSettings() {
   const handleLocationSubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
+        name: storeData?.name || '',
+        phoneNumber: storeData?.phoneNumber || '',
         addressName: data.addressName,
         addressLocation: data.latitude && data.longitude ? {
           latitude: data.latitude,
           longitude: data.longitude,
         } : undefined,
-        workTime: data.workTime || undefined,
-        workDays: workDays,
+        workTime: data.workTime || workTimeRange.start && workTimeRange.end 
+          ? `${workTimeRange.start}-${workTimeRange.end}` 
+          : storeData?.workTime || '08:00-20:00',
       };
 
-      const response = await api.patch('/store/update', updateData);
-      toast.success('Manzil va ish vaqti saqlandi');
+      const response = await api.put('/store/update', updateData);
       
-      // Update local state
-      const updatedData = { ...storeData, ...updateData };
-      setStoreData(updatedData);
-      localStorage.setItem('storeData', JSON.stringify(updatedData));
+      // Response'dan kelgan ma'lumotlarni ishlatish
+      const updatedStoreData = response?.data || response || updateData;
+      
+      // Update local state va localStorage
+      const finalData = { ...storeData, ...updatedStoreData };
+      setStoreData(finalData);
+      localStorage.setItem('storeData', JSON.stringify(finalData));
+      
+      // Map address'ni ham yangilash
+      if (updatedStoreData.addressName) {
+        setMapAddress(updatedStoreData.addressName);
+      }
+      
+      // Work time range'ni yangilash
+      if (updatedStoreData.workTime) {
+        setWorkTimeRange(parseWorkTime(updatedStoreData.workTime));
+      }
+      
+      // Form'ni yangilash
+      locationForm.reset({
+        addressName: updatedStoreData.addressName || data.addressName,
+        latitude: updatedStoreData.addressLocation?.latitude || data.latitude,
+        longitude: updatedStoreData.addressLocation?.longitude || data.longitude,
+        workTime: updatedStoreData.workTime || data.workTime,
+        workDays: updatedStoreData.workDays || data.workDays,
+      });
+      
+      toast.success('Manzil va ish vaqti saqlandi');
     } catch (error) {
       console.error('Error updating location:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -356,23 +399,40 @@ function StoreSettings() {
   const handleDeliverySubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
-        deliveryPrice: data.deliveryPrice,
-        orderMinimumPrice: data.orderMinimumPrice,
-        itemPrepTimeFrom: data.itemPrepTimeFrom,
-        itemPrepTimeTo: data.itemPrepTimeTo,
+        name: storeData?.name || '',
+        phoneNumber: storeData?.phoneNumber || '',
+        workTime: storeData?.workTime || '08:00-20:00',
+        deliveryPrice: data.deliveryPrice || 0,
+        orderMinimumPrice: data.orderMinimumPrice || 0,
+        itemPrepTimeFrom: data.itemPrepTimeFrom || 10,
+        itemPrepTimeTo: data.itemPrepTimeTo || 15,
       };
 
-      const response = await api.patch('/store/update', updateData);
-      toast.success('Yetkazib berish sozlamalari saqlandi');
+      const response = await api.put('/store/update', updateData);
       
-      // Update local state
-      const updatedData = { ...storeData, ...updateData };
-      setStoreData(updatedData);
-      localStorage.setItem('storeData', JSON.stringify(updatedData));
+      // Response'dan kelgan ma'lumotlarni ishlatish
+      const updatedStoreData = response?.data || response || updateData;
+      
+      // Update local state va localStorage
+      const finalData = { ...storeData, ...updatedStoreData };
+      setStoreData(finalData);
+      localStorage.setItem('storeData', JSON.stringify(finalData));
+      
+      // Form'ni yangilash
+      deliveryForm.reset({
+        deliveryPrice: updatedStoreData.deliveryPrice ?? data.deliveryPrice,
+        orderMinimumPrice: updatedStoreData.orderMinimumPrice ?? data.orderMinimumPrice,
+        itemPrepTimeFrom: updatedStoreData.itemPrepTimeFrom ?? data.itemPrepTimeFrom,
+        itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? data.itemPrepTimeTo,
+      });
+      
+      toast.success('Yetkazib berish sozlamalari saqlandi');
     } catch (error) {
       console.error('Error updating delivery:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -381,21 +441,51 @@ function StoreSettings() {
   const handlePaymentStatusSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
+      // Lekin bu maydonlar faqat to'lov usullari va status uchun, shuning uchun mavjud qiymatlarni ishlatamiz
       const updateData = {
-        ...paymentMethods,
-        ...statusFlags,
+        name: storeData?.name || '',
+        phoneNumber: storeData?.phoneNumber || '',
+        workTime: storeData?.workTime || '08:00-20:00',
+        acceptCash: paymentMethods.acceptCash,
+        acceptCard: paymentMethods.acceptCard,
+        acceptOnlinePayment: paymentMethods.acceptOnlinePayment,
+        isActive: statusFlags.isActive,
+        isVerified: statusFlags.isVerified,
+        isPremium: statusFlags.isPremium,
       };
 
-      const response = await api.patch('/store/update', updateData);
-      toast.success('To\'lov usullari va status saqlandi');
+      const response = await api.put('/store/update', updateData);
       
-      // Update local state
-      const updatedData = { ...storeData, ...updateData };
-      setStoreData(updatedData);
-      localStorage.setItem('storeData', JSON.stringify(updatedData));
+      // Response'dan kelgan ma'lumotlarni ishlatish
+      const updatedStoreData = response?.data || response || updateData;
+      
+      // Update local state va localStorage
+      const finalData = { ...storeData, ...updatedStoreData };
+      setStoreData(finalData);
+      localStorage.setItem('storeData', JSON.stringify(finalData));
+      
+      // Payment methods va status flags'ni ham yangilash (agar response'dan kelgan bo'lsa)
+      if (updatedStoreData.acceptCash !== undefined) {
+        setPaymentMethods({
+          acceptCash: updatedStoreData.acceptCash || false,
+          acceptCard: updatedStoreData.acceptCard || false,
+          acceptOnlinePayment: updatedStoreData.acceptOnlinePayment || false,
+        });
+      }
+      if (updatedStoreData.isActive !== undefined) {
+        setStatusFlags({
+          isActive: updatedStoreData.isActive !== undefined ? updatedStoreData.isActive : true,
+          isVerified: updatedStoreData.isVerified || false,
+          isPremium: updatedStoreData.isPremium || false,
+        });
+      }
+      
+      toast.success('To\'lov usullari va status saqlandi');
     } catch (error) {
       console.error('Error updating payment/status:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -404,25 +494,49 @@ function StoreSettings() {
   const handleDescriptionSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
-        description: description.uz,
+        name: storeData?.name || '',
+        phoneNumber: storeData?.phoneNumber || '',
+        workTime: storeData?.workTime || '08:00-20:00',
+        description: description.uz || '',
         descriptionTranslate: {
-          uz: description.uz,
-          ru: description.ru,
-          en: description.en,
+          uz: description.uz || '',
+          ru: description.ru || '',
+          en: description.en || '',
         },
       };
 
-      const response = await api.patch('/store/update', updateData);
-      toast.success('Tavsif saqlandi');
+      const response = await api.put('/store/update', updateData);
       
-      // Update local state
-      const updatedData = { ...storeData, ...updateData };
-      setStoreData(updatedData);
-      localStorage.setItem('storeData', JSON.stringify(updatedData));
+      // Response'dan kelgan ma'lumotlarni ishlatish
+      const updatedStoreData = response?.data || response || updateData;
+      
+      // Update local state va localStorage
+      const finalData = { ...storeData, ...updatedStoreData };
+      setStoreData(finalData);
+      localStorage.setItem('storeData', JSON.stringify(finalData));
+      
+      // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
+      if (updatedStoreData.descriptionTranslate) {
+        setDescription({
+          uz: updatedStoreData.descriptionTranslate.uz || updatedStoreData.description || '',
+          ru: updatedStoreData.descriptionTranslate.ru || '',
+          en: updatedStoreData.descriptionTranslate.en || '',
+        });
+      } else if (updatedStoreData.description) {
+        setDescription({
+          uz: updatedStoreData.description || '',
+          ru: '',
+          en: '',
+        });
+      }
+      
+      toast.success('Tavsif saqlandi');
     } catch (error) {
       console.error('Error updating description:', error);
-      toast.error('Ma\'lumotlarni saqlashda xatolik yuz berdi');
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }

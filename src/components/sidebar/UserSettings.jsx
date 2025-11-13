@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/firebase';
 import { useTheme } from '@/provider/ThemeProvider';
 import { cn } from '@/lib/utils';
 import { Settings, Sun, Moon, Monitor, SunMoon, LogOut } from 'lucide-react';
+import { logout } from '@/middleware/authMiddleware';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,13 +26,7 @@ export function UserSettings() {
   const { state } = useSidebar();
 
   const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        console.log('Signed out successfully');
-      })
-      .catch((error) => {
-        console.error(error);
-      });
+    logout();
   };
 
   useEffect(() => {

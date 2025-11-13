@@ -70,6 +70,8 @@ export const getToken = () => {
 export const logout = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('storeId');
+  localStorage.removeItem('storeData');
+  localStorage.removeItem('lastLoginTime');
   window.location.href = '/signin';
 };
 
