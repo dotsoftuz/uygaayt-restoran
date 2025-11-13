@@ -104,3 +104,70 @@ body {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+
+/* Text Editor Styles */
+.text-editor-wrapper .text-editor {
+  background: transparent;
+}
+
+.text-editor-wrapper .ql-container {
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  border: 1px solid hsl(var(--input));
+  background: hsl(var(--background));
+  font-size: 0.875rem;
+}
+
+.text-editor-wrapper .ql-editor {
+  min-height: 120px;
+  padding: 0.75rem;
+  color: hsl(var(--foreground));
+}
+
+.text-editor-wrapper .ql-editor.ql-blank::before {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+.text-editor-wrapper .ql-toolbar {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+  border: 1px solid hsl(var(--input));
+  border-bottom: none;
+  background: hsl(var(--muted));
+  padding: 0.5rem;
+}
+
+.text-editor-wrapper .ql-toolbar .ql-stroke {
+  stroke: hsl(var(--foreground));
+}
+
+.text-editor-wrapper .ql-toolbar .ql-fill {
+  fill: hsl(var(--foreground));
+}
+
+.text-editor-wrapper .ql-toolbar button:hover,
+.text-editor-wrapper .ql-toolbar button.ql-active {
+  background: hsl(var(--accent));
+}
+
+.text-editor-wrapper .ql-toolbar button:hover .ql-stroke,
+.text-editor-wrapper .ql-toolbar button.ql-active .ql-stroke {
+  stroke: hsl(var(--accent-foreground));
+}
+
+.text-editor-wrapper .ql-toolbar button:hover .ql-fill,
+.text-editor-wrapper .ql-toolbar button.ql-active .ql-fill {
+  fill: hsl(var(--accent-foreground));
+}
+
+.text-editor-wrapper .ql-editor p,
+.text-editor-wrapper .ql-editor ol,
+.text-editor-wrapper .ql-editor ul {
+  margin: 0;
+}
+
+.text-editor-wrapper .ql-editor ol,
+.text-editor-wrapper .ql-editor ul {
+  padding-left: 1.5rem;
+}

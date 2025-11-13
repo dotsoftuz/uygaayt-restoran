@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import TextEditor from '@/components/ui/text-editor';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -1146,31 +1147,28 @@ function StoreSettings() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">O'zbekcha tavsif</Label>
-                  <Textarea
+                  <TextEditor
                     value={description.uz}
-                    onChange={(e) => setDescription({ ...description, uz: e.target.value })}
+                    onChange={(value) => setDescription({ ...description, uz: value })}
                     placeholder="O'zbekcha tavsif kiriting..."
-                    className="text-sm sm:text-base min-h-[120px]"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">Ruscha tavsif</Label>
-                  <Textarea
+                  <TextEditor
                     value={description.ru}
-                    onChange={(e) => setDescription({ ...description, ru: e.target.value })}
+                    onChange={(value) => setDescription({ ...description, ru: value })}
                     placeholder="Ruscha tavsif kiriting..."
-                    className="text-sm sm:text-base min-h-[120px]"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">Inglizcha tavsif</Label>
-                  <Textarea
+                  <TextEditor
                     value={description.en}
-                    onChange={(e) => setDescription({ ...description, en: e.target.value })}
+                    onChange={(value) => setDescription({ ...description, en: value })}
                     placeholder="Inglizcha tavsif kiriting..."
-                    className="text-sm sm:text-base min-h-[120px]"
                   />
                 </div>
         </div>
