@@ -98,7 +98,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     resolver: zodResolver(promotionSchema),
     defaultValues: {
       code: '',
-      type: 'percentage',
+      type: 'fixed', // 'percentage' o'rniga 'fixed'
       discountValue: 0,
       discountType: 'code',
       minOrderValue: null,
@@ -112,11 +112,33 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     },
   });
 
+  // Reset form when sheet opens/closes or promotion changes
   React.useEffect(() => {
+    if (!open) {
+      // Sheet yopilganda formni to'liq reset qilish
+      form.reset({
+        code: '',
+        type: 'fixed',
+        discountValue: 0,
+        discountType: 'code',
+        minOrderValue: null,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        firstOrderOnly: false,
+        usageLimitPerUser: null,
+        usageLimitTotal: null,
+        description: '',
+        productIds: [],
+      });
+      return;
+    }
+
+    // Sheet ochilganda
     if (promotion && open) {
+      // Edit mode - promotion ma'lumotlarini yuklash
       form.reset({
         code: promotion.code || '',
-        type: promotion.type || 'percentage',
+        type: promotion.type || 'fixed',
         discountValue: promotion.discountValue || 0,
         discountType: promotion.discountType || 'code',
         minOrderValue: promotion.minOrderValue || null,
@@ -129,7 +151,21 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
         productIds: promotion.productIds || [],
       });
     } else if (!promotion && open) {
-      form.reset();
+      // New mode - formni to'liq reset qilish va yangi kod generatsiya qilish
+      form.reset({
+        code: '',
+        type: 'fixed',
+        discountValue: 0,
+        discountType: 'code',
+        minOrderValue: null,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        firstOrderOnly: false,
+        usageLimitPerUser: null,
+        usageLimitTotal: null,
+        description: '',
+        productIds: [],
+      });
       // Generate random code for new promotions
       form.setValue('code', generatePromoCode());
     }
@@ -143,22 +179,44 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     setIsSubmitting(true);
     try {
       await onSave(data);
-      toast.success(promotion ? 'Promo kod yangilandi' : 'Promo kod yaratildi');
-      onOpenChange(false);
-      form.reset();
+      // Don't close here - let parent component handle it
+      // Also don't show toast here - parent component handles it
+      // Form reset parent component tomonidan boshqariladi (sheet yopilganda)
     } catch (error) {
       console.error('Error saving promotion:', error);
-      toast.error('Promo kodni saqlashda xatolik yuz berdi');
+      // Error handling is done in parent component
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handle sheet close - reset form
+  const handleOpenChange = (isOpen) => {
+    if (!isOpen) {
+      // Sheet yopilganda formni to'liq reset qilish
+      form.reset({
+        code: '',
+        type: 'fixed',
+        discountValue: 0,
+        discountType: 'code',
+        minOrderValue: null,
+        validFrom: new Date(),
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        firstOrderOnly: false,
+        usageLimitPerUser: null,
+        usageLimitTotal: null,
+        description: '',
+        productIds: [],
+      });
+    }
+    onOpenChange(isOpen);
   };
 
   const discountType = form.watch('type');
   const discountValue = form.watch('discountValue');
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
@@ -536,7 +594,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
             </Tabs>
 
             <SheetFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Bekor qilish
               </Button>
               <Button type="submit" disabled={isSubmitting}>

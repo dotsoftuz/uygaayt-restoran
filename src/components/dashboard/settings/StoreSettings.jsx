@@ -862,28 +862,77 @@ function StoreSettings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-2">
-          <TabsTrigger value="basic" className="text-xs sm:text-sm">
-            <Store className="w-4 h-4 mr-2" />
-            Asosiy
-          </TabsTrigger>
-          <TabsTrigger value="location" className="text-xs sm:text-sm">
-            <MapPin className="w-4 h-4 mr-2" />
-            Manzil
-          </TabsTrigger>
-          <TabsTrigger value="delivery" className="text-xs sm:text-sm">
-            <Truck className="w-4 h-4 mr-2" />
-            Yetkazib berish
-          </TabsTrigger>
-          <TabsTrigger value="payment" className="text-xs sm:text-sm">
-            <CreditCard className="w-4 h-4 mr-2" />
-            To'lov
-          </TabsTrigger>
-          <TabsTrigger value="description" className="text-xs sm:text-sm">
-            <FileText className="w-4 h-4 mr-2" />
-            Tavsif
-          </TabsTrigger>
-        </TabsList>
+        {/* Mobile/Tablet: Scrollable horizontal tabs */}
+        <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-4 px-4 pb-3">
+          <TabsList className="inline-flex h-auto w-max min-w-full justify-start rounded-lg bg-muted p-1.5 gap-1.5">
+            <TabsTrigger 
+              value="basic" 
+              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
+            >
+              <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Asosiy</span>
+              <span className="sm:hidden">Asosiy</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="location" 
+              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
+            >
+              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Manzil</span>
+              <span className="sm:hidden">Manzil</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="delivery" 
+              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
+            >
+              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Yetkazib berish</span>
+              <span className="sm:hidden">Yetkazib</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="payment" 
+              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
+            >
+              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline">To'lov</span>
+              <span className="sm:hidden">To'lov</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="description" 
+              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
+            >
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
+              <span className="hidden sm:inline">Tavsif</span>
+              <span className="sm:hidden">Tavsif</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Desktop: Grid layout */}
+        <div className="hidden lg:block">
+          <TabsList className="grid w-full grid-cols-5 gap-2">
+            <TabsTrigger value="basic" className="text-sm">
+              <Store className="w-4 h-4 mr-2 flex-shrink-0" />
+              Asosiy
+            </TabsTrigger>
+            <TabsTrigger value="location" className="text-sm">
+              <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+              Manzil
+            </TabsTrigger>
+            <TabsTrigger value="delivery" className="text-sm">
+              <Truck className="w-4 h-4 mr-2 flex-shrink-0" />
+              Yetkazib berish
+            </TabsTrigger>
+            <TabsTrigger value="payment" className="text-sm">
+              <CreditCard className="w-4 h-4 mr-2 flex-shrink-0" />
+              To'lov
+            </TabsTrigger>
+            <TabsTrigger value="description" className="text-sm">
+              <FileText className="w-4 h-4 mr-2 flex-shrink-0" />
+              Tavsif
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Basic Info Tab */}
         <TabsContent value="basic" className="mt-6">

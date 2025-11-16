@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import PromotionForm from '@/components/dashboard/dialogs/PromotionForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatDate } from '@/lib/utils';
+import api from '@/services/api';
 import {
   Empty,
   EmptyContent,
@@ -467,13 +468,15 @@ const PromotionTableRow = ({
 function Promotions() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [promotions, setPromotions] = useState(generateFakePromotions());
+  const [promotions, setPromotions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [promotionFormOpen, setPromotionFormOpen] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [promotionToDelete, setPromotionToDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const justSavedRef = useRef(false);
 
   // Filter promotions
   const filteredPromotions = useMemo(() => {
@@ -486,9 +489,13 @@ function Promotions() {
   }, [promotions, debouncedSearchTerm]);
 
   const handleCreateNew = () => {
+    // Yangi promocode qo'shishda editingPromotion ni null qilish va formni reset qilish
     setEditingPromotion(null);
     setSearchParams({ drawer: 'create-promotion' });
-    setPromotionFormOpen(true);
+    // Kichik kechikish bilan form ochish - bu form reset qilishga imkon beradi
+    setTimeout(() => {
+      setPromotionFormOpen(true);
+    }, 0);
   };
 
   const handleEdit = (promotion) => {
@@ -496,31 +503,170 @@ function Promotions() {
     setPromotionFormOpen(true);
   };
 
-  const handleSavePromotion = async (promotionData) => {
-    console.log('Saving promotion:', promotionData);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (editingPromotion) {
-      setPromotions((prev) =>
-        prev.map((promo) =>
-          promo.id === editingPromotion.id
-            ? { ...promo, ...promotionData, usageCount: promo.usageCount || 0 }
-            : promo
-        )
-      );
-      toast.success('Promo kod yangilandi');
-    } else {
-      const newPromotion = {
-        id: `promo-${Date.now()}`,
-        ...promotionData,
-        usageCount: 0,
-      };
-      setPromotions((prev) => [...prev, newPromotion]);
-      toast.success('Promo kod yaratildi');
+  // Fetch promotions from backend
+  const fetchPromotions = async () => {
+    try {
+      setLoading(true);
+      const response = await api.post('/store/promocode/paging', {
+        page: 1,
+        limit: 100,
+        search: debouncedSearchTerm || undefined,
+      });
+      
+      // Backend paging response structure: { data: { total: number, data: [...] } }
+      // API interceptor returns response.data, so response should be { total: number, data: [...] }
+      // But sometimes interceptor might not work, so we handle both cases
+      console.log('Promotions API Response:', response);
+      
+      // Handle different response structures
+      let promotionsList = [];
+      
+      // Case 1: Interceptor didn't work - full response with statusCode
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        // Structure: { statusCode: 200, data: { total: 2, data: [...] } }
+        promotionsList = response.data.data;
+        console.log('Using response.data.data (interceptor not working)');
+      }
+      // Case 2: Interceptor worked - response.data is the paging result
+      else if (response?.data && Array.isArray(response.data)) {
+        // Structure: { total: 2, data: [...] } (after interceptor)
+        promotionsList = response.data;
+        console.log('Using response.data (interceptor worked)');
+      }
+      // Case 3: Response is directly an array (shouldn't happen)
+      else if (Array.isArray(response)) {
+        promotionsList = response;
+        console.log('Using response directly (array)');
+      }
+      // Case 4: Try nested structure one more time
+      else if (response?.data?.data) {
+        promotionsList = Array.isArray(response.data.data) ? response.data.data : [];
+        console.log('Using response.data.data (fallback)');
+      }
+      
+      console.log('Promotions List:', promotionsList, 'Count:', promotionsList.length);
+      
+      // Map backend data to frontend format
+      const mappedPromotions = (Array.isArray(promotionsList) ? promotionsList : []).map((promo) => ({
+        id: promo._id,
+        code: promo.code,
+        name: promo.name,
+        amount: promo.amount,
+        minOrderPrice: promo.minOrderPrice || 0,
+        fromDate: promo.fromDate ? new Date(promo.fromDate) : null,
+        toDate: promo.toDate ? new Date(promo.toDate) : null,
+        maxUsage: promo.maxUsage,
+        maxUsageForUser: promo.maxUsageForUser || 1,
+        usedCount: promo.usedCount || 0,
+        isActive: promo.state === 'active',
+        description: promo.description || '',
+        // Map for form compatibility
+        type: 'fixed', // Backend only supports fixed amounts
+        discountValue: promo.amount,
+        minOrderValue: promo.minOrderPrice || 0,
+        validFrom: promo.fromDate ? new Date(promo.fromDate) : new Date(),
+        validUntil: promo.toDate ? new Date(promo.toDate) : new Date(),
+        usageLimitTotal: promo.maxUsage,
+        usageLimitPerUser: promo.maxUsageForUser || 1,
+      }));
+      
+      setPromotions(mappedPromotions);
+    } catch (error) {
+      console.error('Error fetching promotions:', error);
+      toast.error('Promokodlarni yuklashda xatolik yuz berdi');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setPromotionFormOpen(false);
-    setEditingPromotion(null);
+  useEffect(() => {
+    fetchPromotions();
+  }, [debouncedSearchTerm]);
+
+  const handleSavePromotion = async (promotionData) => {
+    try {
+      // Map form data to backend DTO format
+      const backendData = {
+        name: promotionData.code || promotionData.name || 'Promo kod',
+        code: promotionData.code,
+        // Agar type 'percentage' bo'lsa, xatolik ko'rsatish yoki faqat 'fixed' qabul qilish
+        amount: promotionData.discountValue || promotionData.amount,
+        fromDate: promotionData.validFrom || promotionData.fromDate,
+        toDate: promotionData.validUntil || promotionData.toDate,
+      };
+
+      // Only include minOrderPrice if it's a positive number
+      const minOrderValue = promotionData.minOrderValue ?? promotionData.minOrderPrice;
+      if (minOrderValue != null && minOrderValue > 0) {
+        backendData.minOrderPrice = minOrderValue;
+      }
+
+      // Only include maxUsage if it's a positive number
+      const usageLimitTotal = promotionData.usageLimitTotal ?? promotionData.maxUsage;
+      if (usageLimitTotal != null && usageLimitTotal > 0) {
+        backendData.maxUsage = usageLimitTotal;
+      }
+
+      // Only include maxUsageForUser if it's a positive number
+      const usageLimitPerUser = promotionData.usageLimitPerUser ?? promotionData.maxUsageForUser;
+      if (usageLimitPerUser != null && usageLimitPerUser > 0) {
+        backendData.maxUsageForUser = usageLimitPerUser;
+      }
+
+      // Include description if provided
+      if (promotionData.description && promotionData.description.trim()) {
+        backendData.description = promotionData.description.trim();
+      }
+
+      // Type validation - faqat fixed amount qo'llab-quvvatlanadi
+      if (promotionData.type === 'percentage') {
+        toast.error('Hozircha faqat belgilangan summa (fixed) chegirma qo\'llab-quvvatlanadi. Iltimos, "Belgilangan summa" ni tanlang.');
+        return;
+      }
+
+      if (editingPromotion) {
+        await api.put('/store/promocode/update', {
+          _id: editingPromotion.id,
+          ...backendData,
+        });
+        toast.success('Promo kod yangilandi');
+      } else {
+        await api.post('/store/promocode/create', backendData);
+        toast.success('Promo kod yaratildi');
+      }
+
+      // Close form and reset editing promotion FIRST
+      setEditingPromotion(null);
+      setPromotionFormOpen(false);
+      
+      // Mark that we just saved to prevent sheet from reopening
+      justSavedRef.current = true;
+      
+      // Remove drawer parameter from URL to prevent sheet from reopening
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('drawer');
+      setSearchParams(newParams, { replace: true });
+      
+      // Refresh promotions list after closing
+      await fetchPromotions();
+      
+      // Reset the flag after a short delay to allow URL updates to complete
+      setTimeout(() => {
+        justSavedRef.current = false;
+      }, 100);
+    } catch (error) {
+      console.error('Error saving promotion:', error);
+      
+      // Handle validation errors
+      if (error?.data && Array.isArray(error.data)) {
+        const validationMessages = error.data.map(err => err.message || `${err.property}: ${err.message}`).join(', ');
+        toast.error(`Validatsiya xatosi: ${validationMessages}`);
+      } else if (error?.message) {
+        toast.error(error.message);
+      } else {
+        toast.error('Promo kodni saqlashda xatolik yuz berdi');
+      }
+    }
   };
 
   const handleDelete = (promotion) => {
@@ -528,12 +674,16 @@ function Promotions() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (promotionToDelete) {
-      setPromotions((prev) =>
-        prev.filter((promo) => promo.id !== promotionToDelete.id)
-      );
-      toast.success('Promo kod o\'chirildi');
+      try {
+        await api.delete(`/store/promocode/delete/${promotionToDelete.id}`);
+        toast.success('Promo kod o\'chirildi');
+        await fetchPromotions();
+      } catch (error) {
+        console.error('Error deleting promotion:', error);
+        toast.error(error?.message || 'Promo kodni o\'chirishda xatolik yuz berdi');
+      }
     }
     setDeleteDialogOpen(false);
     setPromotionToDelete(null);
@@ -559,7 +709,13 @@ function Promotions() {
     const dialog = searchParams.get('dialog');
     const promotionId = searchParams.get('promotionId');
     
-    if (drawer === 'create-promotion') {
+    // Agar biz yangi promo kod qo'shgan bo'lsak, sheetni qayta ochmaslik
+    if (justSavedRef.current) {
+      return;
+    }
+    
+    // Faqat sheet yopiq bo'lganda ochish (agar ochiq bo'lsa, qayta ochmaslik)
+    if (drawer === 'create-promotion' && !promotionFormOpen) {
       setEditingPromotion(null);
       setPromotionFormOpen(true);
     }
@@ -571,7 +727,7 @@ function Promotions() {
         setDeleteDialogOpen(true);
       }
     }
-  }, [searchParams, promotions]);
+  }, [searchParams, promotions, promotionFormOpen]);
 
   // Read search from URL on mount
   useEffect(() => {
@@ -581,16 +737,23 @@ function Promotions() {
 
   // Update URL when search changes (using debounced search)
   useEffect(() => {
+    // Agar biz yangi promo kod qo'shgan bo'lsak, drawer parametrini qo'shmaslik
+    if (justSavedRef.current) {
+      return;
+    }
+    
     const params = new URLSearchParams();
     
     if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
     
-    // Preserve drawer parameter if exists
+    // Preserve drawer parameter if exists (but only if we didn't just save)
     const drawer = searchParams.get('drawer');
-    if (drawer) params.set('drawer', drawer);
+    if (drawer && !justSavedRef.current) {
+      params.set('drawer', drawer);
+    }
     
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm]);
+  }, [debouncedSearchTerm, searchParams]);
 
   return (
     <div className="space-y-4 py-2 sm:py-4">
@@ -695,13 +858,18 @@ function Promotions() {
       <PromotionForm
         open={promotionFormOpen}
         onOpenChange={(open) => {
-          setPromotionFormOpen(open);
-          if (!open) {
-            setEditingPromotion(null);
-            // Remove drawer parameter from URL when closing
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('drawer');
-            setSearchParams(newParams, { replace: true });
+          // Only update if state actually changed to prevent double calls
+          if (open !== promotionFormOpen) {
+            setPromotionFormOpen(open);
+            if (!open) {
+              setEditingPromotion(null);
+              // Remove drawer parameter from URL when closing
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete('drawer');
+              setSearchParams(newParams, { replace: true });
+              // Reset the flag when manually closing
+              justSavedRef.current = false;
+            }
           }
         }}
         promotion={editingPromotion}

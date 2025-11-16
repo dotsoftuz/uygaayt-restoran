@@ -91,27 +91,30 @@ function SettingsPage() {
         }}
         className="w-full"
       >
-        {/* Mobile: Horizontal Tabs */}
+        {/* Mobile: Horizontal Scrollable Tabs */}
         <div className="lg:hidden">
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
                 <TabsList className="h-auto w-full justify-start rounded-none border-b border-border bg-transparent p-0">
-                  <div className="flex gap-1 px-2 py-2 min-w-max">
+                  <div className="flex gap-1 sm:gap-1.5 px-1 py-2.5 sm:py-3 min-w-max">
                     {SETTINGS_TABS.map((tab) => {
                       const Icon = tab.icon;
                       return (
                         <TabsTrigger
                           key={tab.value}
                           value={tab.value}
-                          className="relative flex items-center gap-1.5 px-2 py-2 text-xs font-medium rounded-none border-b-2 border-transparent bg-transparent text-muted-foreground transition-all hover:text-foreground hover:bg-accent/50 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none whitespace-nowrap flex-shrink-0"
+                          className="relative flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md border-b-2 border-transparent bg-transparent text-muted-foreground transition-all hover:text-foreground hover:bg-accent/50 data-[state=active]:border-primary data-[state=active]:bg-accent/30 data-[state=active]:text-foreground data-[state=active]:shadow-none whitespace-nowrap flex-shrink-0"
                         >
                           <Icon
-                            className="h-3.5 w-3.5 flex-shrink-0"
+                            className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0"
                             strokeWidth={2}
                             aria-hidden="true"
                           />
-                          <span className="whitespace-nowrap">
+                          <span className="whitespace-nowrap hidden sm:inline">
+                            {tab.value === 'appearance' ? t('appearance') : tab.label}
+                          </span>
+                          <span className="whitespace-nowrap sm:hidden">
                             {tab.value === 'appearance' ? t('appearance') : tab.label.split(' ')[0]}
                           </span>
                           {tab.badge && (
@@ -208,37 +211,37 @@ function SettingsPage() {
         {/* Mobile: Tab Contents */}
         <div className="lg:hidden mt-4">
           <TabsContent value="store" className="mt-0">
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full">
               <StoreSettings />
             </div>
           </TabsContent>
 
           <TabsContent value="order" className="mt-0">
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full">
               <OrderSettings />
             </div>
           </TabsContent>
 
           <TabsContent value="notifications" className="mt-0">
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full">
               <NotificationPreferences />
             </div>
           </TabsContent>
 
           <TabsContent value="system" className="mt-0">
-            <div className="max-w-4xl mx-auto">
+            <div className="w-full">
               <SystemSettings />
             </div>
           </TabsContent>
 
           <TabsContent value="appearance" className="mt-0">
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full">
               <Appearance />
             </div>
           </TabsContent>
 
           <TabsContent value="password" className="mt-0">
-            <div className="max-w-2xl mx-auto">
+            <div className="w-full">
               <Password />
             </div>
           </TabsContent>
