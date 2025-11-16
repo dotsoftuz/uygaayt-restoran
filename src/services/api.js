@@ -13,6 +13,26 @@ api.interceptors.request.use(
     }
     const language = localStorage.getItem('i18nextLng') || 'uz';
     config.headers['Accept-Language'] = language;
+    
+    // Refresh berilgan vaqtni tekshirish - agar yangi session bo'lsa, counter'ni tozalash
+    // Bu refresh berilganda eski 401 xatolarini hisobga olinmasligi uchun
+    const lastRefreshTime = sessionStorage.getItem('lastRefreshTime');
+    const now = Date.now();
+    
+    // Agar lastRefreshTime yo'q bo'lsa, bu birinchi request - counter'ni tozalash
+    if (!lastRefreshTime) {
+      sessionStorage.setItem('lastRefreshTime', now.toString());
+      sessionStorage.removeItem('failed401Requests');
+    } else {
+      // Agar 1 soniyadan ko'p vaqt o'tgan bo'lsa, yangi session deb hisoblash
+      // Va counter'ni tozalash
+      const timeSinceRefresh = now - parseInt(lastRefreshTime);
+      if (timeSinceRefresh > 1000) {
+        sessionStorage.setItem('lastRefreshTime', now.toString());
+        sessionStorage.removeItem('failed401Requests');
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -68,8 +88,10 @@ api.interceptors.response.use(
         const now = Date.now();
         const timeSinceLogin = lastLoginTime ? now - parseInt(lastLoginTime) : Infinity;
         
-        // Agar login qilgandan keyin 5 soniyadan kam vaqt o'tgan bo'lsa, 401 xatosini e'tiborsiz qoldirish
-        if (timeSinceLogin < 5000) {
+        // Agar login qilgandan keyin 10 soniyadan kam vaqt o'tgan bo'lsa, 401 xatosini e'tiborsiz qoldirish
+        // (5 soniyadan 10 soniyaga oshirildi - login keyin API so'rovlari uchun ko'proq vaqt)
+        if (timeSinceLogin < 10000) {
+          console.warn('Ignoring 401 error - recently logged in');
           return Promise.reject(
             err.response?.data || {
               message: err?.message || 'An error occurred',
@@ -90,9 +112,9 @@ api.interceptors.response.use(
         }
         
         const currentTime = Date.now();
-        const timeWindow = 15000; // 15 soniya (10 dan 15 ga oshirildi)
+        const timeWindow = 30000; // 30 soniya (15 dan 30 ga oshirildi)
         
-        // 15 soniyadan eski xatolarni olib tashlash
+        // 30 soniyadan eski xatolarni olib tashlash
         failed401Data.errors = failed401Data.errors.filter(
           (errorTime) => currentTime - errorTime < timeWindow
         );
@@ -102,9 +124,9 @@ api.interceptors.response.use(
         failed401Data.lastErrorTime = currentTime;
         failed401Data.count = failed401Data.errors.length;
         
-        // Agar 15 soniya ichida 3 martadan ko'p 401 xatosi bo'lmasa, token'ni o'chirmaslik
-        // (5 dan 3 ga kamaytirildi - faqat haqiqiy muammolarda o'chirish)
-        if (failed401Data.count < 3) {
+        // Agar 30 soniya ichida 5 martadan ko'p 401 xatosi bo'lmasa, token'ni o'chirmaslik
+        // (3 dan 5 ga oshirildi - faqat haqiqiy muammolarda o'chirish)
+        if (failed401Data.count < 5) {
           sessionStorage.setItem('failed401Requests', JSON.stringify(failed401Data));
           
           // Token'ni o'chirmaslik, faqat xatoni qaytarish
@@ -117,8 +139,9 @@ api.interceptors.response.use(
           );
         }
         
-        // Agar 15 soniya ichida 3 martadan ko'p 401 xatosi bo'lsa, token'ni o'chirish va redirect qilish
+        // Agar 30 soniya ichida 5 martadan ko'p 401 xatosi bo'lsa, token'ni o'chirish va redirect qilish
         // Bu haqiqiy autentifikatsiya muammosi ekanligini ko'rsatadi
+        console.warn('Multiple 401 errors detected, clearing token');
         sessionStorage.removeItem('failed401Requests');
         sessionStorage.removeItem('storeSettingsFetched'); // StoreSettings fetch flag'ini ham tozalash
         localStorage.removeItem('token');

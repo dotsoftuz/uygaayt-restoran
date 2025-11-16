@@ -73,10 +73,16 @@ const ProtectedRoute = ({ children }) => {
     // Path o'zgarganda, token hali ham mavjudligini tekshirish
     // Bu API interceptor token'ni o'chirgan bo'lsa, uni aniqlash uchun
     // Lekin faqat pathname o'zgarganda, query parametrlar o'zgarganda emas
+    // Va faqat agar token holati o'zgarganda, state'ni yangilash
     const token = localStorage.getItem('token');
     const hasToken = !!token;
-    setIsAuth(hasToken);
-  }, [location.pathname]);
+    
+    // Faqat agar token holati o'zgarganda, state'ni yangilash
+    // Bu haddan tashqari re-render'larni oldini oladi
+    if (hasToken !== isAuth) {
+      setIsAuth(hasToken);
+    }
+  }, [location.pathname, isAuth]);
 
   // Loading holatida
   if (isChecking) {

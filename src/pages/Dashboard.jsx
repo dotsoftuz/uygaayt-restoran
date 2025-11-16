@@ -25,6 +25,7 @@ import Signin from './Signin';
 import Signup from './Signup';
 import ForgotPassword from './ForgotPassword';
 import NotFound from './NotFound';
+import { useEffect } from 'react';
 
 // Root redirect komponenti - refresh berilgan URL'ni saqlab qoladi
 const RootRedirect = () => {
@@ -46,7 +47,12 @@ const RootRedirect = () => {
 };
 
 function Dashboard() {
-// yarn vite --host 127.0.0.1 --port 3000
+  // Refresh berilgan vaqtni saqlash - API interceptor'da 401 xatolarini boshqarish uchun
+  // Bu refresh berilganda counter'ni tozalash uchun ishlatiladi
+  useEffect(() => {
+    // Refresh berilgan vaqtni saqlash
+    sessionStorage.setItem('lastRefreshTime', Date.now().toString());
+  }, []);
 
   return (
     <Router>

@@ -61,11 +61,28 @@ const Signin = () => {
         password,
       });
 
-      // API interceptor returns response.data, so response is already the data part
-      // NestJS might wrap it as { statusCode: 200, data: { store, token } } or return { store, token } directly
-      // Check both nested data and direct response
-      const token = response?.data?.token || response?.token;
-      const store = response?.data?.store || response?.store;
+      // API interceptor response.data qaytaradi, lekin NestJS strukturasi turli bo'lishi mumkin
+      // Barcha variantlarni tekshirish
+      let token = null;
+      let store = null;
+      
+      if (response) {
+        // Variant 1: response.data.token
+        if (response.data?.token) {
+          token = response.data.token;
+          store = response.data.store;
+        }
+        // Variant 2: response.token
+        else if (response.token) {
+          token = response.token;
+          store = response.store;
+        }
+        // Variant 3: response nested structure
+        else if (response.data?.data?.token) {
+          token = response.data.data.token;
+          store = response.data.data.store;
+        }
+      }
       
       if (token) {
         // Store token and store data
@@ -78,15 +95,19 @@ const Signin = () => {
           localStorage.setItem('storeData', JSON.stringify(store));
         }
         
+        // SessionStorage'dagi eski 401 xatolarini tozalash
+        sessionStorage.removeItem('failed401Requests');
+        
         toast.success(t('general.success') || 'Muvaffaqiyatli kirildi');
         // Navigate'ni darhol chaqirish - token allaqachon saqlangan
-        // ProtectedRoute token'ni to'g'ri tekshiradi
         navigate('/dashboard', { replace: true });
       } else {
-        setError('Login failed. Please check your credentials.');
-        toast.error('Login failed. Please check your credentials.');
+        console.error('Login response structure:', response);
+        setError('Login failed. Token not received from server.');
+        toast.error('Login failed. Token not received from server.');
       }
     } catch (error) {
+      console.error('Login error:', error);
       const errorMessage = error?.message || error?.data?.message || 'Login failed. Please try again.';
       setError(errorMessage);
       toast.error(errorMessage);
