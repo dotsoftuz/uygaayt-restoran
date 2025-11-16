@@ -69,8 +69,18 @@ function StoreSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [storeData, setStoreData] = useState(null);
+  const [originalStoreData, setOriginalStoreData] = useState(null); // Original data for comparison
   const [activeTab, setActiveTab] = useState('basic');
   const [mapAddress, setMapAddress] = useState('');
+
+  // Track changes for each tab
+  const [hasChanges, setHasChanges] = useState({
+    basic: false,
+    location: false,
+    delivery: false,
+    payment: false,
+    description: false,
+  });
 
   // Form instances
   const basicForm = useForm({
@@ -146,6 +156,7 @@ function StoreSettings() {
             if (cachedData && Object.keys(cachedData).length > 0) {
               if (!storeData) {
                 setStoreData(cachedData);
+                setOriginalStoreData(JSON.parse(JSON.stringify(cachedData))); // Deep copy
                 populateForms(cachedData);
               }
               setIsLoading(false);
@@ -178,6 +189,7 @@ function StoreSettings() {
           const cachedData = JSON.parse(storeDataStr);
           if (cachedData && Object.keys(cachedData).length > 0) {
             setStoreData(cachedData);
+            setOriginalStoreData(JSON.parse(JSON.stringify(cachedData))); // Deep copy
             populateForms(cachedData);
             hasCachedData = true;
             setIsLoading(false); // Cached data bor bo'lsa, loading'ni darhol to'xtatish
@@ -210,6 +222,7 @@ function StoreSettings() {
         
         if (data) {
           setStoreData(data);
+          setOriginalStoreData(JSON.parse(JSON.stringify(data))); // Deep copy for comparison
           populateForms(data);
           localStorage.setItem('storeData', JSON.stringify(data));
           sessionStorage.setItem('storeSettingsFetched', 'true');
@@ -297,8 +310,208 @@ function StoreSettings() {
       });
     }
 
-    // Work days
-    setWorkDays(data.workDays || []);
+    // Work days - backend formatidan frontend formatiga o'girish
+    if (data.workDays && Array.isArray(data.workDays) && data.workDays.length > 0) {
+      // Agar backend formatida bo'lsa (object array)
+      if (typeof data.workDays[0] === 'object' && data.workDays[0].day !== undefined) {
+        const convertedWorkDays = convertWorkDaysFromBackendFormat(data.workDays);
+        setWorkDays(convertedWorkDays);
+        locationForm.setValue('workDays', convertedWorkDays);
+      } else {
+        // Agar frontend formatida bo'lsa (string array)
+        setWorkDays(data.workDays);
+        locationForm.setValue('workDays', data.workDays);
+      }
+    } else {
+      setWorkDays([]);
+      locationForm.setValue('workDays', []);
+    }
+  };
+
+  // Get store type label
+  const getStoreTypeLabel = () => {
+    const storeType = storeData?.type || 'shop';
+    return storeType === 'restaurant' ? 'Restoran sozlamalari' : 'Do\'kon sozlamalari';
+  };
+
+  // Check if basic form has changes
+  useEffect(() => {
+    if (!originalStoreData) return;
+    
+    const subscription = basicForm.watch((values) => {
+      const hasBasicChanges = 
+        values.name !== (originalStoreData.name || '') ||
+        values.phoneNumber !== (originalStoreData.phoneNumber || '') ||
+        values.email !== (originalStoreData.email || '') ||
+        values.website !== (originalStoreData.website || '');
+      
+      setHasChanges(prev => ({ ...prev, basic: hasBasicChanges }));
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [basicForm, originalStoreData]);
+
+  // Check if location form has changes
+  useEffect(() => {
+    if (!originalStoreData) return;
+    
+    const subscription = locationForm.watch((values) => {
+      const originalLocation = originalStoreData.addressLocation || {};
+      
+      // Original workDays ni frontend formatiga o'girish (agar backend formatida bo'lsa)
+      let originalWorkDays = originalStoreData.workDays || [];
+      if (originalWorkDays.length > 0 && typeof originalWorkDays[0] === 'object' && originalWorkDays[0].day !== undefined) {
+        originalWorkDays = convertWorkDaysFromBackendFormat(originalWorkDays);
+      }
+      
+      const hasLocationChanges = 
+        values.addressName !== (originalStoreData.addressName || '') ||
+        values.latitude !== originalLocation.latitude ||
+        values.longitude !== originalLocation.longitude ||
+        values.workTime !== (originalStoreData.workTime || '') ||
+        JSON.stringify(workDays) !== JSON.stringify(originalWorkDays);
+      
+      setHasChanges(prev => ({ ...prev, location: hasLocationChanges }));
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [locationForm, workDays, originalStoreData]);
+
+  // Check if delivery form has changes
+  useEffect(() => {
+    if (!originalStoreData) return;
+    
+    const subscription = deliveryForm.watch((values) => {
+      const hasDeliveryChanges = 
+        values.deliveryPrice !== (originalStoreData.deliveryPrice || 0) ||
+        values.orderMinimumPrice !== (originalStoreData.orderMinimumPrice || 0) ||
+        values.itemPrepTimeFrom !== (originalStoreData.itemPrepTimeFrom || 10) ||
+        values.itemPrepTimeTo !== (originalStoreData.itemPrepTimeTo || 15);
+      
+      setHasChanges(prev => ({ ...prev, delivery: hasDeliveryChanges }));
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [deliveryForm, originalStoreData]);
+
+  // Check if payment/status has changes
+  useEffect(() => {
+    if (!originalStoreData) return;
+    
+    const hasPaymentChanges = 
+      paymentMethods.acceptCash !== (originalStoreData.acceptCash || false) ||
+      paymentMethods.acceptCard !== (originalStoreData.acceptCard || false) ||
+      paymentMethods.acceptOnlinePayment !== (originalStoreData.acceptOnlinePayment || false) ||
+      statusFlags.isActive !== (originalStoreData.isActive !== undefined ? originalStoreData.isActive : true) ||
+      statusFlags.isVerified !== (originalStoreData.isVerified || false) ||
+      statusFlags.isPremium !== (originalStoreData.isPremium || false);
+    
+    setHasChanges(prev => ({ ...prev, payment: hasPaymentChanges }));
+  }, [paymentMethods, statusFlags, originalStoreData]);
+
+  // Check if description has changes
+  useEffect(() => {
+    if (!originalStoreData) return;
+    
+    const originalDesc = originalStoreData.descriptionTranslate || {};
+    const hasDescriptionChanges = 
+      description.uz !== (originalDesc.uz || originalStoreData.description || '') ||
+      description.ru !== (originalDesc.ru || '') ||
+      description.en !== (originalDesc.en || '');
+    
+    setHasChanges(prev => ({ ...prev, description: hasDescriptionChanges }));
+  }, [description, originalStoreData]);
+
+  // Reset functions for each tab
+  const resetBasicForm = () => {
+    if (!originalStoreData) return;
+    basicForm.reset({
+      name: originalStoreData.name || '',
+      phoneNumber: originalStoreData.phoneNumber || '',
+      email: originalStoreData.email || '',
+      website: originalStoreData.website || '',
+    });
+    setHasChanges(prev => ({ ...prev, basic: false }));
+  };
+
+  const resetLocationForm = () => {
+    if (!originalStoreData) return;
+    
+    // workDays ni backend formatidan frontend formatiga o'girish
+    let convertedWorkDays = [];
+    if (originalStoreData.workDays && Array.isArray(originalStoreData.workDays) && originalStoreData.workDays.length > 0) {
+      if (typeof originalStoreData.workDays[0] === 'object' && originalStoreData.workDays[0].day !== undefined) {
+        convertedWorkDays = convertWorkDaysFromBackendFormat(originalStoreData.workDays);
+      } else {
+        convertedWorkDays = originalStoreData.workDays;
+      }
+    }
+    
+    locationForm.reset({
+      addressName: originalStoreData.addressName || '',
+      latitude: originalStoreData.addressLocation?.latitude || undefined,
+      longitude: originalStoreData.addressLocation?.longitude || undefined,
+      workTime: originalStoreData.workTime || '',
+      workDays: convertedWorkDays,
+    });
+    setWorkDays(convertedWorkDays);
+    setMapAddress(originalStoreData.addressName || '');
+    if (originalStoreData.workTime) {
+      setWorkTimeRange(parseWorkTime(originalStoreData.workTime));
+    }
+    setHasChanges(prev => ({ ...prev, location: false }));
+  };
+
+  const resetDeliveryForm = () => {
+    if (!originalStoreData) return;
+    deliveryForm.reset({
+      deliveryPrice: originalStoreData.deliveryPrice || 0,
+      orderMinimumPrice: originalStoreData.orderMinimumPrice || 0,
+      itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom || 10,
+      itemPrepTimeTo: originalStoreData.itemPrepTimeTo || 15,
+    });
+    setHasChanges(prev => ({ ...prev, delivery: false }));
+  };
+
+  const resetPaymentStatus = () => {
+    if (!originalStoreData) return;
+    setPaymentMethods({
+      acceptCash: originalStoreData.acceptCash || false,
+      acceptCard: originalStoreData.acceptCard || false,
+      acceptOnlinePayment: originalStoreData.acceptOnlinePayment || false,
+    });
+    setStatusFlags({
+      isActive: originalStoreData.isActive !== undefined ? originalStoreData.isActive : true,
+      isVerified: originalStoreData.isVerified || false,
+      isPremium: originalStoreData.isPremium || false,
+    });
+    setHasChanges(prev => ({ ...prev, payment: false }));
+  };
+
+  const resetDescription = () => {
+    if (!originalStoreData) return;
+    if (originalStoreData.descriptionTranslate) {
+      setDescription({
+        uz: originalStoreData.descriptionTranslate.uz || originalStoreData.description || '',
+        ru: originalStoreData.descriptionTranslate.ru || '',
+        en: originalStoreData.descriptionTranslate.en || '',
+      });
+    } else {
+      setDescription({
+        uz: originalStoreData.description || '',
+        ru: '',
+        en: '',
+      });
+    }
+    setHasChanges(prev => ({ ...prev, description: false }));
+  };
+
+  // Update original data after successful save
+  const updateOriginalData = (updatedData) => {
+    const mergedData = { ...originalStoreData, ...updatedData };
+    setOriginalStoreData(JSON.parse(JSON.stringify(mergedData)));
+    setStoreData(mergedData);
+    localStorage.setItem('storeData', JSON.stringify(mergedData));
   };
 
   const handleBasicSubmit = async (data) => {
@@ -318,10 +531,8 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish (agar backend yangilangan ma'lumotlarni qaytarsa)
       const updatedStoreData = response?.data || response || updateData;
       
-      // Update local state va localStorage
-      const finalData = { ...storeData, ...updatedStoreData };
-      setStoreData(finalData);
-      localStorage.setItem('storeData', JSON.stringify(finalData));
+      // Update original data and local state
+      updateOriginalData(updatedStoreData);
       
       // Form'ni yangilash
       basicForm.reset({
@@ -331,6 +542,7 @@ function StoreSettings() {
         website: updatedStoreData.website || data.website,
       });
       
+      setHasChanges(prev => ({ ...prev, basic: false }));
       toast.success('Asosiy ma\'lumotlar saqlandi');
     } catch (error) {
       console.error('Error updating basic info:', error);
@@ -345,6 +557,13 @@ function StoreSettings() {
     setIsSubmitting(true);
     try {
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
+      const workTime = data.workTime || (workTimeRange.start && workTimeRange.end 
+        ? `${workTimeRange.start}-${workTimeRange.end}` 
+        : storeData?.workTime || '08:00-20:00');
+      
+      // workDays ni backend formatiga o'girish
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
+      
       const updateData = {
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
@@ -353,9 +572,8 @@ function StoreSettings() {
           latitude: data.latitude,
           longitude: data.longitude,
         } : undefined,
-        workTime: data.workTime || workTimeRange.start && workTimeRange.end 
-          ? `${workTimeRange.start}-${workTimeRange.end}` 
-          : storeData?.workTime || '08:00-20:00',
+        workTime: workTime,
+        workDays: convertedWorkDays,
       };
 
       const response = await api.put('/store/update', updateData);
@@ -363,10 +581,8 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
       
-      // Update local state va localStorage
-      const finalData = { ...storeData, ...updatedStoreData };
-      setStoreData(finalData);
-      localStorage.setItem('storeData', JSON.stringify(finalData));
+      // Update original data and local state
+      updateOriginalData(updatedStoreData);
       
       // Map address'ni ham yangilash
       if (updatedStoreData.addressName) {
@@ -378,15 +594,26 @@ function StoreSettings() {
         setWorkTimeRange(parseWorkTime(updatedStoreData.workTime));
       }
       
+      // Work days'ni yangilash - backend formatidan frontend formatiga o'girish
+      if (updatedStoreData.workDays) {
+        const convertedWorkDays = convertWorkDaysFromBackendFormat(updatedStoreData.workDays);
+        setWorkDays(convertedWorkDays);
+      }
+      
       // Form'ni yangilash
+      const convertedWorkDaysForForm = updatedStoreData.workDays 
+        ? convertWorkDaysFromBackendFormat(updatedStoreData.workDays)
+        : data.workDays || [];
+      
       locationForm.reset({
         addressName: updatedStoreData.addressName || data.addressName,
         latitude: updatedStoreData.addressLocation?.latitude || data.latitude,
         longitude: updatedStoreData.addressLocation?.longitude || data.longitude,
         workTime: updatedStoreData.workTime || data.workTime,
-        workDays: updatedStoreData.workDays || data.workDays,
+        workDays: convertedWorkDaysForForm,
       });
       
+      setHasChanges(prev => ({ ...prev, location: false }));
       toast.success('Manzil va ish vaqti saqlandi');
     } catch (error) {
       console.error('Error updating location:', error);
@@ -416,10 +643,8 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
       
-      // Update local state va localStorage
-      const finalData = { ...storeData, ...updatedStoreData };
-      setStoreData(finalData);
-      localStorage.setItem('storeData', JSON.stringify(finalData));
+      // Update original data and local state
+      updateOriginalData(updatedStoreData);
       
       // Form'ni yangilash
       deliveryForm.reset({
@@ -429,6 +654,7 @@ function StoreSettings() {
         itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? data.itemPrepTimeTo,
       });
       
+      setHasChanges(prev => ({ ...prev, delivery: false }));
       toast.success('Yetkazib berish sozlamalari saqlandi');
     } catch (error) {
       console.error('Error updating delivery:', error);
@@ -461,10 +687,8 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
       
-      // Update local state va localStorage
-      const finalData = { ...storeData, ...updatedStoreData };
-      setStoreData(finalData);
-      localStorage.setItem('storeData', JSON.stringify(finalData));
+      // Update original data and local state
+      updateOriginalData(updatedStoreData);
       
       // Payment methods va status flags'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.acceptCash !== undefined) {
@@ -482,6 +706,7 @@ function StoreSettings() {
         });
       }
       
+      setHasChanges(prev => ({ ...prev, payment: false }));
       toast.success('To\'lov usullari va status saqlandi');
     } catch (error) {
       console.error('Error updating payment/status:', error);
@@ -513,10 +738,8 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
       
-      // Update local state va localStorage
-      const finalData = { ...storeData, ...updatedStoreData };
-      setStoreData(finalData);
-      localStorage.setItem('storeData', JSON.stringify(finalData));
+      // Update original data and local state
+      updateOriginalData(updatedStoreData);
       
       // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.descriptionTranslate) {
@@ -533,6 +756,7 @@ function StoreSettings() {
         });
       }
       
+      setHasChanges(prev => ({ ...prev, description: false }));
       toast.success('Tavsif saqlandi');
     } catch (error) {
       console.error('Error updating description:', error);
@@ -541,6 +765,54 @@ function StoreSettings() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Kun nomlarini raqamga o'girish
+  const dayNameToNumber = {
+    'sunday': 0,
+    'monday': 1,
+    'tuesday': 2,
+    'wednesday': 3,
+    'thursday': 4,
+    'friday': 5,
+    'saturday': 6,
+  };
+
+  // Raqamdan kun nomiga o'girish
+  const numberToDayName = {
+    0: 'sunday',
+    1: 'monday',
+    2: 'tuesday',
+    3: 'wednesday',
+    4: 'thursday',
+    5: 'friday',
+    6: 'saturday',
+  };
+
+  // workDays ni backend formatiga o'girish (string array -> WorkDayDto array)
+  const convertWorkDaysToBackendFormat = (workDaysArray, workTime) => {
+    if (!workDaysArray || workDaysArray.length === 0) return undefined;
+    
+    const [startTime, endTime] = workTime ? workTime.split('-').map(t => t.trim()) : ['09:00', '18:00'];
+    
+    return workDaysArray
+      .filter(dayName => dayNameToNumber[dayName] !== undefined)
+      .map(dayName => ({
+        day: dayNameToNumber[dayName],
+        startTime: startTime,
+        endTime: endTime,
+        isWorking: true,
+      }));
+  };
+
+  // Backend formatidan frontend formatiga o'girish (WorkDayDto array -> string array)
+  const convertWorkDaysFromBackendFormat = (workDaysArray) => {
+    if (!workDaysArray || !Array.isArray(workDaysArray)) return [];
+    
+    return workDaysArray
+      .filter(day => day.isWorking !== false && numberToDayName[day.day])
+      .map(day => numberToDayName[day.day])
+      .filter(Boolean);
   };
 
   const toggleWorkDay = (day) => {
@@ -584,6 +856,11 @@ function StoreSettings() {
 
   return (
     <div className="space-y-4">
+      {/* Dynamic title based on store type */}
+      <div className="mb-4">
+        <h2 className="text-xl sm:text-2xl font-bold">{getStoreTypeLabel()}</h2>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 gap-2">
           <TabsTrigger value="basic" className="text-xs sm:text-sm">
@@ -686,12 +963,17 @@ function StoreSettings() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => basicForm.reset()}
+                onClick={resetBasicForm}
+                disabled={!hasChanges.basic}
                 className="text-xs sm:text-sm"
               >
                 Bekor qilish
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="text-xs sm:text-sm">
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !hasChanges.basic} 
+                className="text-xs sm:text-sm"
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Saqlash
               </Button>
@@ -837,12 +1119,17 @@ function StoreSettings() {
                   <Button
                     type="button"
                 variant="outline"
-                onClick={() => locationForm.reset()}
+                onClick={resetLocationForm}
+                disabled={!hasChanges.location}
                     className="text-xs sm:text-sm"
                   >
                 Bekor qilish
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="text-xs sm:text-sm">
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !hasChanges.location} 
+                className="text-xs sm:text-sm"
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Saqlash
                   </Button>
@@ -947,12 +1234,17 @@ function StoreSettings() {
                         <Button
                           type="button"
                 variant="outline"
-                onClick={() => deliveryForm.reset()}
+                onClick={resetDeliveryForm}
+                disabled={!hasChanges.delivery}
                 className="text-xs sm:text-sm"
               >
                 Bekor qilish
               </Button>
-              <Button type="submit" disabled={isSubmitting} className="text-xs sm:text-sm">
+              <Button 
+                type="submit" 
+                disabled={isSubmitting || !hasChanges.delivery} 
+                className="text-xs sm:text-sm"
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Saqlash
                         </Button>
@@ -1110,25 +1402,15 @@ function StoreSettings() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => {
-                  setPaymentMethods({
-                    acceptCash: storeData?.acceptCash || false,
-                    acceptCard: storeData?.acceptCard || false,
-                    acceptOnlinePayment: storeData?.acceptOnlinePayment || false,
-                  });
-                  setStatusFlags({
-                    isActive: storeData?.isActive !== undefined ? storeData.isActive : true,
-                    isVerified: storeData?.isVerified || false,
-                    isPremium: storeData?.isPremium || false,
-                  });
-                }}
+                onClick={resetPaymentStatus}
+                disabled={!hasChanges.payment}
                 className="text-xs sm:text-sm"
               >
                 Bekor qilish
               </Button>
               <Button
                 onClick={handlePaymentStatusSubmit}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !hasChanges.payment}
                 className="text-xs sm:text-sm"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1178,28 +1460,15 @@ function StoreSettings() {
         <Button
           type="button"
           variant="outline"
-          onClick={() => {
-                  if (storeData?.descriptionTranslate) {
-                    setDescription({
-                      uz: storeData.descriptionTranslate.uz || storeData.description || '',
-                      ru: storeData.descriptionTranslate.ru || '',
-                      en: storeData.descriptionTranslate.en || '',
-                    });
-                  } else {
-                    setDescription({
-                      uz: storeData?.description || '',
-                      ru: '',
-                      en: '',
-                    });
-                  }
-          }}
+          onClick={resetDescription}
+          disabled={!hasChanges.description}
           className="text-xs sm:text-sm"
         >
           Bekor qilish
         </Button>
         <Button
                 onClick={handleDescriptionSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !hasChanges.description}
           className="text-xs sm:text-sm"
         >
           {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
