@@ -12,7 +12,24 @@ import {
   MoreVertical,
   ArrowLeft,
   Loader2,
+  GripVertical,
 } from 'lucide-react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -74,8 +91,17 @@ function Catalog() {
   const [parentId, setParentId] = useState(null);
   const [parentCategory, setParentCategory] = useState(null);
   const [loadingParent, setLoadingParent] = useState(false);
+  const [isUpdatingPositions, setIsUpdatingPositions] = useState(false);
 
   const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Get category name in current language
   const getCategoryName = (category) => {
@@ -103,7 +129,7 @@ function Catalog() {
         .finally(() => {
           setLoadingParent(false);
         });
-      } else {
+    } else {
       setParentId(null);
       setParentCategory(null);
     }
@@ -154,6 +180,180 @@ function Catalog() {
     });
   }, [categories, debouncedSearchTerm, currentLang]);
 
+  // Handle drag end
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    // Use filteredCategories for drag, but update the full categories array
+    const oldIndex = filteredCategories.findIndex((cat) => cat._id === active.id);
+    const newIndex = filteredCategories.findIndex((cat) => cat._id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Get the actual categories from the full list that match filtered ones
+    const reorderedFiltered = arrayMove(filteredCategories, oldIndex, newIndex);
+
+    // Map back to full categories array maintaining order
+    const categoryMap = new Map(categories.map((cat) => [cat._id, cat]));
+    const newCategories = reorderedFiltered.map((cat) => categoryMap.get(cat._id)).filter(Boolean);
+
+    // Add any categories that weren't in filtered list (shouldn't happen, but safety check)
+    const filteredIds = new Set(reorderedFiltered.map((cat) => cat._id));
+    categories.forEach((cat) => {
+      if (!filteredIds.has(cat._id)) {
+        newCategories.push(cat);
+      }
+    });
+
+    // Update local state immediately for better UX
+    setCategories(newCategories);
+
+    // Update positions on backend
+    try {
+      setIsUpdatingPositions(true);
+      const categoryIds = newCategories.map((cat) => cat._id);
+      await updateCategoryPositions(categoryIds);
+      toast.success('Kategoriyalar tartibi yangilandi');
+    } catch (error) {
+      console.error('Error updating positions:', error);
+      toast.error('Kategoriyalar tartibini yangilashda xatolik yuz berdi');
+      // Revert on error
+      await loadCategories();
+    } finally {
+      setIsUpdatingPositions(false);
+    }
+  };
+
+  // Sortable Row Component
+  const SortableRow = ({ category, index }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: category._id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    const imageUrl = getImageUrl(category);
+    const categoryName = getCategoryName(category);
+
+    return (
+      <TableRow
+        ref={setNodeRef}
+        style={style}
+        key={category._id}
+        className="hover:bg-muted/50 cursor-pointer"
+        onClick={() => handleCategoryClick(category)}
+      >
+        {/* Drag Handle Column */}
+        <TableCell className="w-6 px-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab active:cursor-grabbing touch-none flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        </TableCell>
+
+        {/* Category Name Column */}
+        <TableCell>
+          <div className="flex items-center gap-3">
+            {imageUrl ? (
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden bg-muted flex-shrink-0">
+                <img
+                  src={imageUrl}
+                  alt={categoryName}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-sm sm:text-base">
+                  {categoryName}
+                </span>
+              </div>
+            </div>
+          </div>
+        </TableCell>
+
+        {/* Product Count Column */}
+        <TableCell className="hidden md:table-cell text-center w-32">
+          <Badge variant="outline" className="text-xs">
+            {category.productCount || 0} ta
+          </Badge>
+        </TableCell>
+
+        {/* Actions Column */}
+        <TableCell className="text-right w-24" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1 sm:gap-2">
+            {isMobile ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                    <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEdit(category)}>
+                    <Edit className="h-4 w-4" />
+                    Tahrirlash
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(category)}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    O'chirish
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  onClick={() => handleEdit(category)}
+                >
+                  <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 sm:h-8 sm:w-8"
+                  onClick={() => handleDelete(category)}
+                >
+                  <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
   // Handle category click - navigate to subcategories
   const handleCategoryClick = (category) => {
     navigate(`/dashboard/catalog?parentId=${category._id}`);
@@ -163,9 +363,9 @@ function Catalog() {
   const handleBack = () => {
     if (parentCategory?.parentId) {
       navigate(`/dashboard/catalog?parentId=${parentCategory.parentId}`);
-      } else {
+    } else {
       navigate('/dashboard/catalog');
-      }
+    }
   };
 
   // Handle create new category
@@ -191,17 +391,17 @@ function Catalog() {
         };
         // parentId ni olib tashlash, chunki edit qilganda o'zgartirilmaydi
         delete updateData.parentId;
-        
+
         await updateStoreCategory(updateData);
-      toast.success('Kategoriya yangilandi');
-    } else {
+        toast.success('Kategoriya yangilandi');
+      } else {
         await createStoreCategory({
-        ...categoryData,
+          ...categoryData,
           parentId: parentId || undefined,
         });
-      toast.success('Kategoriya yaratildi');
-    }
-    setCategoryFormOpen(false);
+        toast.success('Kategoriya yaratildi');
+      }
+      setCategoryFormOpen(false);
       setEditingCategory(null);
       // Ro'yxatni darhol yangilash
       await loadCategories();
@@ -226,14 +426,14 @@ function Catalog() {
       console.log('Deleting category:', categoryToDelete._id, categoryToDelete);
       const response = await deleteStoreCategory(categoryToDelete._id);
       console.log('Delete response:', response);
-      
+
       toast.success('Kategoriya o\'chirildi');
-    setDeleteDialogOpen(false);
-    setCategoryToDelete(null);
-      
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
+
       // Ro'yxatni darhol yangilash
       await loadCategories();
-      
+
       console.log('Categories reloaded after delete');
     } catch (error) {
       console.error('Error deleting category:', error);
@@ -260,7 +460,7 @@ function Catalog() {
     return null;
   };
 
-    return (
+  return (
     <div className="space-y-4 py-2 sm:py-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -288,7 +488,7 @@ function Catalog() {
           <span className="text-xs sm:text-sm">
             {parentId ? 'Yangi subkategoriya' : 'Yangi kategoriya'}
           </span>
-                </Button>
+        </Button>
       </div>
 
       {/* Search */}
@@ -311,108 +511,43 @@ function Catalog() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : filteredCategories.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Kategoriya</TableHead>
-                    <TableHead className="hidden md:table-cell text-center">
-                      Mahsulotlar
-                    </TableHead>
-                    <TableHead className="text-right">Amal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCategories.map((category) => {
-                    const imageUrl = getImageUrl(category);
-                    const categoryName = getCategoryName(category);
-
-                    return (
-                      <TableRow
-                        key={category._id}
-                        className="hover:bg-muted/50 cursor-pointer"
-                        onClick={() => handleCategoryClick(category)}
-                      >
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            {imageUrl ? (
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden bg-muted flex-shrink-0">
-                                <img
-                                  src={imageUrl}
-                                  alt={categoryName}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ) : (
-                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm sm:text-base">
-                                  {categoryName}
-                    </span>
-                </div>
-              </div>
-            </div>
-          </TableCell>
-          <TableCell className="hidden md:table-cell text-center">
-            <Badge variant="outline" className="text-xs">
-              {category.productCount || 0} ta
-            </Badge>
-          </TableCell>
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-end gap-1 sm:gap-2">
-              {isMobile ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
-                      <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEdit(category)}>
-                      <Edit className="h-4 w-4" />
-                      Tahrirlash
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => handleDelete(category)}
-                      className="text-destructive"
+            <div className="overflow-x-auto relative">
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-6 px-2"></TableHead>
+                      <TableHead className="w-[10rem]">Kategoriya</TableHead>
+                      <TableHead className="hidden md:table-cell text-center w-32">
+                        Mahsulotlar
+                      </TableHead>
+                      <TableHead className="text-right w-24">Amal</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <SortableContext
+                      items={filteredCategories.map((cat) => cat._id)}
+                      strategy={verticalListSortingStrategy}
                     >
-                      <Trash2 className="h-4 w-4" />
-                      O'chirish
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 sm:h-8 sm:w-8"
-                    onClick={() => handleEdit(category)}
-                  >
-                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 sm:h-8 sm:w-8"
-                    onClick={() => handleDelete(category)}
-                  >
-                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
-                </>
+                      {filteredCategories.map((category, index) => (
+                        <SortableRow key={category._id} category={category} index={index} />
+                      ))}
+                    </SortableContext>
+                  </TableBody>
+                </Table>
+              </DndContext>
+              {isUpdatingPositions && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <p className="text-sm text-muted-foreground">Tartib yangilanmoqda...</p>
+                  </div>
+                </div>
               )}
-            </div>
-          </TableCell>
-        </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
             </div>
           ) : (
             <Empty>
@@ -429,8 +564,8 @@ function Catalog() {
                   {searchTerm
                     ? 'Qidiruv natijasiga mos kategoriya topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
                     : parentId
-                    ? 'Hali hech qanday subkategoriya yaratilmagan. "Yangi subkategoriya" tugmasini bosing.'
-                    : 'Hali hech qanday kategoriya yaratilmagan. "Yangi kategoriya" tugmasini bosing va birinchi kategoriyangizni yarating.'}
+                      ? 'Hali hech qanday subkategoriya yaratilmagan. "Yangi subkategoriya" tugmasini bosing.'
+                      : 'Hali hech qanday kategoriya yaratilmagan. "Yangi kategoriya" tugmasini bosing va birinchi kategoriyangizni yarating.'}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
