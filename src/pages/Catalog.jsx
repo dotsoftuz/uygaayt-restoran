@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -7,20 +7,14 @@ import {
   Edit,
   Trash2,
   FolderTree,
-  Folder,
-  FolderOpen,
   Image as ImageIcon,
-  ArrowUp,
-  ArrowDown,
-  GripVertical,
   Search,
   MoreVertical,
-  Package,
-  Eye,
-  EyeOff,
+  ArrowLeft,
+  Loader2,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -44,12 +38,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/use-debounce';
-import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
-import AssignProductsToCategory from '@/components/dashboard/dialogs/AssignProductsToCategory';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Empty,
@@ -59,424 +49,304 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-
-// Mock categories data generator
-const generateFakeCategories = () => {
-  const categories = [
-    {
-      id: 'cat-1',
-      name: 'Ovqat',
-      slug: 'ovqat',
-      parentId: null,
-      image: null,
-      displayOrder: 1,
-      isActive: true,
-      productCount: 25,
-      metaTitle: 'Ovqatlar - Restoran',
-      metaDescription: 'Mazali ovqatlar va taomlar',
-      metaKeywords: 'ovqat, taom, restoran',
-    },
-    {
-      id: 'cat-2',
-      name: 'Ichimlik',
-      slug: 'ichimlik',
-      parentId: null,
-      image: null,
-      displayOrder: 2,
-      isActive: true,
-      productCount: 15,
-      metaTitle: 'Ichimliklar - Restoran',
-      metaDescription: 'Sovuq va issiq ichimliklar',
-      metaKeywords: 'ichimlik, suv, kola',
-    },
-    {
-      id: 'cat-3',
-      name: 'Fast Food',
-      slug: 'fast-food',
-      parentId: null,
-      image: null,
-      displayOrder: 3,
-      isActive: true,
-      productCount: 20,
-      metaTitle: 'Fast Food - Restoran',
-      metaDescription: 'Tez ovqatlar',
-      metaKeywords: 'fast food, tez ovqat',
-    },
-    {
-      id: 'cat-4',
-      name: 'Lavash',
-      slug: 'lavash',
-      parentId: 'cat-3',
-      image: null,
-      displayOrder: 1,
-      isActive: true,
-      productCount: 8,
-      metaTitle: 'Lavash - Fast Food',
-      metaDescription: 'Turli xil lavashlar',
-      metaKeywords: 'lavash',
-    },
-    {
-      id: 'cat-5',
-      name: 'Burger',
-      slug: 'burger',
-      parentId: 'cat-3',
-      image: null,
-      displayOrder: 2,
-      isActive: true,
-      productCount: 12,
-      metaTitle: 'Burger - Fast Food',
-      metaDescription: 'Mazali burgerlar',
-      metaKeywords: 'burger',
-    },
-  ];
-  return categories;
-};
+import {
+  fetchStoreCategories,
+  deleteStoreCategory,
+  updateCategoryPositions,
+  createStoreCategory,
+  updateStoreCategory,
+} from '@/services/storeCategories';
+import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
 
 function Catalog() {
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [categories, setCategories] = useState(generateFakeCategories());
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
-  const [selectedCategories, setSelectedCategories] = useState([]);
-  const [assignProductsOpen, setAssignProductsOpen] = useState(false);
-  const [categoryToAssign, setCategoryToAssign] = useState(null);
+  const [parentId, setParentId] = useState(null);
+  const [parentCategory, setParentCategory] = useState(null);
+  const [breadcrumbs, setBreadcrumbs] = useState([]);
 
-  // Build tree structure
-  const categoryTree = useMemo(() => {
-    const tree = [];
-    const categoryMap = new Map();
+  const currentLang = localStorage.getItem('i18nextLng') || 'uz';
 
-    // Create map
-    categories.forEach((cat) => {
-      categoryMap.set(cat.id, { ...cat, children: [] });
-    });
-
-    // Build tree
-    categories.forEach((cat) => {
-      if (cat.parentId) {
-        const parent = categoryMap.get(cat.parentId);
-        if (parent) {
-          parent.children.push(categoryMap.get(cat.id));
-        }
-      } else {
-        tree.push(categoryMap.get(cat.id));
-      }
-    });
-
-    // Sort by displayOrder
-    const sortByOrder = (items) => {
-      items.sort((a, b) => a.displayOrder - b.displayOrder);
-      items.forEach((item) => {
-        if (item.children.length > 0) {
-          sortByOrder(item.children);
-        }
-      });
-    };
-
-    sortByOrder(tree);
-    return tree;
-  }, [categories]);
-
-  // Filter categories
-  const filteredTree = useMemo(() => {
-    if (!debouncedSearchTerm) return categoryTree;
-
-    const filterTree = (items) => {
-      return items
-        .filter((item) => {
-          const matchesSearch =
-            item.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-            item.slug.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
-          const hasMatchingChildren =
-            item.children.length > 0 &&
-            filterTree(item.children).length > 0;
-          return matchesSearch || hasMatchingChildren;
+  // Get parentId from URL params
+  useEffect(() => {
+    const parentIdParam = searchParams.get('parentId');
+    if (parentIdParam) {
+      setParentId(parentIdParam);
+      // Fetch parent category info
+      fetchStoreCategories({ page: 1, limit: 1, parentId: null })
+        .then((res) => {
+          const found = res.data?.find((cat) => cat._id === parentIdParam);
+          if (found) {
+            setParentCategory(found);
+          }
         })
-        .map((item) => ({
-          ...item,
-          children: filterTree(item.children),
-        }));
-    };
-
-    return filterTree(categoryTree);
-  }, [categoryTree, debouncedSearchTerm]);
-
-  const toggleExpand = (categoryId) => {
-    setExpandedCategories((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId);
+        .catch(console.error);
       } else {
-        newSet.add(categoryId);
+      setParentId(null);
+      setParentCategory(null);
+    }
+  }, [searchParams]);
+
+  // Fetch categories
+  const loadCategories = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchStoreCategories({
+        page: 1,
+        limit: 200,
+        parentId: parentId,
+      });
+      // Response structure: { statusCode, code, data: { data: [], total }, message, time }
+      if (response?.data?.data) {
+        // Yangi array yaratish - React state yangilanishi uchun
+        // To'liq yangi array yaratish orqali React state to'g'ri yangilanadi
+        const newCategories = response.data.data.map(cat => ({ ...cat }));
+        setCategories(newCategories);
+      } else if (response?.data && Array.isArray(response.data)) {
+        // Fallback: if data is directly an array
+        setCategories(response.data.map(cat => ({ ...cat })));
+      } else if (Array.isArray(response)) {
+        // Fallback: if response is directly an array
+        setCategories(response.map(cat => ({ ...cat })));
       }
-      return newSet;
-    });
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast.error('Kategoriyalarni yuklashda xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    loadCategories();
+  }, [parentId]);
+
+  // Filter categories by search term
+  const filteredCategories = useMemo(() => {
+    if (!debouncedSearchTerm) return categories;
+
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    return categories.filter((cat) => {
+      const name = cat.name?.[currentLang] || cat.name?.uz || '';
+      return name.toLowerCase().includes(searchLower);
+    });
+  }, [categories, debouncedSearchTerm, currentLang]);
+
+  // Handle category click - navigate to subcategories
+  const handleCategoryClick = (category) => {
+    navigate(`/dashboard/catalog?parentId=${category._id}`);
+  };
+
+  // Handle back navigation
+  const handleBack = () => {
+    if (parentCategory?.parentId) {
+      navigate(`/dashboard/catalog?parentId=${parentCategory.parentId}`);
+      } else {
+      navigate('/dashboard/catalog');
+      }
+  };
+
+  // Handle create new category
   const handleCreateNew = () => {
     setEditingCategory(null);
-    setSearchParams({ drawer: 'create-catalog' });
     setCategoryFormOpen(true);
   };
 
+  // Handle edit category
   const handleEdit = (category) => {
     setEditingCategory(category);
     setCategoryFormOpen(true);
   };
 
+  // Handle save category
   const handleSaveCategory = async (categoryData) => {
-    console.log('Saving category:', categoryData);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (editingCategory) {
-      // Update existing
-      setCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === editingCategory.id ? { ...cat, ...categoryData } : cat
-        )
-      );
+    try {
+      if (editingCategory) {
+        // Edit qilganda parentId ni o'zgartirmaslik kerak
+        const updateData = {
+          ...categoryData,
+          _id: editingCategory._id,
+        };
+        // parentId ni olib tashlash, chunki edit qilganda o'zgartirilmaydi
+        delete updateData.parentId;
+        
+        await updateStoreCategory(updateData);
       toast.success('Kategoriya yangilandi');
     } else {
-      // Create new
-      const newCategory = {
-        id: `cat-${Date.now()}`,
+        await createStoreCategory({
         ...categoryData,
-        productCount: 0,
-      };
-      setCategories((prev) => [...prev, newCategory]);
+          parentId: parentId || undefined,
+        });
       toast.success('Kategoriya yaratildi');
     }
-
     setCategoryFormOpen(false);
-    setEditingCategory(null);
+      setEditingCategory(null);
+      // Ro'yxatni darhol yangilash
+      await loadCategories();
+    } catch (error) {
+      console.error('Error saving category:', error);
+      toast.error(
+        error?.message || 'Kategoriyani saqlashda xatolik yuz berdi'
+      );
+    }
   };
 
-  // Watch for URL parameter to open drawer and dialogs
-  useEffect(() => {
-    const drawer = searchParams.get('drawer');
-    const dialog = searchParams.get('dialog');
-    const categoryId = searchParams.get('categoryId');
-    
-    if (drawer === 'create-catalog') {
-      setEditingCategory(null);
-      setCategoryFormOpen(true);
-    }
-    
-    if (dialog === 'assign-products' && categoryId) {
-      const category = categories.find(c => c.id === categoryId);
-      if (category) {
-        setCategoryToAssign(category);
-        setAssignProductsOpen(true);
-      }
-    } else if (dialog === 'delete-category' && categoryId) {
-      const category = categories.find(c => c.id === categoryId);
-      if (category) {
-        setCategoryToDelete(category);
-        setDeleteDialogOpen(true);
-      }
-    }
-  }, [searchParams, categories]);
-
-  // Read search from URL on mount
-  useEffect(() => {
-    const search = searchParams.get('search');
-    if (search !== null) setSearchTerm(search);
-  }, []); // Only on mount
-
-  // Update URL when search changes (using debounced search)
-  useEffect(() => {
-    const params = new URLSearchParams();
-    
-    if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
-    
-    // Preserve drawer parameter if exists
-    const drawer = searchParams.get('drawer');
-    if (drawer) params.set('drawer', drawer);
-    
-    setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm]);
-
+  // Handle delete category
   const handleDelete = (category) => {
     setCategoryToDelete(category);
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (categoryToDelete) {
-      // Check if category has children
-      const hasChildren = categories.some(
-        (cat) => cat.parentId === categoryToDelete.id
-      );
+  const confirmDelete = async () => {
+    if (!categoryToDelete) return;
 
-      if (hasChildren) {
-        toast.error('Bu kategoriyada subkategoriyalar bor. Avval ularni o\'chiring');
-        return;
-      }
-
-      setCategories((prev) =>
-        prev.filter((cat) => cat.id !== categoryToDelete.id)
-      );
+    try {
+      console.log('Deleting category:', categoryToDelete._id, categoryToDelete);
+      const response = await deleteStoreCategory(categoryToDelete._id);
+      console.log('Delete response:', response);
+      
       toast.success('Kategoriya o\'chirildi');
-    }
-    setDeleteDialogOpen(false);
-    setCategoryToDelete(null);
-  };
-
-  const handleMoveOrder = (categoryId, direction) => {
-    setCategories((prev) => {
-      const category = prev.find((c) => c.id === categoryId);
-      if (!category) return prev;
-
-      const siblings = prev.filter(
-        (c) => c.parentId === category.parentId
-      );
-      const currentIndex = siblings.findIndex((c) => c.id === categoryId);
-
-      if (
-        (direction === 'up' && currentIndex === 0) ||
-        (direction === 'down' && currentIndex === siblings.length - 1)
-      ) {
-        return prev;
-      }
-
-      const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      const targetCategory = siblings[newIndex];
-
-      return prev.map((c) => {
-        if (c.id === categoryId) {
-          return { ...c, displayOrder: targetCategory.displayOrder };
-        }
-        if (c.id === targetCategory.id) {
-          return { ...c, displayOrder: category.displayOrder };
-        }
-        return c;
+      setDeleteDialogOpen(false);
+      setCategoryToDelete(null);
+      
+      // Ro'yxatni darhol yangilash
+      await loadCategories();
+      
+      console.log('Categories reloaded after delete');
+    } catch (error) {
+      console.error('Error deleting category:', error);
+      console.error('Error details:', {
+        message: error?.message,
+        statusCode: error?.statusCode,
+        code: error?.code,
+        data: error?.data,
       });
-    });
+      toast.error(
+        error?.message || 'Kategoriyani o\'chirishda xatolik yuz berdi'
+      );
+    }
   };
 
-  const handleToggleActive = (categoryId) => {
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === categoryId ? { ...cat, isActive: !cat.isActive } : cat
-      )
-    );
-    toast.success('Kategoriya holati o\'zgartirildi');
+  // Get category name in current language
+  const getCategoryName = (category) => {
+    return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
   };
 
-  const handleAssignProducts = (category) => {
-    setCategoryToAssign(category);
-    setAssignProductsOpen(true);
+  // Get image URL
+  const getImageUrl = (category) => {
+    if (category.image?.url) {
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+      // Remove /v1 from baseUrl if present, then add /uploads
+      const cleanBaseUrl = baseUrl.replace('/v1', '');
+      return `${cleanBaseUrl}/uploads/${category.image.url}`;
+    }
+    return null;
   };
-
-  const handleAssignProductsSubmit = async (data) => {
-    console.log('Assigning products:', data);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Update product count for category
-    setCategories((prev) =>
-      prev.map((cat) =>
-        cat.id === data.categoryId
-          ? { ...cat, productCount: data.productIds.length }
-          : cat
-      )
-    );
-
-    toast.success('Mahsulotlar kategoriyaga biriktirildi');
-    setAssignProductsOpen(false);
-    setCategoryToAssign(null);
-  };
-
-  // Render category row
-  const renderCategoryRow = (category, level = 0, isLast = false) => {
-    const hasChildren = category.children && category.children.length > 0;
-    const isExpanded = expandedCategories.has(category.id);
-    const indent = level * (isMobile ? 16 : 24);
 
     return (
-      <React.Fragment key={category.id}>
-        <TableRow className="hover:bg-muted/50">
-          <TableCell style={{ paddingLeft: `${isMobile ? 8 : 16}px` }}>
-            <div className="flex items-center gap-2">
-              {hasChildren ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={() => toggleExpand(category.id)}
-                >
-                  {isExpanded ? (
-                    <FolderOpen className="h-3 w-3 sm:h-4 sm:w-4" />
-                  ) : (
-                    <Folder className="h-3 w-3 sm:h-4 sm:w-4" />
-                  )}
+    <div className="space-y-4 py-2 sm:py-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3">
+          {parentId && (
+            <Button variant="ghost" size="icon" onClick={handleBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          )}
+          <div>
+            <h2 className="title">
+              {parentCategory
+                ? getCategoryName(parentCategory)
+                : 'Kategoriyalar / Katalog'}
+            </h2>
+            <p className="paragraph">
+              {parentId
+                ? 'Ichki kategoriyalarni boshqaring'
+                : 'Kategoriyalar va subkategoriyalarni boshqaring'}
+            </p>
+          </div>
+        </div>
+        <Button onClick={handleCreateNew} size="sm">
+          <Plus className="h-4 w-4" />
+          <span className="text-xs sm:text-sm">
+            {parentId ? 'Yangi subkategoriya' : 'Yangi kategoriya'}
+          </span>
                 </Button>
-              ) : (
-                <div className="w-6 flex-shrink-0" />
-              )}
-              <div
-                className="flex items-center gap-2 flex-1 min-w-0"
-                style={{ marginLeft: `${indent}px` }}
-              >
-                {category.image ? (
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded overflow-hidden bg-muted flex-shrink-0">
-                    <img
-                      src={category.image}
-                      alt={category.name}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Kategoriya nomi bo'yicha qidirish..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 text-sm sm:text-base"
+        />
+      </div>
+
+      {/* Categories Table */}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : filteredCategories.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Kategoriya</TableHead>
+                    <TableHead className="hidden md:table-cell text-center">
+                      Mahsulotlar
+                    </TableHead>
+                    <TableHead className="text-right">Amal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCategories.map((category) => {
+                    const imageUrl = getImageUrl(category);
+                    const categoryName = getCategoryName(category);
+
+                    return (
+                      <TableRow
+                        key={category._id}
+                        className="hover:bg-muted/50 cursor-pointer"
+                        onClick={() => handleCategoryClick(category)}
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            {imageUrl ? (
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded overflow-hidden bg-muted flex-shrink-0">
+                                <img
+                                  src={imageUrl}
+                                  alt={categoryName}
                       className="w-full h-full object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                    <ImageIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <span className="font-medium text-xs sm:text-sm md:text-base truncate">
-                      {category.name}
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm sm:text-base">
+                                  {categoryName}
                     </span>
-                    {!category.isActive && (
-                      <Badge variant="secondary" className="text-xs w-fit">
-                        <EyeOff className="h-3 w-3 mr-1" />
-                        Yashirilgan
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground font-mono truncate">
-                    /{category.slug}
-                  </p>
                 </div>
               </div>
-            </div>
-          </TableCell>
-          <TableCell className="hidden sm:table-cell">
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => handleMoveOrder(category.id, 'up')}
-                disabled={level === 0 && category.displayOrder === 1}
-              >
-                <ArrowUp className="h-3 w-3" />
-              </Button>
-              <span className="text-xs font-mono w-8 text-center">
-                {category.displayOrder}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => handleMoveOrder(category.id, 'down')}
-              >
-                <ArrowDown className="h-3 w-3" />
-              </Button>
             </div>
           </TableCell>
           <TableCell className="hidden md:table-cell text-center">
@@ -484,21 +354,8 @@ function Catalog() {
               {category.productCount || 0} ta
             </Badge>
           </TableCell>
-          <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-end gap-1 sm:gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 sm:h-8 sm:w-8"
-                onClick={() => handleToggleActive(category.id)}
-                title={category.isActive ? 'Yashirish' : 'Ko\'rsatish'}
-              >
-                {category.isActive ? (
-                  <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-                ) : (
-                  <EyeOff className="h-3 w-3 sm:h-4 sm:w-4" />
-                )}
-              </Button>
               {isMobile ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -507,10 +364,6 @@ function Catalog() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleAssignProducts(category)}>
-                      <Package className="h-4 w-4" />
-                      Mahsulotlarni biriktirish
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleEdit(category)}>
                       <Edit className="h-4 w-4" />
                       Tahrirlash
@@ -527,15 +380,6 @@ function Catalog() {
                 </DropdownMenu>
               ) : (
                 <>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 sm:h-8 sm:w-8"
-                    onClick={() => handleAssignProducts(category)}
-                    title="Mahsulotlarni biriktirish"
-                  >
-                    <Package className="h-3 w-3 sm:h-4 sm:w-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -557,74 +401,8 @@ function Catalog() {
             </div>
           </TableCell>
         </TableRow>
-        {hasChildren &&
-          isExpanded &&
-          category.children.map((child, index) =>
-            renderCategoryRow(
-              child,
-              level + 1,
-              index === category.children.length - 1
-            )
-          )}
-      </React.Fragment>
-    );
-  };
-
-  return (
-    <div className="space-y-4 py-2 sm:py-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div>
-          <h2 className="title">Kategoriyalar / Katalog</h2>
-          <p className="paragraph">
-            Kategoriyalar va subkategoriyalarni boshqaring
-          </p>
-        </div>
-        <Button onClick={handleCreateNew} size="sm" className="">
-          <Plus className="h-4 w-4" />
-          <span className="text-xs sm:text-sm">Yangi kategoriya</span>
-        </Button>
-      </div>
-
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Kategoriya nomi yoki slug bo'yicha qidirish..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 text-sm sm:text-base"
-        />
-      </div>
-
-      {/* Categories Table */}
-      <Card>
-        {/* <CardHeader className="pb-3">
-          <CardTitle className="text-base sm:text-lg">Kategoriyalar ro'yxati</CardTitle>
-        </CardHeader> */}
-        <CardContent className="p-0">
-          {filteredTree.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Kategoriya</TableHead>
-                    <TableHead className="hidden sm:table-cell">Tartib</TableHead>
-                    <TableHead className="hidden md:table-cell text-center">
-                      Mahsulotlar
-                    </TableHead>
-                    <TableHead className="text-right">Amal</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTree.map((category, index) =>
-                    renderCategoryRow(
-                      category,
-                      0,
-                      index === filteredTree.length - 1
-                    )
-                  )}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -642,6 +420,8 @@ function Catalog() {
                 <EmptyDescription>
                   {searchTerm
                     ? 'Qidiruv natijasiga mos kategoriya topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
+                    : parentId
+                    ? 'Hali hech qanday subkategoriya yaratilmagan. "Yangi subkategoriya" tugmasini bosing.'
                     : 'Hali hech qanday kategoriya yaratilmagan. "Yangi kategoriya" tugmasini bosing va birinchi kategoriyangizni yarating.'}
                 </EmptyDescription>
               </EmptyHeader>
@@ -657,60 +437,16 @@ function Catalog() {
           setCategoryFormOpen(open);
           if (!open) {
             setEditingCategory(null);
-            // Remove drawer parameter from URL when closing
-            const newParams = new URLSearchParams(searchParams);
-            newParams.delete('drawer');
-            setSearchParams(newParams, { replace: true });
           }
         }}
         category={editingCategory}
-        categories={categories}
+        parentId={parentId}
         onSave={handleSaveCategory}
-      />
-
-      {/* Assign Products Dialog */}
-      <AssignProductsToCategory
-        open={assignProductsOpen}
-        onOpenChange={(open) => {
-          setAssignProductsOpen(open);
-          if (!open) {
-            setCategoryToAssign(null);
-          }
-          const params = new URLSearchParams(searchParams);
-          if (open) {
-            params.set('dialog', 'assign-products');
-            if (categoryToAssign) {
-              params.set('categoryId', categoryToAssign.id);
-            }
-          } else {
-            params.delete('dialog');
-            params.delete('categoryId');
-          }
-          setSearchParams(params, { replace: true });
-        }}
-        category={categoryToAssign}
-        allCategories={categories}
-        onAssign={handleAssignProductsSubmit}
+        onRefresh={loadCategories}
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog 
-        open={deleteDialogOpen} 
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open);
-          const params = new URLSearchParams(searchParams);
-          if (open) {
-            params.set('dialog', 'delete-category');
-            if (categoryToDelete) {
-              params.set('categoryId', categoryToDelete.id);
-            }
-          } else {
-            params.delete('dialog');
-            params.delete('categoryId');
-          }
-          setSearchParams(params, { replace: true });
-        }}
-      >
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Kategoriyani o'chirish</DialogTitle>
@@ -722,7 +458,7 @@ function Catalog() {
             {categoryToDelete && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  <strong>{categoryToDelete.name}</strong> kategoriyasi butunlay o'chiriladi.
+                  <strong>{getCategoryName(categoryToDelete)}</strong> kategoriyasi butunlay o'chiriladi.
                 </p>
                 {categoryToDelete.productCount > 0 && (
                   <p className="text-sm text-yellow-600">
