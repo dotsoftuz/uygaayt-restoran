@@ -9,20 +9,24 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useAppContext } from '@/context/AppContext';
 import { useServices } from '@/hooks/use-services';
 import { useTemplates } from '@/hooks/use-templates';
+import { getStoreCategoryById } from '@/services/storeCategories';
 
 function CustomBreadcrumb({ showBackButton = false }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const { clients, employees, orders } = useAppContext();
   const { services } = useServices();
   const { templates } = useTemplates();
+  const [categoryBreadcrumbs, setCategoryBreadcrumbs] = React.useState([]);
+  const [loadingBreadcrumbs, setLoadingBreadcrumbs] = React.useState(false);
 
   const pathSegments = location.pathname
     .replace('/dashboard', '')

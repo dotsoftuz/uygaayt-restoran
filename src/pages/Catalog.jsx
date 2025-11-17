@@ -12,9 +12,18 @@ import {
   MoreVertical,
   ArrowLeft,
   Loader2,
+  ChevronRight,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import {
   Table,
   TableBody,
@@ -55,6 +64,7 @@ import {
   updateCategoryPositions,
   createStoreCategory,
   updateStoreCategory,
+  getStoreCategoryById,
 } from '@/services/storeCategories';
 import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
 
@@ -73,26 +83,78 @@ function Catalog() {
   const [parentId, setParentId] = useState(null);
   const [parentCategory, setParentCategory] = useState(null);
   const [breadcrumbs, setBreadcrumbs] = useState([]);
+  const [loadingParent, setLoadingParent] = useState(false);
 
   const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+
+  // Get category name in current language
+  const getCategoryName = (category) => {
+    if (!category) return 'Nomsiz';
+    return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
+  };
+
+  // Build breadcrumbs from parent chain
+  const buildBreadcrumbs = async (categoryId) => {
+    const crumbs = [];
+    let currentId = categoryId;
+    const visited = new Set(); // Prevent infinite loops
+    
+    while (currentId) {
+      // Prevent infinite loops
+      if (visited.has(currentId)) {
+        console.warn('Circular reference detected in breadcrumbs');
+        break;
+      }
+      visited.add(currentId);
+      
+      try {
+        const response = await getStoreCategoryById(currentId);
+        const catData = response?.data || response;
+        if (catData && catData._id) {
+          crumbs.unshift({
+            id: catData._id,
+            name: getCategoryName(catData),
+          });
+          // Get next parent ID (handle both string and ObjectId)
+          currentId = catData.parentId ? String(catData.parentId) : null;
+        } else {
+          break;
+        }
+      } catch (error) {
+        console.error('Error loading breadcrumb category:', error);
+        break;
+      }
+    }
+    
+    setBreadcrumbs(crumbs);
+  };
 
   // Get parentId from URL params
   useEffect(() => {
     const parentIdParam = searchParams.get('parentId');
     if (parentIdParam) {
       setParentId(parentIdParam);
-      // Fetch parent category info
-      fetchStoreCategories({ page: 1, limit: 1, parentId: null })
-        .then((res) => {
-          const found = res.data?.find((cat) => cat._id === parentIdParam);
-          if (found) {
-            setParentCategory(found);
+      setLoadingParent(true);
+      // Fetch parent category info by ID
+      getStoreCategoryById(parentIdParam)
+        .then((response) => {
+          const catData = response?.data || response;
+          if (catData) {
+            setParentCategory(catData);
+            // Build breadcrumbs
+            buildBreadcrumbs(parentIdParam);
           }
         })
-        .catch(console.error);
-      } else {
+        .catch((error) => {
+          console.error('Error loading parent category:', error);
+        })
+        .finally(() => {
+          setLoadingParent(false);
+        });
+    } else {
       setParentId(null);
       setParentCategory(null);
+      setBreadcrumbs([]);
     }
   }, [searchParams]);
 
@@ -236,11 +298,6 @@ function Catalog() {
     }
   };
 
-  // Get category name in current language
-  const getCategoryName = (category) => {
-    return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
-  };
-
   // Get image URL
   const getImageUrl = (category) => {
     if (category.image?.url) {
@@ -254,6 +311,41 @@ function Catalog() {
 
     return (
     <div className="space-y-4 py-2 sm:py-4">
+      {/* Breadcrumb */}
+      {breadcrumbs.length > 0 && (
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink
+                onClick={() => navigate('/dashboard/catalog')}
+                className="cursor-pointer hover:text-primary"
+              >
+                Katalog
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {breadcrumbs.map((crumb, index) => (
+              <React.Fragment key={crumb.id}>
+                <BreadcrumbSeparator>
+                  <ChevronRight className="h-4 w-4" />
+                </BreadcrumbSeparator>
+                <BreadcrumbItem>
+                  {index === breadcrumbs.length - 1 ? (
+                    <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      onClick={() => navigate(`/dashboard/catalog?parentId=${crumb.id}`)}
+                      className="cursor-pointer hover:text-primary"
+                    >
+                      {crumb.name}
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </React.Fragment>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-3">
@@ -280,7 +372,7 @@ function Catalog() {
           <span className="text-xs sm:text-sm">
             {parentId ? 'Yangi subkategoriya' : 'Yangi kategoriya'}
           </span>
-                </Button>
+        </Button>
       </div>
 
       {/* Search */}
