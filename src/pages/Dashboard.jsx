@@ -31,17 +31,17 @@ import { useEffect } from 'react';
 const RootRedirect = () => {
   const location = useLocation();
   const token = localStorage.getItem('token');
-  
+
   // Development mode'da darhol dashboard'ga
   if (DEV_MODE_BYPASS_AUTH) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   // Token bo'lsa, dashboard'ga yo'naltirish
   if (token) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   // Token yo'q bo'lsa, signin'ga yo'naltirish
   return <Navigate to="/signin" replace state={{ from: location }} />;
 };

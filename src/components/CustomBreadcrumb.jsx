@@ -28,10 +28,20 @@ function CustomBreadcrumb({ showBackButton = false }) {
   const [categoryBreadcrumbs, setCategoryBreadcrumbs] = React.useState([]);
   const [loadingBreadcrumbs, setLoadingBreadcrumbs] = React.useState(false);
 
-  const pathSegments = location.pathname
-    .replace('/dashboard', '')
-    .split('/')
-    .filter((segment) => segment);
+  const pathSegments = React.useMemo(() => {
+    return location.pathname
+      .replace('/dashboard', '')
+      .split('/')
+      .filter((segment) => segment);
+  }, [location.pathname]);
+
+  const parentId = React.useMemo(() => {
+    return searchParams.get('parentId');
+  }, [searchParams.toString()]);
+
+  const mainRoute = React.useMemo(() => {
+    return pathSegments[0];
+  }, [pathSegments]);
 
   // Get entity name based on current route and params
   const getEntityName = () => {
@@ -163,13 +173,81 @@ function CustomBreadcrumb({ showBackButton = false }) {
         path: '/dashboard/settings',
         hasDetail: false,
       },
+      catalog: {
+        label: t('Katalog') || 'Katalog',
+        path: '/dashboard/catalog',
+        hasDetail: false,
+      },
     };
 
     return configs[mainRoute] || null;
   };
 
+  // Get category name helper
+  const getCategoryName = React.useCallback((category) => {
+    if (!category) return 'Nomsiz';
+    const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+    return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
+  }, []);
+
+  // Build breadcrumbs from parent chain for catalog
+  const buildCategoryBreadcrumbs = React.useCallback(async (categoryId) => {
+    const crumbs = [];
+    let currentId = categoryId;
+    const visited = new Set(); // Prevent infinite loops
+    
+    while (currentId) {
+      // Prevent infinite loops
+      if (visited.has(currentId)) {
+        console.warn('Circular reference detected in breadcrumbs');
+        break;
+      }
+      visited.add(currentId);
+      
+      try {
+        const response = await getStoreCategoryById(currentId);
+        const catData = response?.data || response;
+        if (catData && catData._id) {
+          const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+          const categoryName = catData.name?.[currentLang] || catData.name?.uz || catData.name || 'Nomsiz';
+          crumbs.unshift({
+            id: catData._id,
+            name: categoryName,
+          });
+          // Get next parent ID (handle both string and ObjectId)
+          currentId = catData.parentId ? String(catData.parentId) : null;
+        } else {
+          break;
+        }
+      } catch (error) {
+        console.error('Error loading breadcrumb category:', error);
+        break;
+      }
+    }
+    
+    setCategoryBreadcrumbs(crumbs);
+    setLoadingBreadcrumbs(false);
+  }, []);
+
+  // Load category breadcrumbs when on catalog page with parentId
+  React.useEffect(() => {
+    if (mainRoute === 'catalog') {
+      if (parentId) {
+        setLoadingBreadcrumbs(true);
+        buildCategoryBreadcrumbs(parentId);
+      } else {
+        setCategoryBreadcrumbs([]);
+        setLoadingBreadcrumbs(false);
+      }
+    } else {
+      setCategoryBreadcrumbs([]);
+      setLoadingBreadcrumbs(false);
+    }
+  }, [mainRoute, parentId, buildCategoryBreadcrumbs]);
+
   const getBreadcrumbItems = () => {
     const items = [];
+    const [mainRoute] = pathSegments;
 
     // Check if we're on the root dashboard page
     const isRootDashboard = location.pathname === '/dashboard';
@@ -183,6 +261,28 @@ function CustomBreadcrumb({ showBackButton = false }) {
 
     // If we're on root dashboard, return early with just Dashboard
     if (isRootDashboard) {
+      return items;
+    }
+
+    // Special handling for catalog with category breadcrumbs
+    if (mainRoute === 'catalog' && categoryBreadcrumbs.length > 0) {
+      // Add Catalog
+      items.push({
+        label: t('Katalog') || 'Katalog',
+        path: '/dashboard/catalog',
+        isLast: false,
+      });
+
+      // Add category breadcrumbs
+      categoryBreadcrumbs.forEach((crumb, index) => {
+        const isLast = index === categoryBreadcrumbs.length - 1;
+        items.push({
+          label: crumb.name,
+          path: `/dashboard/catalog?parentId=${crumb.id}`,
+          isLast: isLast,
+        });
+      });
+
       return items;
     }
 
@@ -219,6 +319,7 @@ function CustomBreadcrumb({ showBackButton = false }) {
           orders: t('Buyurtmalar'),
           services: t('Xizmatlar'),
           settings: t('Sozlamalar'),
+          catalog: t('Katalog') || 'Katalog',
           'create-order': t('Yangi buyurtma'),
           'create-template': t('Yangi shablon'),
           'order-template': t('Buyurtma shablonlari'),
@@ -279,26 +380,32 @@ function CustomBreadcrumb({ showBackButton = false }) {
 
       <Breadcrumb>
         <BreadcrumbList>
-          {breadcrumbItems.map((item, index) => (
-            <React.Fragment key={`${item.path}-${index}`}>
-              <BreadcrumbItem className={item.isLast ? '' : 'hidden md:block'}>
-                {item.isLast ? (
-                  <BreadcrumbPage className="font-medium">
-                    {item.label}
-                  </BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink
-                    as={Link}
-                    to={item.path}
-                    className="hover:text-primary transition-colors"
-                  >
-                    {item.label}
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-              {!item.isLast && <BreadcrumbSeparator />}
-            </React.Fragment>
-          ))}
+          {loadingBreadcrumbs ? (
+            <BreadcrumbItem>
+              <BreadcrumbPage className="font-medium">...</BreadcrumbPage>
+            </BreadcrumbItem>
+          ) : (
+            breadcrumbItems.map((item, index) => (
+              <React.Fragment key={`${item.path}-${index}`}>
+                <BreadcrumbItem className={item.isLast ? '' : 'hidden md:block'}>
+                  {item.isLast ? (
+                    <BreadcrumbPage className="font-medium">
+                      {item.label}
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink
+                      as={Link}
+                      to={item.path}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {item.label}
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {!item.isLast && <BreadcrumbSeparator />}
+              </React.Fragment>
+            ))
+          )}
         </BreadcrumbList>
       </Breadcrumb>
     </div>
