@@ -4,15 +4,35 @@ export const fetchStoreCategories = async ({
   page = 1,
   limit = 100,
   parentId = null,
+  search = '',
+  sortBy = '',
+  sortOrder = '',
+  filterBy = 'all',
 } = {}) => {
   const payload = {
     page,
     limit,
   };
 
-  if (parentId) {
+  // Only add parentId if it's a valid value (not null, undefined, or empty string)
+  if (parentId !== null && parentId !== undefined && parentId !== '') {
     payload.parentId = parentId;
   }
+
+  // Add search if provided
+  if (search) {
+    payload.search = search;
+  }
+
+  // Add sort if provided
+  if (sortBy) {
+    payload.sortBy = sortBy;
+    // Convert 'asc'/'desc' to '1'/'-1' for backend
+    payload.sortOrder = sortOrder === 'desc' ? '-1' : '1';
+  }
+
+  // Note: filterBy (withProducts/withoutProducts) will be handled client-side
+  // as backend doesn't have this filter yet
 
   return api.post('/store/category/paging', payload);
 };

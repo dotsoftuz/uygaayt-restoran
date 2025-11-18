@@ -13,6 +13,14 @@ import {
   ArrowLeft,
   Loader2,
   GripVertical,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  X,
+  ArrowUp,
+  ArrowDown,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import {
   DndContext,
@@ -32,6 +40,13 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -81,9 +96,38 @@ function Catalog() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
+  const [totalCategories, setTotalCategories] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Sort and filter states - initialize from URL params
+  const [sortBy, setSortBy] = useState(() => {
+    const sortParam = searchParams.get('sort');
+    if (sortParam === 'name_asc' || sortParam === 'name_desc') return 'name';
+    if (sortParam === 'productCount_asc' || sortParam === 'productCount_desc') return 'productCount';
+    return 'name';
+  });
+  const [sortOrder, setSortOrder] = useState(() => {
+    const sortParam = searchParams.get('sort');
+    if (sortParam?.endsWith('_desc')) return 'desc';
+    return 'asc';
+  });
+  const [filterBy, setFilterBy] = useState(() => {
+    return searchParams.get('filter') || 'all';
+  });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Pagination states - initialize from URL params
+  const [currentPage, setCurrentPage] = useState(() => {
+    const pageParam = searchParams.get('page');
+    return pageParam ? parseInt(pageParam, 10) : 1;
+  });
+  const [itemsPerPage, setItemsPerPage] = useState(() => {
+    const limitParam = searchParams.get('limit');
+    return limitParam ? parseInt(limitParam, 10) : 10;
+  });
+
   const [categoryFormOpen, setCategoryFormOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -108,6 +152,14 @@ function Catalog() {
     if (!category) return 'Nomsiz';
     return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
   };
+
+  // Initialize search term from URL params
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchTerm(searchParam);
+    }
+  }, []); // Only on mount
 
   // Get parentId from URL params
   useEffect(() => {
@@ -135,27 +187,43 @@ function Catalog() {
     }
   }, [searchParams]);
 
-  // Fetch categories
+  // Fetch categories with pagination and server-side filtering/sorting
   const loadCategories = async () => {
     try {
       setLoading(true);
+      // Map sortBy to backend field names
+      let backendSortBy = '';
+      if (sortBy === 'name') {
+        backendSortBy = 'name.uz'; // Backend uses name.uz for sorting
+      } else if (sortBy === 'productCount') {
+        backendSortBy = 'productCount';
+      }
+
       const response = await fetchStoreCategories({
-        page: 1,
-        limit: 200,
-        parentId: parentId,
+        page: currentPage,
+        limit: itemsPerPage,
+        parentId: parentId || undefined, // Don't send null
+        search: debouncedSearchTerm || '',
+        sortBy: backendSortBy,
+        sortOrder: sortOrder,
+        filterBy: filterBy, // For future server-side filtering
       });
       // Response structure: { statusCode, code, data: { data: [], total }, message, time }
       if (response?.data?.data) {
-        // Yangi array yaratish - React state yangilanishi uchun
-        // To'liq yangi array yaratish orqali React state to'g'ri yangilanadi
         const newCategories = response.data.data.map(cat => ({ ...cat }));
         setCategories(newCategories);
+        // Set total count if available
+        if (response?.data?.total !== undefined) {
+          setTotalCategories(response.data.total);
+        } else {
+          setTotalCategories(newCategories.length);
+        }
       } else if (response?.data && Array.isArray(response.data)) {
-        // Fallback: if data is directly an array
         setCategories(response.data.map(cat => ({ ...cat })));
+        setTotalCategories(response.data.length);
       } else if (Array.isArray(response)) {
-        // Fallback: if response is directly an array
         setCategories(response.map(cat => ({ ...cat })));
+        setTotalCategories(response.length);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -165,20 +233,109 @@ function Catalog() {
     }
   };
 
+  // Load categories when parentId, page, itemsPerPage, search, or sort changes
+  // Note: filterBy is handled client-side, so we don't reload on filter change
   useEffect(() => {
     loadCategories();
-  }, [parentId]);
+  }, [parentId, currentPage, itemsPerPage, debouncedSearchTerm, sortBy, sortOrder]);
 
-  // Filter categories by search term
+  // Reset to page 1 when parentId, filter, or sort changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [parentId, filterBy, sortBy, sortOrder, debouncedSearchTerm]);
+
+  // Update URL when filters and sort change (using debounced search)
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    // Preserve parentId if exists
+    if (parentId) {
+      params.set('parentId', parentId);
+    }
+
+    // Add search (debounced)
+    if (debouncedSearchTerm) {
+      params.set('search', debouncedSearchTerm);
+    }
+
+    // Add filter
+    if (filterBy !== 'all') {
+      params.set('filter', filterBy);
+    }
+
+    // Add sort
+    const sortValue = `${sortBy}_${sortOrder}`;
+    if (sortValue !== 'name_asc') {
+      params.set('sort', sortValue);
+    }
+
+    // Preserve pagination params
+    if (currentPage > 1) {
+      params.set('page', currentPage.toString());
+    }
+    if (itemsPerPage !== 10) {
+      params.set('limit', itemsPerPage.toString());
+    }
+
+    setSearchParams(params, { replace: true });
+  }, [debouncedSearchTerm, filterBy, sortBy, sortOrder, parentId, currentPage, itemsPerPage]);
+
+  // Filter categories (client-side for product count filter)
   const filteredCategories = useMemo(() => {
-    if (!debouncedSearchTerm) return categories;
+    let result = [...categories];
 
-    const searchLower = debouncedSearchTerm.toLowerCase();
-    return categories.filter((cat) => {
-      const name = cat.name?.[currentLang] || cat.name?.uz || '';
-      return name.toLowerCase().includes(searchLower);
-    });
-  }, [categories, debouncedSearchTerm, currentLang]);
+    // Filter by product count (client-side as backend doesn't support this yet)
+    if (filterBy === 'withProducts') {
+      result = result.filter((cat) => (cat.productCount || 0) > 0);
+    } else if (filterBy === 'withoutProducts') {
+      result = result.filter((cat) => (cat.productCount || 0) === 0);
+    }
+
+    return result;
+  }, [categories, filterBy]);
+
+  // Pagination calculations (server-side pagination)
+  const totalPages = Math.ceil(totalCategories / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + filteredCategories.length;
+  const paginatedCategories = filteredCategories;
+
+  // Handle sort change (combines sortBy and sortOrder)
+  const handleSortChange = (value) => {
+    if (value === 'name_asc') {
+      setSortBy('name');
+      setSortOrder('asc');
+    } else if (value === 'name_desc') {
+      setSortBy('name');
+      setSortOrder('desc');
+    } else if (value === 'productCount_asc') {
+      setSortBy('productCount');
+      setSortOrder('asc');
+    } else if (value === 'productCount_desc') {
+      setSortBy('productCount');
+      setSortOrder('desc');
+    }
+  };
+
+
+  // Get current sort value for Select
+  const getCurrentSortValue = () => {
+    return `${sortBy}_${sortOrder}`;
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Handle items per page change
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1);
+  };
 
   // Handle drag end
   const handleDragEnd = async (event) => {
@@ -188,38 +345,28 @@ function Catalog() {
       return;
     }
 
-    // Use filteredCategories for drag, but update the full categories array
-    const oldIndex = filteredCategories.findIndex((cat) => cat._id === active.id);
-    const newIndex = filteredCategories.findIndex((cat) => cat._id === over.id);
+    // Find indices in the paginated view (what user sees)
+    const oldPaginatedIndex = paginatedCategories.findIndex((cat) => cat._id === active.id);
+    const newPaginatedIndex = paginatedCategories.findIndex((cat) => cat._id === over.id);
 
-    if (oldIndex === -1 || newIndex === -1) {
+    if (oldPaginatedIndex === -1 || newPaginatedIndex === -1) {
       return;
     }
 
-    // Get the actual categories from the full list that match filtered ones
-    const reorderedFiltered = arrayMove(filteredCategories, oldIndex, newIndex);
-
-    // Map back to full categories array maintaining order
-    const categoryMap = new Map(categories.map((cat) => [cat._id, cat]));
-    const newCategories = reorderedFiltered.map((cat) => categoryMap.get(cat._id)).filter(Boolean);
-
-    // Add any categories that weren't in filtered list (shouldn't happen, but safety check)
-    const filteredIds = new Set(reorderedFiltered.map((cat) => cat._id));
-    categories.forEach((cat) => {
-      if (!filteredIds.has(cat._id)) {
-        newCategories.push(cat);
-      }
-    });
+    // Reorder the categories array
+    const reordered = arrayMove(paginatedCategories, oldPaginatedIndex, newPaginatedIndex);
 
     // Update local state immediately for better UX
-    setCategories(newCategories);
+    setCategories(reordered);
 
     // Update positions on backend
     try {
       setIsUpdatingPositions(true);
-      const categoryIds = newCategories.map((cat) => cat._id);
+      const categoryIds = reordered.map((cat) => cat._id);
       await updateCategoryPositions(categoryIds);
       toast.success('Kategoriyalar tartibi yangilandi');
+      // Reload to get updated positions
+      await loadCategories();
     } catch (error) {
       console.error('Error updating positions:', error);
       toast.error('Kategoriyalar tartibini yangilashda xatolik yuz berdi');
@@ -298,9 +445,16 @@ function Catalog() {
 
         {/* Product Count Column */}
         <TableCell className="hidden md:table-cell text-center w-32">
-          <Badge variant="outline" className="text-xs">
-            {category.productCount || 0} ta
-          </Badge>
+          <div className="flex flex-col gap-1 items-center">
+            <Badge variant="outline" className="text-xs">
+              {category.productCount || 0} mahsulot
+            </Badge>
+            {category.childrenCount > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {category.childrenCount} subkategoriya
+              </Badge>
+            )}
+          </div>
         </TableCell>
 
         {/* Actions Column */}
@@ -491,24 +645,105 @@ function Catalog() {
         </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Kategoriya nomi bo'yicha qidirish..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 text-sm sm:text-base"
-        />
+      {/* Search and Filters */}
+      <div className="space-y-3 sm:space-y-4">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Kategoriya nomi bo'yicha qidirish..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-10 text-sm sm:text-base"
+          />
+          {searchTerm && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+              onClick={() => setSearchTerm('')}
+              type="button"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Filters Row */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+          {isMobile ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="w-full sm:w-auto"
+            >
+              <Filter className="h-4 w-4" />
+              Filtrlar
+            </Button>
+          ) : null}
+
+          {(!isMobile || filtersOpen) && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
+              <div className="relative w-full sm:w-[160px]">
+                <Select value={filterBy} onValueChange={setFilterBy}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Mahsulotlar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Barcha kategoriyalar</SelectItem>
+                    <SelectItem value="withProducts">Mahsulotlari bor</SelectItem>
+                    <SelectItem value="withoutProducts">Mahsulotlari yo'q</SelectItem>
+                  </SelectContent>
+                </Select>
+                {filterBy !== 'all' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-8 top-1/2 -translate-y-1/2 h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFilterBy('all');
+                    }}
+                    type="button"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+
+              <Select value={getCurrentSortValue()} onValueChange={handleSortChange}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name_asc">Nom (A-Z)</SelectItem>
+                  <SelectItem value="name_desc">Nom (Z-A)</SelectItem>
+                  <SelectItem value="productCount_asc">Mahsulotlar soni (kamdan ko'pga)</SelectItem>
+                  <SelectItem value="productCount_desc">Mahsulotlar soni (ko'pdan kamga)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Categories Table */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="p-4 space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3">
+                  <div className="w-12 h-12 bg-muted animate-pulse rounded" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
+                    <div className="h-3 bg-muted animate-pulse rounded w-1/2" />
+                  </div>
+                  <div className="w-20 h-6 bg-muted animate-pulse rounded" />
+                </div>
+              ))}
             </div>
           ) : filteredCategories.length > 0 ? (
             <div className="overflow-x-auto relative">
@@ -521,19 +756,69 @@ function Catalog() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-6 px-2"></TableHead>
-                      <TableHead className="w-[10rem]">Kategoriya</TableHead>
+                      <TableHead className="w-[10rem]">
+                        <div className="flex items-center gap-2">
+                          Kategoriya
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => {
+                              if (sortBy === 'name') {
+                                handleSortChange(sortOrder === 'asc' ? 'name_desc' : 'name_asc');
+                              } else {
+                                handleSortChange('name_asc');
+                              }
+                            }}
+                          >
+                            {sortBy === 'name' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronUp className="h-3 w-3 text-muted-foreground opacity-50" />
+                            )}
+                          </Button>
+                        </div>
+                      </TableHead>
                       <TableHead className="hidden md:table-cell text-center w-32">
-                        Mahsulotlar
+                        <div className="flex items-center justify-center gap-2">
+                          Mahsulotlar
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => {
+                              if (sortBy === 'productCount') {
+                                handleSortChange(sortOrder === 'asc' ? 'productCount_desc' : 'productCount_asc');
+                              } else {
+                                handleSortChange('productCount_asc');
+                              }
+                            }}
+                          >
+                            {sortBy === 'productCount' ? (
+                              sortOrder === 'asc' ? (
+                                <ArrowUp className="h-3 w-3" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3" />
+                              )
+                            ) : (
+                              <ChevronUp className="h-3 w-3 text-muted-foreground opacity-50" />
+                            )}
+                          </Button>
+                        </div>
                       </TableHead>
                       <TableHead className="text-right w-24">Amal</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     <SortableContext
-                      items={filteredCategories.map((cat) => cat._id)}
+                      items={paginatedCategories.map((cat) => cat._id)}
                       strategy={verticalListSortingStrategy}
                     >
-                      {filteredCategories.map((category, index) => (
+                      {paginatedCategories.map((category, index) => (
                         <SortableRow key={category._id} category={category} index={index} />
                       ))}
                     </SortableContext>
@@ -572,6 +857,61 @@ function Catalog() {
           )}
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {filteredCategories.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+            <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+              Sahifada ko'rsatish:
+            </span>
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={handleItemsPerPageChange}
+            >
+              <SelectTrigger className="w-full sm:w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="30">30</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
+              {startIndex + 1}-{Math.min(endIndex, totalCategories)} dan{' '}
+              {totalCategories} ta
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || totalPages === 0}
+              className="flex-1 sm:flex-initial"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              <span className="text-xs sm:text-sm">Oldingi</span>
+            </Button>
+            <span className="text-xs sm:text-sm text-muted-foreground px-2">
+              {currentPage} / {totalPages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="flex-1 sm:flex-initial"
+            >
+              <span className="text-xs sm:text-sm">Keyingi</span>
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Category Form */}
       <CategoryForm
