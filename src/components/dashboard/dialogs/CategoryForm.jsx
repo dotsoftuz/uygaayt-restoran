@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Upload,
   Image as ImageIcon,
@@ -74,9 +73,12 @@ function resizeImage(file, maxWidth, maxHeight) {
 
         canvas.toBlob(
           (blob) => {
-            resolve(new File([blob], file.name, { type: file.type }));
+            // File nomi va type'ni saqlab qolish
+            const fileName = file.name || `image_${Date.now()}.jpg`;
+            const fileType = file.type || 'image/jpeg';
+            resolve(new File([blob], fileName, { type: fileType }));
           },
-          file.type,
+          file.type || 'image/jpeg',
           0.9
         );
       };
@@ -136,9 +138,20 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
             // Set image preview
             if (catData.image?.url) {
               const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-              // Remove /v1 from baseUrl if present, then add /uploads
-              const cleanBaseUrl = baseUrl.replace('/v1', '');
-              setImagePreview(`${cleanBaseUrl}/uploads/${catData.image.url}`);
+              // Base URL'ni tozalash - trailing slash'ni olib tashlash
+              const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+              
+              // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+              // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+              let imageUrl = catData.image.url;
+              
+              // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
+              if (imageUrl.startsWith('uploads/')) {
+                imageUrl = imageUrl.replace('uploads/', '');
+              }
+              
+              // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
+              setImagePreview(`${cleanBaseUrl}/uploads/${imageUrl}`);
             } else {
               setImagePreview(null);
             }
@@ -177,6 +190,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
     setUploadingImage(true);
 
     try {
+      // Avval preview'ni o'rnatish - foydalanuvchi darhol ko'radi
       const preview = URL.createObjectURL(file);
       setImagePreview(preview);
 
@@ -184,17 +198,78 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
       const resizedFile = await resizeImage(file, 800, 800);
 
       // Upload to backend
-      const imageData = await uploadImage(resizedFile);
+      const response = await uploadImage(resizedFile);
+      
+      // API interceptor response.data ni qaytaradi, lekin turli response strukturalarini qo'llab-quvvatlash
+      const imageData = response?.data || response;
+      
+      console.log('Image upload response:', { response, imageData });
+      
       if (imageData?._id) {
         form.setValue('imageId', imageData._id);
+        
+        // Preview URL'ni yangilash - agar backend'dan URL kelgan bo'lsa
+        if (imageData.url) {
+          try {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+            // Base URL'ni tozalash - trailing slash'ni olib tashlash
+            const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+            
+            // Backend'dan kelgan URL: 'uploads/1763466186234.jpeg'
+            // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+            // Shuning uchun to'g'ri URL: 'http://localhost:3008/v1/uploads/1763466186234.jpeg'
+            let imageUrl = imageData.url;
+            
+            // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
+            if (imageUrl.startsWith('uploads/')) {
+              imageUrl = imageUrl.replace('uploads/', '');
+            }
+            
+            // To'g'ri URL'ni yaratish: baseUrl + /v1/uploads/ + filename
+            const serverPreviewUrl = `${cleanBaseUrl}/uploads/${imageUrl}`;
+            console.log('Setting preview URL:', serverPreviewUrl);
+            console.log('Image data:', imageData);
+            console.log('Original URL from backend:', imageData.url);
+            
+            // Yangi URL'ni o'rnatish
+            setImagePreview(serverPreviewUrl);
+            
+            // Eski blob URL'ni keyin tozalash (setTimeout bilan - state yangilanishini kutish)
+            setTimeout(() => {
+              if (preview && preview.startsWith('blob:')) {
+                URL.revokeObjectURL(preview);
+              }
+            }, 500);
+          } catch (urlError) {
+            console.error('Error setting preview URL:', urlError);
+            // Agar URL o'rnatishda xatolik bo'lsa, blob URL'ni saqlab qolish
+            console.log('Keeping blob preview due to URL error');
+          }
+        } else {
+          // Agar URL kelmasa, blob URL'ni saqlab qolish
+          console.log('No URL in response, keeping blob preview');
+          console.log('Full imageData:', imageData);
+        }
+        
         toast.success('Rasm yuklandi');
       } else {
-        throw new Error('Image upload failed');
+        // Eski blob URL'ni tozalash
+        if (preview && preview.startsWith('blob:')) {
+          URL.revokeObjectURL(preview);
+        }
+        setImagePreview(null);
+        throw new Error('Image upload failed - no image ID received');
       }
     } catch (error) {
       console.error('Error uploading image:', error);
+      // Eski blob URL'ni tozalash - preview o'zgaruvchisini ishlatish
+      setImagePreview((prevPreview) => {
+        if (prevPreview && prevPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(prevPreview);
+        }
+        return null;
+      });
       toast.error('Rasmlarni yuklashda xatolik yuz berdi');
-      setImagePreview(null);
     } finally {
       setUploadingImage(false);
     }
@@ -257,135 +332,125 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-6">
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="basic">Asosiy</TabsTrigger>
-                  <TabsTrigger value="image">Rasm</TabsTrigger>
-                </TabsList>
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="name.uz"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Nomi (O'zbekcha)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Kategoriya nomi (O'zbekcha)"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                {/* Basic Information Tab */}
-                <TabsContent value="basic" className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name.uz"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>Nomi (O'zbekcha)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Kategoriya nomi (O'zbekcha)"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="name.ru"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Nomi (Ruscha)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Kategoriya nomi (Ruscha)"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="name.ru"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>Nomi (Ruscha)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Kategoriya nomi (Ruscha)"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                <FormField
+                  control={form.control}
+                  name="name.en"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel required>Nomi (Inglizcha)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Kategoriya nomi (Inglizcha)"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <FormField
-                    control={form.control}
-                    name="name.en"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel required>Nomi (Inglizcha)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Kategoriya nomi (Inglizcha)"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </TabsContent>
-
-                {/* Image Tab */}
-                <TabsContent value="image" className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="imageId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel optional>Kategoriya rasmi</FormLabel>
-                        <FormControl>
-                          <div className="space-y-4">
-                            {imagePreview ? (
-                              <div className="relative">
-                                <div className="relative aspect-video w-full rounded-lg overflow-hidden border bg-muted">
-                                  <img
-                                    src={imagePreview}
-                                    alt="Preview"
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={removeImage}
-                                  className="absolute top-2 right-2"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                {/* Image Upload Section */}
+                <FormField
+                  control={form.control}
+                  name="imageId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel optional>Kategoriya rasmi</FormLabel>
+                      <FormControl>
+                        <div className="space-y-4">
+                          {imagePreview ? (
+                            <div className="relative">
+                              <div className="relative aspect-video w-full rounded-lg overflow-hidden border bg-muted">
+                                <img
+                                  src={imagePreview}
+                                  alt="Preview"
+                                  className="w-full h-full object-cover"
+                                />
                               </div>
-                            ) : (
-                              <div
-                                {...getRootProps()}
-                                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                                  isDragActive
-                                    ? 'border-primary bg-primary/5'
-                                    : 'border-muted-foreground/25 hover:border-primary/50'
-                                }`}
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={removeImage}
+                                className="absolute top-2 right-2"
                               >
-                                <input {...getInputProps()} />
-                                {uploadingImage ? (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    <p className="text-sm text-muted-foreground">
-                                      Yuklanmoqda...
-                                    </p>
-                                  </div>
-                                ) : (
-                                  <div className="flex flex-col items-center gap-2">
-                                    <Upload className="h-8 w-8 text-muted-foreground" />
-                                    <p className="text-sm">
-                                      {isDragActive
-                                        ? 'Rasmni bu yerga tashlang'
-                                        : 'Rasmni bu yerga tashlang yoki bosing'}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      PNG, JPG, WEBP (maks. 5MB)
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </TabsContent>
-              </Tabs>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div
+                              {...getRootProps()}
+                              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                                isDragActive
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-muted-foreground/25 hover:border-primary/50'
+                              }`}
+                            >
+                              <input {...getInputProps()} />
+                              {uploadingImage ? (
+                                <div className="flex flex-col items-center gap-2">
+                                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                  <p className="text-sm text-muted-foreground">
+                                    Yuklanmoqda...
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                  <Upload className="h-8 w-8 text-muted-foreground" />
+                                  <p className="text-sm">
+                                    {isDragActive
+                                      ? 'Rasmni bu yerga tashlang'
+                                      : 'Rasmni bu yerga tashlang yoki bosing'}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    PNG, JPG, WEBP (maks. 5MB)
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <SheetFooter>
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

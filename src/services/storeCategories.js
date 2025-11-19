@@ -58,12 +58,30 @@ export const updateCategoryPositions = async (categoryIds) => {
 };
 
 export const uploadImage = async (file) => {
+  // Debug: file'ni tekshirish
+  if (!file) {
+    throw new Error('File is required');
+  }
+  
+  console.log('Uploading file:', {
+    name: file.name,
+    type: file.type,
+    size: file.size,
+    isFile: file instanceof File,
+    isBlob: file instanceof Blob,
+  });
+  
   const formData = new FormData();
   formData.append('file', file);
-  return api.post('/image/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  
+  // Debug: FormData'ni tekshirish
+  console.log('FormData entries:');
+  for (const [key, value] of formData.entries()) {
+    console.log(key, value);
+  }
+  
+  // Content-Type header'ni o'rnatmaslik kerak - axios FormData uchun avtomatik o'rnatadi
+  // va to'g'ri boundary parametrini qo'shadi
+  return api.post('/image/upload', formData);
 };
 

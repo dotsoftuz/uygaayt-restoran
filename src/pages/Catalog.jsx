@@ -607,9 +607,21 @@ function Catalog() {
   const getImageUrl = (category) => {
     if (category.image?.url) {
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-      // Remove /v1 from baseUrl if present, then add /uploads
-      const cleanBaseUrl = baseUrl.replace('/v1', '');
-      return `${cleanBaseUrl}/uploads/${category.image.url}`;
+      // Base URL'ni tozalash - trailing slash'ni olib tashlash
+      const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+
+      // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+      // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+      // Shuning uchun to'g'ri URL: 'http://localhost:3008/v1/uploads/1763466603309.jpeg'
+      let imageUrl = category.image.url;
+
+      // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
+      if (imageUrl.startsWith('uploads/')) {
+        imageUrl = imageUrl.replace('uploads/', '');
+      }
+
+      // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
+      return `${cleanBaseUrl}/uploads/${imageUrl}`;
     }
     return null;
   };

@@ -25,6 +25,7 @@ import {
   Download,
   Grid3x3,
   List,
+  Eye,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -329,15 +330,24 @@ function Products() {
 
   // Get image URL
   const getImageUrl = (product) => {
-    if (product.mainImage?.url) {
+    const formatImageUrl = (imageUrl) => {
+      if (!imageUrl) return null;
       const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-      const cleanBaseUrl = baseUrl.replace('/v1', '');
-      return `${cleanBaseUrl}/uploads/${product.mainImage.url}`;
+      const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+      // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+      // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+      let url = imageUrl;
+      if (url.startsWith('uploads/')) {
+        url = url.replace('uploads/', '');
+      }
+      return `${cleanBaseUrl}/uploads/${url}`;
+    };
+
+    if (product.mainImage?.url) {
+      return formatImageUrl(product.mainImage.url);
     }
     if (product.images?.[0]?.url) {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-      const cleanBaseUrl = baseUrl.replace('/v1', '');
-      return `${cleanBaseUrl}/uploads/${product.images[0].url}`;
+      return formatImageUrl(product.images[0].url);
     }
     return null;
   };
@@ -346,6 +356,11 @@ function Products() {
   const handleCreateNew = () => {
     setEditingProduct(null);
     setProductFormOpen(true);
+  };
+
+  // Handle view product
+  const handleView = (product) => {
+    navigate(`/dashboard/product-detail/${product._id}`);
   };
 
   // Handle edit product
@@ -908,7 +923,17 @@ function Products() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
+                            onClick={() => handleView(product)}
+                            title="Ko'rish"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
                             onClick={() => handleEdit(product)}
+                            title="Tahrirlash"
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
@@ -917,6 +942,7 @@ function Products() {
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive"
                             onClick={() => handleDelete(product)}
+                            title="O'chirish"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -1017,9 +1043,12 @@ function Products() {
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-sm sm:text-base truncate">
+                                <button
+                                  onClick={() => handleView(product)}
+                                  className="font-medium text-sm sm:text-base truncate hover:text-primary transition-colors text-left w-full"
+                                >
                                   {productName}
-                                </div>
+                                </button>
                                 {product.salePrice && product.salePrice < product.price && (
                                   <div className="text-xs text-muted-foreground">
                                     <span className="line-through">
@@ -1090,6 +1119,10 @@ function Products() {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleView(product)}>
+                                      <Eye className="h-4 w-4" />
+                                      Ko'rish
+                                    </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleEdit(product)}>
                                       <Edit className="h-4 w-4" />
                                       Tahrirlash
@@ -1110,7 +1143,17 @@ function Products() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 sm:h-8 sm:w-8"
+                                    onClick={() => handleView(product)}
+                                    title="Ko'rish"
+                                  >
+                                    <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleEdit(product)}
+                                    title="Tahrirlash"
                                   >
                                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
@@ -1119,6 +1162,7 @@ function Products() {
                                     size="icon"
                                     className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleDelete(product)}
+                                    title="O'chirish"
                                   >
                                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
