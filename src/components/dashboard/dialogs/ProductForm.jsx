@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useDropzone } from 'react-dropzone';
+import { NumericFormat } from 'react-number-format';
 import {
   Sheet,
   SheetContent,
@@ -59,8 +60,8 @@ const productSchema = z.object({
     en: z.string().min(1, 'Inglizcha nom majburiy'),
   }),
   categoryId: z.string().min(1, 'Kategoriya majburiy'),
-  price: z.number().min(0, 'Narx 0 dan katta bo\'lishi kerak'),
-  inStock: z.number().min(0, 'Ombordagi miqdor 0 dan katta bo\'lishi kerak'),
+  price: z.number({ required_error: 'Narx majburiy', invalid_type_error: 'Narx raqam bo\'lishi kerak' }).min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
+  inStock: z.number({ required_error: 'Ombordagi miqdor majburiy', invalid_type_error: 'Ombordagi miqdor raqam bo\'lishi kerak' }).min(0, 'Ombordagi miqdor 0 dan katta yoki teng bo\'lishi kerak'),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
   mainImageId: z.string().optional().nullable(),
@@ -72,6 +73,9 @@ const productSchema = z.object({
   discountEndAt: z.date().optional().nullable(),
   yellowLine: z.number().min(0).optional(),
   redLine: z.number().min(0).optional(),
+  locationBlock: z.string().optional(),
+  locationShelf: z.string().optional(),
+  locationRow: z.string().optional(),
 });
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -226,8 +230,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         en: '',
       },
       categoryId: '',
-      price: 0,
-      inStock: 0,
+      price: undefined,
+      inStock: undefined,
       description: '',
       isActive: true,
       mainImageId: null,
@@ -239,6 +243,9 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       discountEndAt: null,
       yellowLine: 0,
       redLine: 0,
+      locationBlock: '',
+      locationShelf: '',
+      locationRow: '',
     },
   });
 
@@ -311,8 +318,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
             form.reset({
               name: productData.name || { uz: '', ru: '', en: '' },
               categoryId: productData.categoryId || productData.category?._id || '',
-              price: productData.price || 0,
-              inStock: productData.inStock || 0,
+              price: productData.price ?? undefined,
+              inStock: productData.inStock ?? undefined,
               description: productData.description || '',
               isActive: productData.isActive !== undefined ? productData.isActive : true,
               mainImageId: productData.mainImage?._id || null,
@@ -324,6 +331,9 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
               discountEndAt: productData.discountEndAt ? new Date(productData.discountEndAt) : null,
               yellowLine: productData.yellowLine || 0,
               redLine: productData.redLine || 0,
+              locationBlock: productData.locationBlock || '',
+              locationShelf: productData.locationShelf || '',
+              locationRow: productData.locationRow || '',
             });
           }
         })
@@ -338,8 +348,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       form.reset({
         name: { uz: '', ru: '', en: '' },
         categoryId: '',
-        price: 0,
-        inStock: 0,
+        price: undefined,
+        inStock: undefined,
         description: '',
         isActive: true,
         mainImageId: null,
@@ -351,6 +361,9 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         discountEndAt: null,
         yellowLine: 0,
         redLine: 0,
+        locationBlock: '',
+        locationShelf: '',
+        locationRow: '',
       });
       setImagePreviews([]);
       setMainImageIndex(0);
@@ -491,25 +504,89 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
   const handleSubmit = async (data) => {
     try {
-      // Prepare payload
+      // Validate required fields before submitting
+      if (!data.name?.uz || !data.name?.ru || !data.name?.en) {
+        toast.error('Mahsulot nomi barcha tillarda majburiy');
+        return;
+      }
+      
+      if (!data.categoryId) {
+        toast.error('Kategoriya majburiy');
+        return;
+      }
+      
+      // Ensure price and inStock are valid numbers
+      const price = typeof data.price === 'number' && !isNaN(data.price) && data.price > 0 
+        ? data.price 
+        : (data.price ? parseFloat(String(data.price).replace(/\s/g, '')) : null);
+      
+      const inStock = typeof data.inStock === 'number' && !isNaN(data.inStock) && data.inStock >= 0
+        ? data.inStock
+        : (data.inStock ? parseFloat(String(data.inStock).replace(/\s/g, '')) : null);
+      
+      if (!price || isNaN(price) || price <= 0) {
+        toast.error('Narx majburiy va 0 dan katta bo\'lishi kerak');
+        return;
+      }
+      
+      if (inStock === null || isNaN(inStock) || inStock < 0) {
+        toast.error('Ombordagi miqdor majburiy va 0 dan katta yoki teng bo\'lishi kerak');
+        return;
+      }
+
+      // Prepare payload - ensure required fields are numbers, not undefined
       const payload = {
         name: data.name,
         categoryId: data.categoryId,
-        price: data.price,
-        inStock: data.inStock,
-        description: data.description || undefined,
-        isActive: data.isActive,
+        price: price,
+        inStock: inStock,
+        description: data.description?.trim() || undefined,
+        isActive: data.isActive !== undefined ? data.isActive : true,
         mainImageId: data.mainImageId || undefined,
         imageIds: data.imageIds || [],
-        yellowLine: data.yellowLine || 0,
-        redLine: data.redLine || 0,
       };
+
+      // Add optional fields only if they have values
+      if (data.yellowLine !== undefined && data.yellowLine !== null && data.yellowLine !== '') {
+        const yellowLine = typeof data.yellowLine === 'number' ? data.yellowLine : parseFloat(String(data.yellowLine).replace(/\s/g, '')) || 0;
+        if (!isNaN(yellowLine) && yellowLine > 0) {
+          payload.yellowLine = yellowLine;
+        }
+      }
+      
+      if (data.redLine !== undefined && data.redLine !== null && data.redLine !== '') {
+        const redLine = typeof data.redLine === 'number' ? data.redLine : parseFloat(String(data.redLine).replace(/\s/g, '')) || 0;
+        if (!isNaN(redLine) && redLine > 0) {
+          payload.redLine = redLine;
+        }
+      }
+      
+      if (data.locationBlock?.trim()) {
+        payload.locationBlock = data.locationBlock.trim();
+      }
+      
+      if (data.locationShelf?.trim()) {
+        payload.locationShelf = data.locationShelf.trim();
+      }
+      
+      if (data.locationRow?.trim()) {
+        payload.locationRow = data.locationRow.trim();
+      }
 
       // Add discount data if enabled
       if (data.discountEnabled) {
         payload.discountEnabled = true;
-        payload.discountType = data.discountType;
-        payload.discountValue = data.discountValue;
+        payload.discountType = data.discountType || 'AMOUNT';
+        
+        if (data.discountValue !== undefined && data.discountValue !== null && data.discountValue !== '') {
+          const discountValue = typeof data.discountValue === 'number' 
+            ? data.discountValue 
+            : parseFloat(String(data.discountValue).replace(/\s/g, '').replace('%', '')) || 0;
+          if (!isNaN(discountValue) && discountValue > 0) {
+            payload.discountValue = discountValue;
+          }
+        }
+        
         if (data.discountStartAt) {
           payload.discountStartAt = data.discountStartAt.toISOString();
         }
@@ -525,12 +602,14 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         payload._id = product._id;
       }
 
+      console.log('Submitting payload:', payload);
       await onSave(payload);
       form.reset();
       setImagePreviews([]);
       setMainImageIndex(0);
     } catch (error) {
       console.error('Error saving product:', error);
+      // Error is already handled in handleSaveProduct, just re-throw
       throw error;
     }
   };
@@ -651,7 +730,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-2">
                     <FormField
                       control={form.control}
                       name="price"
@@ -659,13 +738,22 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         <FormItem>
                           <FormLabel required>Narx (so'm)</FormLabel>
                           <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
+                            <NumericFormat
+                              customInput={Input}
+                              thousandSeparator=" "
+                              placeholder="Masalan: 5 000"
+                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              onValueChange={(values) => {
+                                const { floatValue } = values;
+                                // Set undefined if empty, otherwise set the number value
+                                if (floatValue === undefined || floatValue === null) {
+                                  field.onChange(undefined);
+                                } else {
+                                  field.onChange(floatValue);
+                                }
+                              }}
+                              onBlur={field.onBlur}
+                              allowNegative={false}
                             />
                           </FormControl>
                           <FormMessage />
@@ -680,13 +768,22 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         <FormItem>
                           <FormLabel required>Ombordagi miqdor</FormLabel>
                           <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="0"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
+                            <NumericFormat
+                              customInput={Input}
+                              thousandSeparator=" "
+                              placeholder="Masalan: 100"
+                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              onValueChange={(values) => {
+                                const { floatValue } = values;
+                                // Set undefined if empty, otherwise set the number value
+                                if (floatValue === undefined || floatValue === null) {
+                                  field.onChange(undefined);
+                                } else {
+                                  field.onChange(floatValue);
+                                }
+                              }}
+                              onBlur={field.onBlur}
+                              allowNegative={false}
                             />
                           </FormControl>
                           <FormMessage />
@@ -713,13 +810,74 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     )}
                   />
 
+                  {/* Product Location Fields */}
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <Label className="text-base font-semibold">Mahsulot joylashuvi (Kuryer uchun)</Label>
+                    <FormDescription className="text-sm text-muted-foreground mb-4">
+                      Kuryer mahsulotni topishi uchun joylashuv ma'lumotlarini kiriting
+                    </FormDescription>
+                    
+                    <div className="grid grid-cols-3 gap-2">
+                      <FormField
+                        control={form.control}
+                        name="locationBlock"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel optional>Blok</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Masalan: A blok"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="locationShelf"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel optional>Javon</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Masalan: 2 javon"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="locationRow"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel optional>Qator</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="Masalan: 3 qator"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
                   <FormField
                     control={form.control}
                     name="isActive"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel>Mahsulot faol</FormLabel>
+                          <FormLabel optional>Mahsulot faol</FormLabel>
                           <FormDescription>
                             Mahsulot mijozlarga ko'rinadimi?
                           </FormDescription>
@@ -776,7 +934,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                             </div>
 
                             {imagePreviews.length > 0 && (
-                              <div className="grid grid-cols-3 gap-4">
+                              <div className="grid grid-cols-3 gap-2">
                                 {imagePreviews.map((preview, index) => (
                                   <div
                                     key={index}
@@ -860,7 +1018,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel>Chegirma yoqilgan</FormLabel>
+                          <FormLabel optional>Chegirma yoqilgan</FormLabel>
                           <FormDescription>
                             Mahsulotga chegirma qo'shish
                           </FormDescription>
@@ -889,7 +1047,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="discountType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Chegirma turi</FormLabel>
+                            <FormLabel optional>Chegirma turi</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -911,33 +1069,54 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="discountValue"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel optional>
                               {form.watch('discountType') === 'PERCENT'
                                 ? 'Chegirma foizi'
                                 : 'Chegirma miqdori (so\'m)'}
                             </FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value) || 0)
-                                }
-                              />
+                              {form.watch('discountType') === 'PERCENT' ? (
+                                <NumericFormat
+                                  customInput={Input}
+                                  suffix="%"
+                                  placeholder="Masalan: 10"
+                                  value={field.value === 0 || field.value === undefined ? '' : field.value}
+                                  onValueChange={(values) => {
+                                    const { floatValue } = values;
+                                    field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                                  }}
+                                  onBlur={field.onBlur}
+                                  allowNegative={false}
+                                  decimalScale={2}
+                                  max={100}
+                                />
+                              ) : (
+                                <NumericFormat
+                                  customInput={Input}
+                                  thousandSeparator=" "
+                                  placeholder="Masalan: 1 000"
+                                  value={field.value === 0 || field.value === undefined ? '' : field.value}
+                                  onValueChange={(values) => {
+                                    const { floatValue } = values;
+                                    field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                                  }}
+                                  onBlur={field.onBlur}
+                                  allowNegative={false}
+                                />
+                              )}
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-2">
                         <FormField
                           control={form.control}
                           name="discountStartAt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Boshlanish sanasi</FormLabel>
+                              <FormLabel optional>Boshlanish sanasi</FormLabel>
                               <FormControl>
                                 <DatePicker
                                   value={field.value}
@@ -954,7 +1133,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                           name="discountEndAt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Tugash sanasi</FormLabel>
+                              <FormLabel optional>Tugash sanasi</FormLabel>
                               <FormControl>
                                 <DatePicker
                                   value={field.value}
@@ -979,13 +1158,17 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                       <FormItem>
                         <FormLabel optional>Sariq chiziq</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value) || 0)
-                            }
+                          <NumericFormat
+                            customInput={Input}
+                            thousandSeparator=" "
+                            placeholder="Masalan: 20"
+                            value={field.value === 0 || field.value === undefined ? '' : field.value}
+                            onValueChange={(values) => {
+                              const { floatValue } = values;
+                              field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                            }}
+                            onBlur={field.onBlur}
+                            allowNegative={false}
                           />
                         </FormControl>
                         <FormDescription>
@@ -1003,13 +1186,17 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                       <FormItem>
                         <FormLabel optional>Qizil chiziq</FormLabel>
                         <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="0"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value) || 0)
-                            }
+                          <NumericFormat
+                            customInput={Input}
+                            thousandSeparator=" "
+                            placeholder="Masalan: 10"
+                            value={field.value === 0 || field.value === undefined ? '' : field.value}
+                            onValueChange={(values) => {
+                              const { floatValue } = values;
+                              field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                            }}
+                            onBlur={field.onBlur}
+                            allowNegative={false}
                           />
                         </FormControl>
                         <FormDescription>

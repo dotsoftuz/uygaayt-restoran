@@ -384,9 +384,25 @@ function Products() {
       await loadProducts();
     } catch (error) {
       console.error('Error saving product:', error);
-      toast.error(
-        error?.message || 'Mahsulotni saqlashda xatolik yuz berdi'
-      );
+      
+      // Show validation errors if available
+      // API interceptor returns response.data, so error is already the data object
+      if (error?.data && Array.isArray(error.data)) {
+        const validationErrors = error.data
+          .map(err => err.message || `${err.property || ''}: ${err.message || ''}`)
+          .filter(msg => msg)
+          .join('\n');
+        if (validationErrors) {
+          toast.error(`Validation xatolari:\n${validationErrors}`);
+        } else {
+          toast.error(error.message || 'Mahsulotni saqlashda xatolik yuz berdi');
+        }
+      } else if (error?.message) {
+        toast.error(error.message);
+      } else {
+        toast.error('Mahsulotni saqlashda xatolik yuz berdi');
+      }
+      
       throw error;
     }
   };

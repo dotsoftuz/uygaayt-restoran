@@ -59,14 +59,14 @@ export function AppSidebar({ ...props }) {
       icon: ClipboardList,
     },
     {
+      title: 'Categories',
+      url: '/dashboard/catalog',
+      icon: FolderTree,
+    },
+    {
       title: 'Products',
       url: '/dashboard/products',
       icon: Package,
-    },
-    {
-      title: 'Catalog (Categories)',
-      url: '/dashboard/catalog',
-      icon: FolderTree,
     },
     {
       title: 'Finance',
@@ -78,11 +78,11 @@ export function AppSidebar({ ...props }) {
       url: '/dashboard/promotions',
       icon: Tag,
     },
-    {
-      title: 'Reviews',
-      url: '/dashboard/reviews',
-      icon: Star,
-    },
+    // {
+    //   title: 'Reviews',
+    //   url: '/dashboard/reviews',
+    //   icon: Star,
+    // },
     {
       title: 'Settings',
       url: '/dashboard/settings',
@@ -136,11 +136,10 @@ export function AppSidebar({ ...props }) {
               <Link key={i} to={item.url}>
                 <SidebarMenuButton
                   tooltip={item.title}
-                  className={`flex items-center group-data-[collapsible=icon]:justify-center ${
-                    isActive
-                      ? 'bg-primary text-white dark:text-black hover:bg-primary/90 hover:text-white border-l-2 border-primary'
-                      : 'hover:bg-muted'
-                  }`}
+                  className={`flex items-center group-data-[collapsible=icon]:justify-center ${isActive
+                    ? 'bg-primary text-white dark:text-black hover:bg-primary/90 hover:text-white border-l-2 border-primary'
+                    : 'hover:bg-muted'
+                    }`}
                 >
                   <item.icon className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
                   <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">

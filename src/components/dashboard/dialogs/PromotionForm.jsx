@@ -43,13 +43,14 @@ import { Loader2, CalendarIcon, Percent, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { NumericFormat } from 'react-number-format';
 
 const promotionSchema = z.object({
   code: z.string().min(1, 'Promo kod majburiy').max(50, 'Promo kod juda uzun'),
   type: z.enum(['percentage', 'fixed', 'product'], {
     required_error: 'Chegirma turini tanlang',
   }),
-  discountValue: z.number().min(0.01, 'Chegirma qiymati 0 dan katta bo\'lishi kerak'),
+  discountValue: z.number({ required_error: 'Chegirma qiymati majburiy', invalid_type_error: 'Chegirma qiymati raqam bo\'lishi kerak' }).min(0.01, 'Chegirma qiymati 0 dan katta bo\'lishi kerak'),
   discountType: z.enum(['code', 'product']).default('code'),
   minOrderValue: z.number().min(0).optional().nullable(),
   validFrom: z.date({
@@ -99,7 +100,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     defaultValues: {
       code: '',
       type: 'fixed', // 'percentage' o'rniga 'fixed'
-      discountValue: 0,
+      discountValue: undefined,
       discountType: 'code',
       minOrderValue: null,
       validFrom: new Date(),
@@ -119,7 +120,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       form.reset({
         code: '',
         type: 'fixed',
-        discountValue: 0,
+        discountValue: undefined,
         discountType: 'code',
         minOrderValue: null,
         validFrom: new Date(),
@@ -139,7 +140,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       form.reset({
         code: promotion.code || '',
         type: promotion.type || 'fixed',
-        discountValue: promotion.discountValue || 0,
+        discountValue: promotion.discountValue ?? undefined,
         discountType: promotion.discountType || 'code',
         minOrderValue: promotion.minOrderValue || null,
         validFrom: promotion.validFrom ? new Date(promotion.validFrom) : new Date(),
@@ -155,7 +156,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       form.reset({
         code: '',
         type: 'fixed',
-        discountValue: 0,
+        discountValue: undefined,
         discountType: 'code',
         minOrderValue: null,
         validFrom: new Date(),
@@ -197,7 +198,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       form.reset({
         code: '',
         type: 'fixed',
-        discountValue: 0,
+        discountValue: undefined,
         discountType: 'code',
         minOrderValue: null,
         validFrom: new Date(),
@@ -344,34 +345,49 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                       <FormControl>
                         <div className="relative">
                           {discountType === 'percentage' ? (
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              placeholder="10"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
+                            <NumericFormat
+                              customInput={Input}
+                              suffix="%"
+                              placeholder="Masalan: 10"
+                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              onValueChange={(values) => {
+                                const { floatValue } = values;
+                                if (floatValue === undefined || floatValue === null) {
+                                  field.onChange(undefined);
+                                } else {
+                                  field.onChange(floatValue);
+                                }
+                              }}
+                              onBlur={field.onBlur}
+                              allowNegative={false}
+                              decimalScale={2}
+                              max={100}
                               className="pr-8"
                             />
                           ) : (
-                            <Input
-                              type="number"
-                              min="0"
-                              step="1000"
-                              placeholder="5000"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(parseFloat(e.target.value) || 0)
-                              }
+                            <NumericFormat
+                              customInput={Input}
+                              thousandSeparator=" "
+                              placeholder="Masalan: 5 000"
+                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              onValueChange={(values) => {
+                                const { floatValue } = values;
+                                if (floatValue === undefined || floatValue === null) {
+                                  field.onChange(undefined);
+                                } else {
+                                  field.onChange(floatValue);
+                                }
+                              }}
+                              onBlur={field.onBlur}
+                              allowNegative={false}
                               className="pr-8"
                             />
                           )}
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                            {discountType === 'percentage' ? '%' : 'so\'m'}
-                          </span>
+                          {discountType === 'fixed' && (
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                              so'm
+                            </span>
+                          )}
                         </div>
                       </FormControl>
                       <FormDescription>
@@ -412,17 +428,21 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                     <FormItem>
                       <FormLabel optional>Minimal buyurtma summasi</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="1000"
-                          placeholder="50000"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value ? parseFloat(e.target.value) : null
-                            )
-                          }
+                        <NumericFormat
+                          customInput={Input}
+                          thousandSeparator=" "
+                          placeholder="Masalan: 50 000"
+                          value={field.value === undefined || field.value === null ? '' : field.value}
+                          onValueChange={(values) => {
+                            const { floatValue } = values;
+                            if (floatValue === undefined || floatValue === null) {
+                              field.onChange(null);
+                            } else {
+                              field.onChange(floatValue);
+                            }
+                          }}
+                          onBlur={field.onBlur}
+                          allowNegative={false}
                         />
                       </FormControl>
                       <FormDescription>
@@ -544,16 +564,22 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                     <FormItem>
                       <FormLabel optional>Har bir foydalanuvchi uchun cheklov</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="Cheklov yo'q"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
-                          }
+                        <NumericFormat
+                          customInput={Input}
+                          thousandSeparator=" "
+                          placeholder="Masalan: 5"
+                          value={field.value === undefined || field.value === null ? '' : field.value}
+                          onValueChange={(values) => {
+                            const { floatValue } = values;
+                            if (floatValue === undefined || floatValue === null) {
+                              field.onChange(null);
+                            } else {
+                              field.onChange(Math.floor(floatValue));
+                            }
+                          }}
+                          onBlur={field.onBlur}
+                          allowNegative={false}
+                          decimalScale={0}
                         />
                       </FormControl>
                       <FormDescription>
@@ -571,16 +597,22 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                     <FormItem>
                       <FormLabel optional>Umumiy ishlatish cheklovi</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          placeholder="Cheklov yo'q"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value ? parseInt(e.target.value) : null
-                            )
-                          }
+                        <NumericFormat
+                          customInput={Input}
+                          thousandSeparator=" "
+                          placeholder="Masalan: 100"
+                          value={field.value === undefined || field.value === null ? '' : field.value}
+                          onValueChange={(values) => {
+                            const { floatValue } = values;
+                            if (floatValue === undefined || floatValue === null) {
+                              field.onChange(null);
+                            } else {
+                              field.onChange(Math.floor(floatValue));
+                            }
+                          }}
+                          onBlur={field.onBlur}
+                          allowNegative={false}
+                          decimalScale={0}
                         />
                       </FormControl>
                       <FormDescription>
