@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -32,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { TreeSelect } from '@/components/ui/tree-select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import {
@@ -123,94 +124,74 @@ function resizeImage(file, maxWidth, maxHeight) {
   });
 }
 
-// Helper function to convert categories to TreeNode format
-const buildCategoryTree = (categories) => {
-  // Helper function to get category name
-  const getCategoryName = (category) => {
-    if (!category) return 'Kategoriya';
-    const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-    return category.name?.[currentLang] || category.name?.uz || category.name || 'Kategoriya';
-  };
+// Helper function to normalize IDs for comparison
+const normalizeId = (id) => {
+  if (!id) return null;
 
-  // Normalize ID to string for comparison - handle ObjectId and string
-  const normalizeId = (id) => {
-    if (!id) return null;
-    // Handle ObjectId objects (MongoDB ObjectId)
-    if (typeof id === 'object' && id.toString) {
-      const str = id.toString();
-      // Check if it's a valid ObjectId string (24 hex characters)
-      if (str.length === 24 && /^[0-9a-fA-F]{24}$/.test(str)) {
-        return str;
-      }
+  // Case 1: { $oid: "id" }
+  if (typeof id === "object" && id.$oid) {
+    return String(id.$oid);
+  }
+
+  // Case 2: MongoDB ObjectId instance (toString() valid)
+  if (typeof id === "object" && id.toString) {
+    const str = id.toString();
+    if (/^[a-fA-F0-9]{24}$/.test(str)) {
       return str;
     }
-    // Handle null, undefined, empty string
-    const strId = String(id);
-    if (strId === 'null' || strId === 'undefined' || strId === '' || strId === 'null' || strId === 'undefined') {
-      return null;
-    }
-    return strId;
-  };
+  }
 
-  // Find root categories (no parentId or parentId is null/undefined/empty)
-  const rootCategories = categories.filter(cat => {
-    const parentId = normalizeId(cat.parentId);
-    return !parentId;
+  // Case 3: direct string
+  if (typeof id === "string" && /^[a-fA-F0-9]{24}$/.test(id)) {
+    return id;
+  }
+
+  return null;
+};
+
+
+// Helper function to build category tree with children property
+const buildCategoryTree = (categories) => {
+  if (!categories || categories.length === 0) return [];
+
+  // Normalize all IDs first
+  const normalizedCategories = categories.map(cat => ({
+    ...cat,
+    _id: normalizeId(cat._id) || cat._id,
+    parentId: normalizeId(cat.parentId) || cat.parentId,
+  }));
+
+  // Create a map for quick lookup
+  const categoryMap = new Map();
+  normalizedCategories.forEach(cat => {
+    categoryMap.set(cat._id, { ...cat, children: [] });
   });
 
-  // Recursive function to build tree
-  const buildNode = (category) => {
-    const categoryId = normalizeId(category._id);
-
-    if (!categoryId) {
-      console.warn('Category without _id:', category);
-      return null;
+  // Build tree structure
+  const rootCategories = [];
+  normalizedCategories.forEach(cat => {
+    const category = categoryMap.get(cat._id);
+    if (cat.parentId && categoryMap.has(cat.parentId)) {
+      // This is a child category
+      const parent = categoryMap.get(cat.parentId);
+      if (parent) {
+        parent.children.push(category);
+      }
+    } else {
+      // This is a root category
+      rootCategories.push(category);
     }
-
-    // Find children (categories where parentId matches this category's _id)
-    const children = categories
-      .filter(cat => {
-        const catParentId = normalizeId(cat.parentId);
-        // Strict comparison with normalized IDs
-        return catParentId && catParentId === categoryId;
-      })
-      .map(child => buildNode(child))
-      .filter(child => child !== null); // Remove null entries
-
-    return {
-      id: categoryId,
-      label: getCategoryName(category),
-      children: children.length > 0 ? children : undefined,
-    };
-  };
-
-  const tree = rootCategories
-    .map(cat => buildNode(cat))
-    .filter(node => node !== null); // Remove null entries
-
-  // Debug: Log detailed tree structure
-  console.log('Built category tree:', {
-    totalCategories: categories.length,
-    rootCategories: rootCategories.length,
-    treeNodes: tree.length,
-    sampleCategories: categories.slice(0, 5).map(cat => ({
-      id: normalizeId(cat._id),
-      name: getCategoryName(cat),
-      parentId: normalizeId(cat.parentId),
-    })),
-    treeStructure: tree.map(node => ({
-      id: node.id,
-      label: node.label,
-      childrenCount: node.children?.length || 0,
-      children: node.children?.map(child => ({
-        id: child.id,
-        label: child.label,
-        childrenCount: child.children?.length || 0,
-      })),
-    })),
   });
 
-  return tree;
+  // Remove empty children arrays
+  const cleanTree = (nodes) => {
+    return nodes.map(node => ({
+      ...node,
+      children: node.children && node.children.length > 0 ? cleanTree(node.children) : undefined,
+    }));
+  };
+
+  return cleanTree(rootCategories);
 };
 
 function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) {
@@ -220,6 +201,31 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
   const [loadingProduct, setLoadingProduct] = useState(false);
   const [categories, setCategories] = useState([]);
   const [uploadProgress, setUploadProgress] = useState({});
+
+  // Build category tree from flat categories array
+  const categoryTree = useMemo(() => {
+    if (!categories || categories.length === 0) return [];
+    return buildCategoryTree(categories);
+  }, [categories]);
+
+  // Get current language
+  const currentLanguage = useMemo(() => {
+    const lang = localStorage.getItem('i18nextLng') || 'uz';
+    return lang === 'uz' || lang === 'ru' || lang === 'en' ? lang : 'uz';
+  }, []);
+
+  // Helper function to get category name for display
+  const getCategoryDisplayName = useCallback((categoryId) => {
+    if (!categoryId || !categories.length) return '';
+    const category = categories.find(cat => {
+      const catId = typeof cat._id === 'object' ? cat._id.toString() : String(cat._id);
+      const searchId = typeof categoryId === 'object' ? categoryId.toString() : String(categoryId);
+      return catId === searchId;
+    });
+    if (!category) return '';
+    const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+    return category.name?.[currentLang] || category.name?.uz || category.name || 'Kategoriya';
+  }, [categories]);
 
   const form = useForm({
     resolver: zodResolver(productSchema),
@@ -254,11 +260,25 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
     if (open) {
       fetchCategories()
         .then((res) => {
+          let categoriesList = [];
           if (res?.data?.data) {
-            setCategories(res.data.data);
+            categoriesList = res.data.data;
           } else if (res?.data && Array.isArray(res.data)) {
-            setCategories(res.data);
+            categoriesList = res.data;
           }
+
+          // Debug: Log raw categories data
+          console.log('Raw categories from API:', categoriesList.map(cat => ({
+            _id: cat._id,
+            _idType: typeof cat._id,
+            _idString: String(cat._id),
+            parentId: cat.parentId,
+            parentIdType: typeof cat.parentId,
+            parentIdString: cat.parentId ? String(cat.parentId) : null,
+            name: cat.name,
+          })));
+
+          setCategories(categoriesList);
         })
         .catch(console.error);
     }
@@ -509,26 +529,26 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         toast.error('Mahsulot nomi barcha tillarda majburiy');
         return;
       }
-      
+
       if (!data.categoryId) {
         toast.error('Kategoriya majburiy');
         return;
       }
-      
+
       // Ensure price and inStock are valid numbers
-      const price = typeof data.price === 'number' && !isNaN(data.price) && data.price > 0 
-        ? data.price 
+      const price = typeof data.price === 'number' && !isNaN(data.price) && data.price > 0
+        ? data.price
         : (data.price ? parseFloat(String(data.price).replace(/\s/g, '')) : null);
-      
+
       const inStock = typeof data.inStock === 'number' && !isNaN(data.inStock) && data.inStock >= 0
         ? data.inStock
         : (data.inStock ? parseFloat(String(data.inStock).replace(/\s/g, '')) : null);
-      
+
       if (!price || isNaN(price) || price <= 0) {
         toast.error('Narx majburiy va 0 dan katta bo\'lishi kerak');
         return;
       }
-      
+
       if (inStock === null || isNaN(inStock) || inStock < 0) {
         toast.error('Ombordagi miqdor majburiy va 0 dan katta yoki teng bo\'lishi kerak');
         return;
@@ -553,22 +573,22 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
           payload.yellowLine = yellowLine;
         }
       }
-      
+
       if (data.redLine !== undefined && data.redLine !== null && data.redLine !== '') {
         const redLine = typeof data.redLine === 'number' ? data.redLine : parseFloat(String(data.redLine).replace(/\s/g, '')) || 0;
         if (!isNaN(redLine) && redLine > 0) {
           payload.redLine = redLine;
         }
       }
-      
+
       if (data.locationBlock?.trim()) {
         payload.locationBlock = data.locationBlock.trim();
       }
-      
+
       if (data.locationShelf?.trim()) {
         payload.locationShelf = data.locationShelf.trim();
       }
-      
+
       if (data.locationRow?.trim()) {
         payload.locationRow = data.locationRow.trim();
       }
@@ -577,16 +597,16 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       if (data.discountEnabled) {
         payload.discountEnabled = true;
         payload.discountType = data.discountType || 'AMOUNT';
-        
+
         if (data.discountValue !== undefined && data.discountValue !== null && data.discountValue !== '') {
-          const discountValue = typeof data.discountValue === 'number' 
-            ? data.discountValue 
+          const discountValue = typeof data.discountValue === 'number'
+            ? data.discountValue
             : parseFloat(String(data.discountValue).replace(/\s/g, '').replace('%', '')) || 0;
           if (!isNaN(discountValue) && discountValue > 0) {
             payload.discountValue = discountValue;
           }
         }
-        
+
         if (data.discountStartAt) {
           payload.discountStartAt = data.discountStartAt.toISOString();
         }
@@ -711,20 +731,20 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel required>Kategoriya</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Kategoriya tanlang" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat._id} value={cat._id}>
-                                {cat.name?.uz || cat.name || 'Kategoriya'}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <TreeSelect
+                            categories={categoryTree}
+                            value={field.value || ''}
+                            onValueChange={(value) => {
+                              field.onChange(value);
+                            }}
+                            placeholder="Kategoriya tanlang (asosiy yoki sub-kategoriya)"
+                            language={currentLanguage}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Asosiy kategoriya yoki sub-kategoriyani tanlang
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -816,7 +836,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     <FormDescription className="text-sm text-muted-foreground mb-4">
                       Kuryer mahsulotni topishi uchun joylashuv ma'lumotlarini kiriting
                     </FormDescription>
-                    
+
                     <div className="grid grid-cols-3 gap-2">
                       <FormField
                         control={form.control}
@@ -906,8 +926,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                             <div
                               {...getRootProps()}
                               className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive
-                                  ? 'border-primary bg-primary/5'
-                                  : 'border-muted-foreground/25 hover:border-primary/50'
+                                ? 'border-primary bg-primary/5'
+                                : 'border-muted-foreground/25 hover:border-primary/50'
                                 }`}
                             >
                               <input {...getInputProps()} />
@@ -942,8 +962,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                   >
                                     <div
                                       className={`aspect-square rounded-lg overflow-hidden border-2 ${index === mainImageIndex
-                                          ? 'border-primary'
-                                          : 'border-muted'
+                                        ? 'border-primary'
+                                        : 'border-muted'
                                         }`}
                                     >
                                       <img
