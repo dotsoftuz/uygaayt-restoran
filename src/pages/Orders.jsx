@@ -46,7 +46,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { formatNumber, formatDate } from '@/lib/utils';
+import { formatNumber, formatDate, formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import {
   Empty,
@@ -201,8 +201,8 @@ const OrderCard = ({ order, onView, onContact }) => {
             </span>
             <span className="font-medium text-xs">
               {order.createdAt instanceof Date
-                ? formatDate(order.createdAt.getTime())
-                : formatDate(order.createdAt)}
+                ? formatDateTime(order.createdAt.getTime())
+                : formatDateTime(order.createdAt)}
             </span>
           </div>
         </div>
@@ -253,7 +253,10 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
   };
 
   return (
-    <TableRow className="hover:bg-muted/50">
+    <TableRow 
+      className="hover:bg-muted/50 cursor-pointer"
+      onClick={() => onView(order.id)}
+    >
       <TableCell className="font-mono font-medium text-xs sm:text-sm">
         <div className="truncate">{order.id}</div>
       </TableCell>
@@ -275,20 +278,17 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
       <TableCell className="hidden md:table-cell text-sm">
         <div className="truncate">{getPaymentTypeLabel(order.paymentType)}</div>
       </TableCell>
-      <TableCell className="hidden lg:table-cell text-sm">
-        <div className="truncate">{getDeliveryTypeLabel(order.deliveryType)}</div>
-      </TableCell>
       <TableCell>
         <StatusBadge status={order.status} />
       </TableCell>
       <TableCell className="hidden md:table-cell text-xs sm:text-sm">
         <div className="truncate">
           {order.createdAt instanceof Date
-            ? formatDate(order.createdAt.getTime())
-            : formatDate(order.createdAt)}
+            ? formatDateTime(order.createdAt.getTime())
+            : formatDateTime(order.createdAt)}
         </div>
       </TableCell>
-      <TableCell className="text-right">
+      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
         {isMobile ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -312,20 +312,24 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onView(order.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onView(order.id);
+              }}
               className="h-7 w-7 sm:h-8 sm:w-auto px-2 sm:px-3"
             >
               <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
-              {/* <span className="hidden sm:inline text-xs sm:text-sm">Ko'rish</span> */}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onContact(order.phone)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onContact(order.phone);
+              }}
               className="h-7 w-7 sm:h-8 sm:w-auto px-2 sm:px-3"
             >
               <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
-              {/* <span className="hidden sm:inline text-xs sm:text-sm">Qo'ng'iroq</span> */}
             </Button>
           </div>
         )}
@@ -359,31 +363,84 @@ function Orders() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // YANGI: Backend order state dan frontend state ga o'tkazish
+  const mapOrderState = (state) => {
+    if (!state) return 'pending';
+    const stateStr = state.state || state;
+    switch (stateStr) {
+      case 'created':
+        return 'pending';
+      case 'inProcess':
+      case 'inDelivery':
+        return 'processing';
+      case 'completed':
+        return 'completed';
+      case 'cancelled':
+        return 'cancelled';
+      default:
+        return 'pending';
+    }
+  };
+
+  // YANGI: Backend order formatidan frontend formatiga o'tkazish
+  const mapOrderFromBackend = (order) => {
+    const customer = order.customer || order.receiverCustomer || {};
+    const state = order.state || {};
+    const deliveryType = order.type === 'immediate' ? 'delivery' : 'pickup';
+    
+    // Order ID ni formatlash - #23 ko'rinishida
+    const orderId = order.number 
+      ? `#${order.number}`
+      : order._id || order.id || '#0';
+    
+    return {
+      id: orderId,
+      _id: order._id || order.id, // Backend ID ni saqlash
+      clientName: customer.firstName 
+        ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+        : customer.name || 'Noma\'lum mijoz',
+      phone: customer.phoneNumber || customer.phone || '',
+      amount: order.totalPrice || 0,
+      paymentType: order.paymentType || 'cash',
+      status: mapOrderState(state),
+      deliveryType: deliveryType,
+      createdAt: order.createdAt ? new Date(order.createdAt) : new Date(),
+      number: order.number,
+    };
+  };
+
   // YANGI: API dan orderlarni olish
   useEffect(() => {
     const fetchOrders = async () => {
-      if (!storeId) {
-        // StoreId yo'q bo'lsa, fake data ishlatish
-        setOrders(generateFakeOrders());
-        return;
-      }
-      
       setLoading(true);
       try {
+        // Backend avtomatik ravishda token dan storeId ni oladi
         const params = {
           page: currentPage,
           limit: itemsPerPage,
-          storeId: storeId,  // YANGI: storeId filter
         };
         
-        // Status filter
+        // Status filter - backend state ga o'tkazish
         if (statusFilter !== 'all') {
-          // Backend da status filter qo'shish kerak
+          // Frontend status dan backend state ga map qilish
+          const stateMap = {
+            'pending': 'created',
+            'processing': 'inProcess',
+            'completed': 'completed',
+            'cancelled': 'cancelled',
+          };
+          // Backend da state filter qo'shish kerak, lekin hozircha client-side filter qilamiz
         }
         
-        const response = await api.post('/order/paging', params);
-        const ordersData = response?.data || response || [];
-        setOrders(ordersData);
+        const response = await api.post('/store/order/paging', params);
+        
+        // Backend response format: { data: [...], total: ... }
+        const responseData = response?.data?.data || response?.data || [];
+        const mappedOrders = Array.isArray(responseData) 
+          ? responseData.map(mapOrderFromBackend)
+          : [];
+        
+        setOrders(mappedOrders);
       } catch (error) {
         console.error('Error fetching orders:', error);
         // Xato bo'lsa, fake data ishlatish
@@ -407,7 +464,8 @@ function Orders() {
         (order) =>
           order.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
           order.phone.includes(debouncedSearchTerm) ||
-          order.clientName.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+          order.clientName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          (order.number && order.number.toString().includes(debouncedSearchTerm))
       );
     }
 
@@ -467,7 +525,7 @@ function Orders() {
 
     return filtered;
   }, [
-    fakeOrders,
+    orders,
     debouncedSearchTerm,
     statusFilter,
     paymentTypeFilter,
@@ -561,7 +619,10 @@ function Orders() {
   };
 
   const handleView = (orderId) => {
-    navigate(`/dashboard/order-detail/${orderId}`);
+    // Order ID yoki _id ni topish
+    const order = orders.find(o => o.id === orderId || o._id === orderId);
+    const actualId = order?._id || orderId;
+    navigate(`/dashboard/order-detail/${actualId}`);
   };
 
   const handleContact = (phone) => {
@@ -583,8 +644,8 @@ function Orders() {
             order.deliveryType,
             order.status,
             order.createdAt instanceof Date
-              ? formatDate(order.createdAt.getTime())
-              : formatDate(order.createdAt),
+              ? formatDateTime(order.createdAt.getTime())
+              : formatDateTime(order.createdAt),
           ].join(',')
         ),
       ].join('\n');
@@ -745,7 +806,88 @@ function Orders() {
       </div>
 
       {/* Orders List */}
-      {filteredAndSortedOrders.length > 0 ? (
+      {loading ? (
+        viewMode === 'card' || isMobile ? (
+          // Card Skeleton Loading
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {[...Array(6)].map((_, index) => (
+              <Card key={index} className="animate-pulse">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-20"></div>
+                      <div className="h-4 bg-muted rounded w-32"></div>
+                      <div className="h-3 bg-muted rounded w-24"></div>
+                    </div>
+                    <div className="h-6 bg-muted rounded w-20"></div>
+                  </div>
+                  <div className="space-y-2 py-2 border-t">
+                    <div className="h-3 bg-muted rounded"></div>
+                    <div className="h-3 bg-muted rounded"></div>
+                    <div className="h-3 bg-muted rounded"></div>
+                  </div>
+                  <div className="flex gap-2 pt-2 border-t">
+                    <div className="h-8 bg-muted rounded flex-1"></div>
+                    <div className="h-8 bg-muted rounded flex-1"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          // Table Skeleton Loading
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[120px] whitespace-nowrap">Order ID</TableHead>
+                    <TableHead className="w-[180px] whitespace-nowrap">Mijoz ismi</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">Summa</TableHead>
+                    <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">To'lov turi</TableHead>
+                    <TableHead className="w-[110px] whitespace-nowrap">Holat</TableHead>
+                    <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">Vaqt</TableHead>
+                    <TableHead className="text-right w-[140px] whitespace-nowrap">Amal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...Array(10)].map((_, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="h-4 bg-muted rounded w-24 animate-pulse"></div>
+                          <div className="h-3 bg-muted rounded w-20 animate-pulse"></div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        <div className="h-4 bg-muted rounded w-20 animate-pulse"></div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 bg-muted rounded w-20 animate-pulse"></div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <div className="h-4 bg-muted rounded w-24 animate-pulse"></div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <div className="h-7 w-7 bg-muted rounded animate-pulse"></div>
+                          <div className="h-7 w-7 bg-muted rounded animate-pulse"></div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )
+      ) : filteredAndSortedOrders.length > 0 ? (
         viewMode === 'card' || isMobile ? (
           // Card View (Mobile or Desktop Card Mode)
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -769,7 +911,6 @@ function Orders() {
                     <TableHead className="w-[180px] whitespace-nowrap">Mijoz ismi</TableHead>
                     <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">Summa</TableHead>
                     <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">To'lov turi</TableHead>
-                    <TableHead className="hidden lg:table-cell w-[130px] whitespace-nowrap">Yetkazib berish</TableHead>
                     <TableHead className="w-[110px] whitespace-nowrap">Holat</TableHead>
                     <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">Vaqt</TableHead>
                     <TableHead className="text-right w-[140px] whitespace-nowrap">Amal</TableHead>

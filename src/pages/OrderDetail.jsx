@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -17,508 +17,643 @@ import {
   Package,
   Truck,
   XCircle,
-  Send,
-  FileText,
   DollarSign,
-  Tag,
-  Check,
-  X,
-  RefreshCw,
-  MoreVertical,
+  User,
+  Building,
+  Circle,
+  PlayCircle,
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { formatNumber, formatDate } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import api from '@/services/api';
 
-// Fake order data generator
-const generateFakeOrder = (orderId) => {
-  const statuses = ['pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'cancelled'];
-  const paymentStatuses = ['paid', 'unpaid'];
-  const deliveryTypes = ['pickup', 'delivery'];
+// Backend order formatidan frontend formatiga o'tkazish
+const mapOrderFromBackend = (backendOrder) => {
+  console.log('🔍 mapOrderFromBackend - Input:', backendOrder);
 
-  const items = [
-    { name: 'Lavash', variant: 'Katta', quantity: 2, price: 35000 },
-    { name: 'Burger', variant: 'Kichik', quantity: 1, price: 25000 },
-    { name: 'Pizza', variant: 'O\'rta', quantity: 1, price: 55000 },
-    { name: 'Salat', variant: 'Katta', quantity: 1, price: 20000 },
-  ];
+  if (!backendOrder) {
+    console.error('🔍 mapOrderFromBackend - backendOrder is null or undefined');
+    return null;
+  }
 
-  const events = [
-    { status: 'accepted', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), note: 'Buyurtma qabul qilindi' },
-    { status: 'preparing', timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000), note: 'Tayyorlanmoqda' },
-  ];
+  const customer = backendOrder.customer || backendOrder.receiverCustomer || {};
+  const state = backendOrder.state || {};
 
-  // Random promo code (sometimes applied)
-  const appliedPromo = Math.random() > 0.5 ? {
-    code: 'WELCOME10',
-    type: 'percentage',
-    discountValue: 10,
-    discountAmount: 13500,
-  } : null;
+  // Order ID ni formatlash
+  const orderId = backendOrder.number
+    ? `ORD-${String(backendOrder.number).padStart(6, '0')}`
+    : backendOrder._id || backendOrder.id || 'ORD-000000';
+
+  // Status index (timeline uchun)
+  const getStatusIndex = (state) => {
+    if (!state || !state.state) return 0;
+    const stateStr = state.state;
+    switch (stateStr) {
+      case 'created':
+        return 1;
+      case 'inProcess':
+        return 2;
+      case 'inDelivery':
+        return 3;
+      case 'completed':
+        return 4;
+      case 'cancelled':
+        return 0;
+      default:
+        return 0;
+    }
+  };
+
+  // Items mapping - yaxshiroq error handling
+  const items = (backendOrder.items || []).map((item, index) => {
+    console.log(`🔍 Mapping item ${index}:`, item);
+
+    // Product name ni olish - turli variantlarni tekshirish
+    let productName = 'Noma\'lum mahsulot';
+    if (item.product) {
+      if (typeof item.product.name === 'string') {
+        productName = item.product.name;
+      } else if (item.product.name && typeof item.product.name === 'object') {
+        // Agar name object bo'lsa (multi-language)
+        productName = item.product.name.uz || item.product.name.ru || Object.values(item.product.name)[0] || 'Noma\'lum mahsulot';
+      }
+    } else if (item.name) {
+      productName = typeof item.name === 'string' ? item.name : (item.name.uz || item.name.ru || Object.values(item.name)[0] || 'Noma\'lum mahsulot');
+    }
+
+    let variant = '';
+    if (item.attributes && Array.isArray(item.attributes) && item.attributes.length > 0) {
+      variant = item.attributes
+        .map(attr => {
+          if (typeof attr.attributeItem === 'string') {
+            return attr.attributeItem;
+          }
+          if (attr.name && attr.value) {
+            return `${attr.name}: ${attr.value}`;
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
+
+    const mappedItem = {
+      name: productName,
+      variant: variant,
+      quantity: item.amount || item.quantity || 1,
+      price: item.price || item.itemPrice || 0,
+      product: item.product || {},
+      attributes: item.attributes || [],
+    };
+
+    console.log(`🔍 Mapped item ${index}:`, mappedItem);
+    return mappedItem;
+  });
+
+  console.log('🔍 Total items mapped:', items.length);
+
+  // Address
+  const address = backendOrder.addressName || '';
+  const addressLocation = backendOrder.addressLocation || {};
+  const fullAddress = address +
+    (backendOrder.houseNumber ? `, ${backendOrder.houseNumber}` : '') +
+    (backendOrder.entrance ? `, ${backendOrder.entrance}` : '') +
+    (backendOrder.apartmentNumber ? `, ${backendOrder.apartmentNumber}` : '') +
+    (backendOrder.floor ? `, ${backendOrder.floor}` : '');
 
   return {
-    id: orderId || 'ORD-000001',
-    clientName: 'Ali Valiyev',
-    phone: '+998901234567',
-    address: 'Toshkent shahar, Yunusobod tumani, Amir Temur ko\'chasi, 15-uy',
-    deliveryNotes: 'Uyning eshigi o\'ng tomonda, 3-qavat',
+    id: orderId,
+    _id: backendOrder._id || backendOrder.id,
+    number: backendOrder.number,
+    clientName: customer.firstName
+      ? `${customer.firstName} ${customer.lastName || ''}`.trim()
+      : customer.name || 'Noma\'lum mijoz',
+    phone: customer.phoneNumber || customer.phone || '',
+    address: fullAddress || address,
+    addressLocation: addressLocation,
+    deliveryNotes: backendOrder.comment || '',
     items: items,
-    paymentStatus: paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)],
-    transactionId: Math.random() > 0.5 ? `TXN-${Math.floor(Math.random() * 1000000)}` : null,
-    status: 'preparing',
-    deliveryType: deliveryTypes[Math.floor(Math.random() * deliveryTypes.length)],
-    events: events,
-    internalNote: 'Mijoz maxsus talab qilgan',
-    customerNote: 'Iltimos, tezroq yetkazib bering',
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
-    appliedPromo: appliedPromo,
+    paymentStatus: backendOrder.paymentState === 'completed' ? 'paid' : 'unpaid',
+    paymentType: backendOrder.paymentType || 'cash',
+    status: state.state || 'created',
+    statusIndex: getStatusIndex(state),
+    state: state,
+    deliveryType: backendOrder.type === 'immediate' ? 'delivery' : 'pickup',
+    createdAt: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
+    acceptedAt: backendOrder.acceptedAt ? new Date(backendOrder.acceptedAt) : null,
+    inProcessAt: backendOrder.inProcessAt ? new Date(backendOrder.inProcessAt) : null,
+    inDeliveryAt: backendOrder.inDeliveryAt ? new Date(backendOrder.inDeliveryAt) : null,
+    completedAt: backendOrder.completedAt ? new Date(backendOrder.completedAt) : null,
+    appliedPromo: backendOrder.promocodePrice > 0 ? {
+      code: backendOrder.promocodeCode || 'PROMO',
+      type: 'fixed',
+      discountValue: backendOrder.promocodePrice,
+      discountAmount: backendOrder.promocodePrice,
+    } : null,
+    store: backendOrder.store,
+    storeId: backendOrder.storeId,
+    itemPrice: backendOrder.itemPrice || 0,
+    deliveryPrice: backendOrder.deliveryPrice || 0,
+    discount: backendOrder.discount || 0,
+    promocodePrice: backendOrder.promocodePrice || 0,
+    usedBalance: backendOrder.usedBalance || 0,
+    totalPrice: backendOrder.totalPrice || 0,
+    customer: customer,
+    courier: backendOrder.courier,
+    employee: backendOrder.employee,
+    rate: backendOrder.rate,
+    rateComment: backendOrder.rateComment,
+    rateComments: backendOrder.rateComments || [],
   };
 };
 
-// Status Badge Component
-const StatusBadge = ({ status }) => {
-  const configs = {
-    pending: { label: 'Kutilmoqda', variant: 'secondary', icon: Clock },
-    accepted: { label: 'Qabul qilindi', variant: 'default', icon: CheckCircle2 },
-    preparing: { label: 'Tayyorlanmoqda', variant: 'default', icon: Package },
-    ready: { label: 'Tayyor', variant: 'default', icon: CheckCircle2 },
-    picked_up: { label: 'Olib ketildi', variant: 'default', icon: Truck },
-    delivered: { label: 'Yetkazib berildi', variant: 'default', icon: CheckCircle2 },
-    cancelled: { label: 'Bekor qilingan', variant: 'destructive', icon: XCircle },
+// Order Products Component
+const OrderProducts = ({ order }) => {
+  const statusLabels = {
+    created: 'Yaratildi',
+    inProcess: 'Jarayonda',
+    inDelivery: 'Yetkazib berishda',
+    completed: 'Tugallangan',
   };
 
-  const config = configs[status] || configs.pending;
-  const Icon = config.icon;
+  const formatTime = (date) => {
+    if (!date) return '';
+    return new Date(date.getTime() + 5 * 60 * 60 * 1000).toISOString().slice(11, 19);
+  };
+
+  const getImageUrl = (image) => {
+    if (!image || !image.url) {
+      console.log('🔍 getImageUrl - No image or url:', image);
+      return null;
+    }
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    // Base URL'ni tozalash - trailing slash'ni olib tashlash
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+    // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+    let url = image.url;
+    // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
+    if (url.startsWith('uploads/')) {
+      url = url.replace('uploads/', '');
+    }
+    // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
+    // baseUrl allaqachon /v1 ni o'z ichiga oladi, shuning uchun /v1/uploads/ bo'ladi
+    const finalUrl = `${cleanBaseUrl}/uploads/${url}`;
+    console.log('🔍 getImageUrl - Base URL:', baseUrl, 'Clean:', cleanBaseUrl, 'Image URL:', image.url, 'Final:', finalUrl);
+    return finalUrl;
+  };
 
   return (
-    <Badge variant={config.variant} className="flex items-center gap-1 text-xs sm:text-sm">
-      <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
-      {config.label}
-    </Badge>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Package className="w-5 h-5" />
+          Buyurtma mahsulotlari
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Timeline */}
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            {/* Created Status */}
+            <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 1
+                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                : 'bg-muted/50 border-muted-foreground/30'
+                }`}>
+                {order.statusIndex >= 1 ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`text-xs font-medium ${order.statusIndex >= 1 ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                  Yaratildi
+                </p>
+                <p className={`text-xs mt-0.5 ${order.statusIndex >= 1 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                  {formatTime(order.createdAt) || '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector Line */}
+            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 2 ? 'bg-primary' : 'bg-muted/30'
+              }`}></div>
+
+            {/* Accepted Status */}
+            <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 2
+                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                : 'bg-muted/50 border-muted-foreground/30'
+                }`}>
+                {order.statusIndex >= 2 ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : order.statusIndex === 1 ? (
+                  <Clock className="w-4 h-4 text-muted-foreground/50" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`text-xs font-medium ${order.statusIndex >= 2 ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                  Qabul qilindi
+                </p>
+                <p className={`text-xs mt-0.5 ${order.statusIndex >= 2 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                  {formatTime(order.acceptedAt) || '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector Line */}
+            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 3 ? 'bg-primary' : 'bg-muted/30'
+              }`}></div>
+
+            {/* In Delivery Status */}
+            <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 3
+                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                : 'bg-muted/50 border-muted-foreground/30'
+                }`}>
+                {order.statusIndex >= 3 ? (
+                  <Truck className="w-5 h-5" />
+                ) : order.statusIndex === 2 ? (
+                  <Clock className="w-4 h-4 text-muted-foreground/50" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`text-xs font-medium ${order.statusIndex >= 3 ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                  Yetkazilmoqda
+                </p>
+                <p className={`text-xs mt-0.5 ${order.statusIndex >= 3 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                  {formatTime(order.inDeliveryAt) || '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Connector Line */}
+            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 4 ? 'bg-primary' : 'bg-muted/30'
+              }`}></div>
+
+            {/* Completed Status */}
+            <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 4
+                ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                : 'bg-muted/50 border-muted-foreground/30'
+                }`}>
+                {order.statusIndex >= 4 ? (
+                  <CheckCircle2 className="w-5 h-5" />
+                ) : order.statusIndex === 3 ? (
+                  <Clock className="w-4 h-4 text-muted-foreground/50" />
+                ) : (
+                  <Circle className="w-4 h-4 text-muted-foreground/50" />
+                )}
+              </div>
+              <div className="text-center">
+                <p className={`text-xs font-medium ${order.statusIndex >= 4 ? 'text-primary' : 'text-muted-foreground/60'}`}>
+                  Tugallandi
+                </p>
+                <p className={`text-xs mt-0.5 ${order.statusIndex >= 4 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                  {formatTime(order.completedAt) || '-'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Products List */}
+        <div className="space-y-3">
+          {order.items.map((item, index) => {
+            console.log(`🔍 Product ${index}:`, item);
+            console.log(`🔍 Product ${index} - product:`, item.product);
+            console.log(`🔍 Product ${index} - mainImage:`, item.product?.mainImage);
+            const imageUrl = getImageUrl(item.product?.mainImage);
+            console.log(`🔍 Product ${index} - imageUrl:`, imageUrl);
+            return (
+              <div key={index} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+                <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 border">
+                  {imageUrl ? (
+                    <img
+                      src={imageUrl}
+                      alt={item.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error(`🔍 Image load error for product ${index}:`, imageUrl);
+                        e.target.style.display = 'none';
+                        if (e.target.nextSibling) {
+                          e.target.nextSibling.style.display = 'flex';
+                        }
+                      }}
+                      onLoad={() => {
+                        console.log(`🔍 Image loaded successfully for product ${index}:`, imageUrl);
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-full h-full items-center justify-center ${imageUrl ? 'hidden' : 'flex'}`}>
+                    <Package className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm sm:text-base">{item.name}</p>
+                  {item.variant && item.attributes && item.attributes.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {item.attributes.map((attr, idx) => (
+                        <Badge key={idx} variant="outline" className="text-xs">
+                          {typeof attr.attributeItem === 'string' ? attr.attributeItem : `${attr.name}: ${attr.value}`}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground mt-1.5">
+                    {item.quantity} x {formatNumber(item.price)} so'm
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="font-semibold text-sm sm:text-base">
+                    {formatNumber(item.price * item.quantity)} so'm
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Order Summary - moved to end */}
+        <div className="border-t pt-4 space-y-3 bg-muted/20 rounded-lg p-4 -mx-4 -mb-4">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Barcha mahsulotlar:</span>
+            <span className="font-medium">{formatNumber(order.itemPrice)} so'm</span>
+          </div>
+          {order.deliveryPrice > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Yetkazib berish:</span>
+              <span className="font-medium">{formatNumber(order.deliveryPrice)} so'm</span>
+            </div>
+          )}
+          {order.usedBalance > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Foydalanilgan balans:</span>
+              <span className="font-medium text-primary">-{formatNumber(order.usedBalance)} so'm</span>
+            </div>
+          )}
+          {order.promocodePrice > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Promo kod:</span>
+              <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
+            </div>
+          )}
+          {order.discount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Chegirma:</span>
+              <span className="font-medium text-primary">-{formatNumber(order.discount)} so'm</span>
+            </div>
+          )}
+          <div className="flex justify-between font-bold text-base sm:text-lg pt-3 border-t">
+            <span>Umumiy:</span>
+            <span className="text-primary">{formatNumber(order.totalPrice)} so'm</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
-// Client Info Card Component
-const ClientInfoCard = ({ order, onCall }) => {
+// Order Info Component
+const OrderInfo = ({ order }) => {
+  const getImageUrl = (image) => {
+    if (!image || !image.url) return null;
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+    // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+    let url = image.url;
+    if (url.startsWith('uploads/')) {
+      url = url.replace('uploads/', '');
+    }
+    // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
+    return `${cleanBaseUrl}/uploads/${url}`;
+  };
+
+  const handleCall = (phone) => {
+    window.open(`tel:${phone}`, '_self');
+  };
+
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
-          Mijoz ma'lumotlari
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4">
-        <div>
-          <Label className="text-xs sm:text-sm text-muted-foreground">Ism</Label>
-          <p className="font-medium text-sm sm:text-base mt-1">{order.clientName}</p>
-        </div>
-        <div>
-          <Label className="text-xs sm:text-sm text-muted-foreground">Telefon</Label>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mt-1">
-            <p className="font-medium text-sm sm:text-base">{order.phone}</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onCall(order.phone)}
-              className="w-full sm:w-auto flex-shrink-0"
-            >
-              <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span className="text-xs sm:text-sm">Qo'ng'iroq</span>
-            </Button>
+    <div className="space-y-4">
+      {/* Payment Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="w-5 h-5" />
+            To'lov ma'lumotlari
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex justify-between">
+            <span className="text-sm text-muted-foreground">To'lov turi:</span>
+            <Badge variant="outline">
+              {order.paymentType === 'cash' ? 'Naqd' : 'Karta'}
+            </Badge>
           </div>
-        </div>
-        {/* YANGI: Store ma'lumotlari */}
-        {order.store && (
-          <div>
-            <Label className="text-xs sm:text-sm text-muted-foreground">Do'kon</Label>
-            <p className="font-medium text-sm sm:text-base mt-1">{order.store.name || order.storeId || '-'}</p>
-            {order.store.phoneNumber && (
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.store.phoneNumber}</p>
-            )}
+          <div className="flex justify-between">
+            <span className="text-sm text-muted-foreground">Holat:</span>
+            <Badge variant={order.paymentStatus === 'paid' ? 'default' : 'destructive'}>
+              {order.paymentStatus === 'paid' ? 'To\'langan' : 'To\'lanmagan'}
+            </Badge>
           </div>
-        )}
-        <div>
-          <Label className="text-xs sm:text-sm text-muted-foreground">Manzil</Label>
-          <p className="font-medium text-sm sm:text-base mt-1 break-words">{order.address}</p>
-          {order.deliveryType === 'delivery' && (
-            <div className="mt-2 rounded-lg overflow-hidden border">
+        </CardContent>
+      </Card>
+
+      {/* Customer Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="w-5 h-5" />
+            Mijoz
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+              {order.customer?.image ? (
+                <img
+                  src={getImageUrl(order.customer.image)}
+                  alt={order.clientName}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-muted-foreground" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm sm:text-base truncate">{order.clientName}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs sm:text-sm text-muted-foreground">{order.phone}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0"
+                  onClick={() => handleCall(order.phone)}
+                >
+                  <Phone className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Address Info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MapPin className="w-5 h-5" />
+            Manzil
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="bg-muted/30 rounded-lg p-3">
+            <p className="text-sm break-words leading-relaxed">{order.address || 'Manzil ko\'rsatilmagan'}</p>
+          </div>
+          {order.deliveryNotes && (
+            <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-foreground">
+                <span className="font-semibold text-blue-700 dark:text-blue-300">Eslatma:</span>{' '}
+                <span className="text-muted-foreground">{order.deliveryNotes}</span>
+              </p>
+            </div>
+          )}
+          {order.addressLocation?.latitude && order.addressLocation?.longitude && (
+            <div className="mt-2 rounded-lg overflow-hidden border shadow-sm">
               <iframe
                 width="100%"
-                height="200"
+                height="220"
                 style={{ border: 0 }}
                 loading="lazy"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${encodeURIComponent(order.address)}&output=embed`}
+                src={`https://www.google.com/maps?q=${order.addressLocation.latitude},${order.addressLocation.longitude}&output=embed&zoom=15`}
                 className="w-full"
               />
             </div>
           )}
-        </div>
-        {order.deliveryNotes && (
-          <div>
-            <Label className="text-xs sm:text-sm text-muted-foreground">
-              Yetkazib berish eslatmalari
-            </Label>
-            <p className="text-xs sm:text-sm mt-1 break-words">{order.deliveryNotes}</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Order Items Card Component
-const OrderItemsCard = ({ items, appliedPromo, subtotal, discountAmount, totalAmount }) => {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Package className="w-4 h-4 sm:w-5 sm:h-5" />
-          Buyurtma itemlari
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2 sm:space-y-3">
-          {items.map((item, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-2 sm:p-3 border rounded-lg"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm sm:text-base truncate">{item.name}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  {item.variant} • {item.quantity} ta
-                </p>
-              </div>
-              <p className="font-semibold text-sm sm:text-base ml-2 flex-shrink-0">
-                {formatNumber(item.price * item.quantity)} so'm
-              </p>
-            </div>
-          ))}
-          <Separator />
-          {appliedPromo && (
-            <>
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
-                  <span className="text-muted-foreground">
-                    Promo kod ({appliedPromo.code})
-                  </span>
-                </div>
-                <span className="text-primary font-medium">
-                  -{formatNumber(discountAmount)} so'm
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
-          <div className="flex items-center justify-between font-bold text-base sm:text-lg pt-1">
-            <span>Jami:</span>
-            <span>{formatNumber(totalAmount)} so'm</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Payment Info Card Component
-const PaymentInfoCard = ({ paymentStatus, transactionId }) => {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <DollarSign className="w-4 h-4 sm:w-5 sm:h-5" />
-          To'lov ma'lumotlari
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-xs sm:text-sm text-muted-foreground">Holat</Label>
-          <Badge
-            variant={paymentStatus === 'paid' ? 'default' : 'destructive'}
-            className="text-xs"
-          >
-            {paymentStatus === 'paid' ? 'To\'langan' : 'To\'lanmagan'}
-          </Badge>
-        </div>
-        {transactionId && (
-          <div className="flex items-center justify-between">
-            <Label className="text-xs sm:text-sm text-muted-foreground">
-              Transaction ID
-            </Label>
-            <p className="font-mono text-xs sm:text-sm truncate ml-2">{transactionId}</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Timeline Component
-const OrderTimeline = ({ events, currentStatus }) => {
-  const getTimelineStatus = (status) => {
-    const statuses = ['accepted', 'preparing', 'picked_up', 'delivered'];
-    return statuses.indexOf(status);
-  };
-
-  const statusLabels = {
-    accepted: 'Qabul qilindi',
-    preparing: 'Tayyorlanmoqda',
-    picked_up: 'Olib ketildi',
-    delivered: 'Yetkazib berildi',
-  };
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-          Buyurtma holati
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3 sm:space-y-4">
-          {['accepted', 'preparing', 'picked_up', 'delivered'].map(
-            (status, index) => {
-              const event = events.find((e) => e.status === status);
-              const isCompleted = getTimelineStatus(currentStatus) >= index;
-              const isCurrent = getTimelineStatus(currentStatus) === index;
-
-              return (
-                <div key={status} className="flex items-start gap-2 sm:gap-3">
-                  <div
-                    className={`flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 flex-shrink-0 ${isCompleted
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted border-muted-foreground'
-                      }`}
-                  >
-                    {isCompleted ? (
-                      <Check className="w-3 h-3 sm:w-4 sm:h-4" />
-                    ) : (
-                      <div className="w-2 h-2 rounded-full bg-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`font-medium text-sm sm:text-base ${isCurrent ? 'text-primary' : ''
-                        }`}
-                    >
-                      {statusLabels[status]}
-                    </p>
-                    {event && (
-                      <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                        {formatDate(event.timestamp.getTime())} • {event.note}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            }
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Actions Card Component
-const ActionsCard = ({ order, onAccept, onReject, onMarkAsReady, onMarkAsPickedUp, onMarkAsDelivered, onRefundRequest, isMobile }) => {
-  const actions = [];
-
-  if (order.status === 'pending') {
-    actions.push(
-      <Button key="accept" className="w-full" onClick={onAccept}>
-        <Check className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Qabul qilish</span>
-      </Button>,
-      <Button
-        key="reject"
-        variant="destructive"
-        className="w-full"
-        onClick={onReject}
-      >
-        <X className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Rad etish</span>
-      </Button>
-    );
-  } else if (order.status === 'accepted') {
-    actions.push(
-      <Button key="ready" className="w-full" onClick={onMarkAsReady}>
-        <Package className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Tayyor deb belgilash</span>
-      </Button>
-    );
-  } else if (order.status === 'ready') {
-    actions.push(
-      <Button key="picked" className="w-full" onClick={onMarkAsPickedUp}>
-        <Truck className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Olib ketildi deb belgilash</span>
-      </Button>
-    );
-  } else if (order.status === 'picked_up') {
-    actions.push(
-      <Button key="delivered" className="w-full" onClick={onMarkAsDelivered}>
-        <CheckCircle2 className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Yetkazib berildi deb belgilash</span>
-      </Button>
-    );
-  } else if (order.status === 'delivered' && order.paymentStatus === 'paid') {
-    actions.push(
-      <Button
-        key="refund"
-        variant="outline"
-        className="w-full"
-        onClick={onRefundRequest}
-      >
-        <RefreshCw className="w-4 h-4" />
-        <span className="text-xs sm:text-sm">Pul qaytarish so'rovi</span>
-      </Button>
-    );
-  }
-
-  if (actions.length === 0) return null;
-
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base sm:text-lg">Amallar</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {actions}
-      </CardContent>
-    </Card>
-  );
-};
-
-// Notes Card Component
-const NotesCard = ({ internalNote, customerNote, onInternalNoteChange, onCustomerNoteChange, onSave }) => {
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-          Eslatmalar
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 sm:space-y-4">
-        <div>
-          <Label htmlFor="internal-note" className="text-xs sm:text-sm">
-            Ichki eslatma (faqat do'kon)
-          </Label>
-          <Textarea
-            id="internal-note"
-            value={internalNote}
-            onChange={(e) => onInternalNoteChange(e.target.value)}
-            placeholder="Ichki eslatma..."
-            className="mt-1 text-xs sm:text-sm min-h-[80px]"
-          />
-        </div>
-        <div>
-          <Label htmlFor="customer-note" className="text-xs sm:text-sm">
-            Mijoz eslatmasi
-          </Label>
-          <Textarea
-            id="customer-note"
-            value={customerNote}
-            onChange={(e) => onCustomerNoteChange(e.target.value)}
-            placeholder="Mijoz eslatmasi..."
-            className="mt-1 text-xs sm:text-sm min-h-[80px]"
-          />
-        </div>
-        <Button className="w-full" onClick={onSave} size="sm">
-          <span className="text-xs sm:text-sm">Saqlash</span>
-        </Button>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Notifications Card Component
-const NotificationsCard = ({ onResendNotification, isMobile }) => {
-  if (isMobile) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-            Xabarnomalar
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Button
-            variant="outline"
-            className="w-full"
-            size="sm"
-            onClick={() => onResendNotification('courier')}
-          >
-            <Send className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="text-xs sm:text-sm">Kuryerga qayta yuborish</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            size="sm"
-            onClick={() => onResendNotification('customer')}
-          >
-            <Send className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="text-xs sm:text-sm">Mijozga qayta yuborish</span>
-          </Button>
         </CardContent>
       </Card>
-    );
-  }
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-          <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-          Xabarnomalar
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <Button
-          variant="outline"
-          className="w-full"
-          size="sm"
-          onClick={() => onResendNotification('courier')}
-        >
-          <Send className="w-4 h-4" />
-          <span className="text-xs sm:text-sm">Kuryerga qayta yuborish</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full"
-          size="sm"
-          onClick={() => onResendNotification('customer')}
-        >
-          <Send className="w-4 h-4" />
-          <span className="text-xs sm:text-sm">Mijozga qayta yuborish</span>
-        </Button>
-      </CardContent>
-    </Card>
+      {/* Courier Info */}
+      {order.courier && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Truck className="w-5 h-5" />
+              Kuryer
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
+                {order.courier.image ? (
+                  <img
+                    src={getImageUrl(order.courier.image)}
+                    alt={order.courier.firstName}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <User className="w-6 h-6 text-muted-foreground" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm sm:text-base truncate">
+                  {order.courier.firstName} {order.courier.lastName}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    {order.courier.phoneNumber}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => handleCall(order.courier.phoneNumber)}
+                  >
+                    <Phone className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+            {order.courier.carBrand && order.courier.carNumber && (
+              <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
+                <span className="text-xs sm:text-sm font-medium">{order.courier.carBrand}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">{order.courier.carNumber}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Store Info */}
+      {order.store && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Building className="w-5 h-5" />
+              Do'kon
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="font-medium text-sm sm:text-base">{order.store.name}</p>
+            {order.store.phoneNumber && (
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.store.phoneNumber}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rating & Comments */}
+      {order.status === 'completed' && (order.rate || order.rateComment || order.rateComments?.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Reyting va izoh</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {order.rateComment && (
+              <p className="text-sm border-b pb-3">{order.rateComment}</p>
+            )}
+            {order.rate && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Reyting:</span>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <span key={star} className={star <= order.rate ? 'text-yellow-400' : 'text-muted-foreground'}>
+                      ★
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {order.rateComments && order.rateComments.length > 0 && (
+              <div className="space-y-2 pt-3">
+                {order.rateComments.map((comment, idx) => (
+                  <div key={idx} className="flex items-start gap-2">
+                    {comment.image && (
+                      <img
+                        src={getImageUrl(comment.image)}
+                        alt="comment"
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                    )}
+                    <p className="text-sm flex-1">{comment.title}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 
@@ -526,104 +661,90 @@ function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [order] = useState(generateFakeOrder(orderId));
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [internalNote, setInternalNote] = useState(order.internalNote || '');
-  const [customerNote, setCustomerNote] = useState(order.customerNote || '');
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleBack = () => {
-    navigate('/dashboard/orders');
+  // API dan order ma'lumotlarini olish
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (!orderId) {
+        toast.error('Buyurtma ID topilmadi');
+        navigate('/dashboard/orders');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await api.get(`/store/order/get-by-id/${orderId}`);
+        console.log('🔍 Order Detail - Raw Response:', response);
+        console.log('🔍 Order Detail - Response Type:', typeof response);
+        console.log('🔍 Order Detail - Response Items:', response?.items);
+        console.log('🔍 Order Detail - Items Length:', response?.items?.length);
+
+        // Agar response.data ichida bo'lsa, uni olish
+        const orderData = response?.data || response;
+        console.log('🔍 Order Detail - Order Data:', orderData);
+        console.log('🔍 Order Detail - Order Data Items:', orderData?.items);
+
+        const mappedOrder = mapOrderFromBackend(orderData);
+        console.log('🔍 Order Detail - Mapped Order:', mappedOrder);
+        console.log('🔍 Order Detail - Mapped Items:', mappedOrder.items);
+        console.log('🔍 Order Detail - Mapped Items Length:', mappedOrder.items?.length);
+
+        setOrder(mappedOrder);
+      } catch (error) {
+        console.error('Error fetching order:', error);
+        console.error('Error response:', error.response);
+        toast.error('Buyurtma ma\'lumotlarini yuklashda xatolik yuz berdi');
+        navigate('/dashboard/orders');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+  }, [orderId, navigate]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-2">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-sm text-muted-foreground">Buyurtma ma'lumotlari yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-sm text-muted-foreground">Buyurtma topilmadi</p>
+      </div>
+    );
+  }
+
+  const statusLabels = {
+    created: 'Yaratildi',
+    inProcess: 'Jarayonda',
+    inDelivery: 'Yetkazib berishda',
+    completed: 'Tugallangan',
+    cancelled: 'Bekor qilingan',
   };
-
-  const handleCall = (phone) => {
-    window.open(`tel:${phone}`, '_self');
-  };
-
-  const handleAccept = () => {
-    order.events.push({
-      status: 'accepted',
-      timestamp: new Date(),
-      note: 'Buyurtma qabul qilindi',
-    });
-    order.status = 'accepted';
-    toast.success('Buyurtma qabul qilindi');
-  };
-
-  const handleReject = () => {
-    if (!rejectReason.trim()) {
-      toast.error('Sababni kiriting');
-      return;
-    }
-    order.events.push({
-      status: 'cancelled',
-      timestamp: new Date(),
-      note: `Bekor qilindi: ${rejectReason}`,
-    });
-    order.status = 'cancelled';
-    setRejectDialogOpen(false);
-    setRejectReason('');
-    toast.success('Buyurtma bekor qilindi');
-  };
-
-  const handleMarkAsReady = () => {
-    order.events.push({
-      status: 'ready',
-      timestamp: new Date(),
-      note: 'Tayyor',
-    });
-    order.status = 'ready';
-    toast.success('Buyurtma tayyor deb belgilandi');
-  };
-
-  const handleMarkAsPickedUp = () => {
-    order.events.push({
-      status: 'picked_up',
-      timestamp: new Date(),
-      note: 'Olib ketildi',
-    });
-    order.status = 'picked_up';
-    toast.success('Buyurtma olib ketildi deb belgilandi');
-  };
-
-  const handleMarkAsDelivered = () => {
-    order.events.push({
-      status: 'delivered',
-      timestamp: new Date(),
-      note: 'Yetkazib berildi',
-    });
-    order.status = 'delivered';
-    toast.success('Buyurtma yetkazib berildi deb belgilandi');
-  };
-
-  const handleRefundRequest = () => {
-    toast.info('Pul qaytarish so\'rovi yuborildi');
-  };
-
-  const handleResendNotification = (type) => {
-    if (type === 'courier') {
-      toast.success('Kuryerga xabar qayta yuborildi');
-    } else {
-      toast.success('Mijozga xabar qayta yuborildi');
-    }
-  };
-
-  const handleSaveNotes = () => {
-    order.internalNote = internalNote;
-    order.customerNote = customerNote;
-    toast.success('Eslatmalar saqlandi');
-  };
-
-  const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const discountAmount = order.appliedPromo?.discountAmount || 0;
-  const totalAmount = subtotal - discountAmount;
 
   return (
     <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/dashboard/orders')}
+            className="flex-shrink-0"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
           <div className="min-w-0 flex-1">
             <h2 className="title truncate">
               Buyurtma #{order.id}
@@ -633,92 +754,23 @@ function OrderDetail() {
             </p>
           </div>
         </div>
-        <StatusBadge status={order.status} />
+        <Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'}>
+          {statusLabels[order.status] || order.status}
+        </Badge>
       </div>
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Left Column - Main Info */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-          <ClientInfoCard order={order} onCall={handleCall} />
-          <OrderItemsCard
-            items={order.items}
-            appliedPromo={order.appliedPromo}
-            subtotal={subtotal}
-            discountAmount={discountAmount}
-            totalAmount={totalAmount}
-          />
-          <PaymentInfoCard
-            paymentStatus={order.paymentStatus}
-            transactionId={order.transactionId}
-          />
-          <OrderTimeline events={order.events} currentStatus={order.status} />
+        {/* Left Column - Products */}
+        <div className="lg:col-span-2">
+          <OrderProducts order={order} />
         </div>
 
-        {/* Right Column - Actions & Notes */}
-        <div className="space-y-4 sm:space-y-6">
-          <ActionsCard
-            order={order}
-            onAccept={handleAccept}
-            onReject={() => setRejectDialogOpen(true)}
-            onMarkAsReady={handleMarkAsReady}
-            onMarkAsPickedUp={handleMarkAsPickedUp}
-            onMarkAsDelivered={handleMarkAsDelivered}
-            onRefundRequest={handleRefundRequest}
-            isMobile={isMobile}
-          />
-          <NotesCard
-            internalNote={internalNote}
-            customerNote={customerNote}
-            onInternalNoteChange={setInternalNote}
-            onCustomerNoteChange={setCustomerNote}
-            onSave={handleSaveNotes}
-          />
-          <NotificationsCard
-            onResendNotification={handleResendNotification}
-            isMobile={isMobile}
-          />
+        {/* Right Column - Info */}
+        <div>
+          <OrderInfo order={order} />
         </div>
       </div>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Buyurtmani rad etish</DialogTitle>
-            <DialogDescription>
-              Buyurtmani rad etish sababini kiriting
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="reject-reason" className="text-xs sm:text-sm">Sabab</Label>
-              <Textarea
-                id="reject-reason"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Rad etish sababini kiriting..."
-                className="mt-1 text-xs sm:text-sm min-h-[100px]"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRejectDialogOpen(false);
-                setRejectReason('');
-              }}
-              className="w-full sm:w-auto"
-            >
-              Bekor qilish
-            </Button>
-            <Button variant="destructive" onClick={handleReject} className="w-full sm:w-auto">
-              Rad etish
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
