@@ -28,9 +28,67 @@ import {
   CheckCircle2,
   XCircle,
   Star,
+  Upload,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+
+// Helper function to resize images
+function resizeImage(file, maxWidth, maxHeight) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height;
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            const fileName = file.name || `image_${Date.now()}.jpg`;
+            const fileType = file.type || 'image/jpeg';
+            resolve(new File([blob], fileName, { type: fileType }));
+          },
+          file.type || 'image/jpeg',
+          0.9
+        );
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Helper function to format image URL
+const formatImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  let url = imageUrl;
+  if (url.startsWith('uploads/')) {
+    url = url.replace('uploads/', '');
+  }
+  return `${cleanBaseUrl}/uploads/${url}`;
+};
 
 // Validation schemas
 const basicInfoSchema = z.object({
@@ -72,6 +130,20 @@ function StoreSettings() {
   const [originalStoreData, setOriginalStoreData] = useState(null); // Original data for comparison
   const [activeTab, setActiveTab] = useState('basic');
   const [mapAddress, setMapAddress] = useState('');
+
+  // Logo upload state
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoImageId, setLogoImageId] = useState(null);
+  const logoFileInputRef = useRef(null);
+  const [isLogoUploading, setIsLogoUploading] = useState(false);
+
+  // Banner upload state
+  const [bannerPreview, setBannerPreview] = useState(null);
+  const [bannerFile, setBannerFile] = useState(null);
+  const [bannerImageId, setBannerImageId] = useState(null);
+  const bannerFileInputRef = useRef(null);
+  const [isBannerUploading, setIsBannerUploading] = useState(false);
 
   // Track changes for each tab
   const [hasChanges, setHasChanges] = useState({
@@ -146,7 +218,7 @@ function StoreSettings() {
       // SessionStorage yordamida birinchi yuklanishni tekshirish
       // Agar bu session'da allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
       const sessionFetched = sessionStorage.getItem('storeSettingsFetched');
-      
+
       if (sessionFetched === 'true') {
         // Agar allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
         try {
@@ -179,7 +251,7 @@ function StoreSettings() {
       }
 
       const token = localStorage.getItem('token');
-      
+
       // Avval localStorage'dan ma'lumotni tekshirish
       // Agar ma'lumot mavjud bo'lsa, darhol ko'rsatish
       let hasCachedData = false;
@@ -219,26 +291,43 @@ function StoreSettings() {
         await new Promise(resolve => setTimeout(resolve, 200));
         const response = await api.get('/store/get');
         const data = response?.data || response;
-        
+
         if (data) {
+          // Merge with existing localStorage data to preserve logo if backend doesn't return it
+          try {
+            const existingStoreDataStr = localStorage.getItem('storeData');
+            if (existingStoreDataStr) {
+              const existingStoreData = JSON.parse(existingStoreDataStr);
+              // If backend data doesn't have logo but localStorage does, preserve it
+              if (!data.logo && existingStoreData.logo) {
+                data.logo = existingStoreData.logo;
+              }
+            }
+          } catch (e) {
+            console.error('Error merging store data:', e);
+          }
+
           setStoreData(data);
           setOriginalStoreData(JSON.parse(JSON.stringify(data))); // Deep copy for comparison
           populateForms(data);
           localStorage.setItem('storeData', JSON.stringify(data));
           sessionStorage.setItem('storeSettingsFetched', 'true');
+
+          // Trigger localStorage change event
+          window.dispatchEvent(new Event('localStorageChange'));
         }
       } catch (error) {
         console.error('Error fetching store data:', error);
-        
+
         // Agar cached data bo'lmasa va xatolik bo'lsa, xatolik xabarini ko'rsatish
         // Lekin 401 xatolik bo'lsa va cached data bo'lsa, xatolik xabarini ko'rsatmaslik
         // Chunki 401 xatolik API interceptor tomonidan boshqariladi
         const is401Error = error?.statusCode === 401 || error?.response?.status === 401;
-        
+
         if (!hasCachedData && !is401Error) {
           toast.error('Do\'kon ma\'lumotlarini yuklashda xatolik yuz berdi');
         }
-        
+
         // Agar cached data bo'lsa, fetch qilingan deb belgilash
         if (hasCachedData) {
           sessionStorage.setItem('storeSettingsFetched', 'true');
@@ -261,6 +350,32 @@ function StoreSettings() {
       email: data.email || '',
       website: data.website || '',
     });
+
+    // Load logo preview
+    if (data.logo?.url) {
+      const logoUrl = formatImageUrl(data.logo.url);
+      setLogoPreview(logoUrl);
+      setLogoImageId(data.logo._id || data.logoId);
+    } else if (data.logoId) {
+      setLogoImageId(data.logoId);
+      // Logo URL will be populated when store data is fetched
+    } else {
+      setLogoPreview(null);
+      setLogoImageId(null);
+    }
+
+    // Load banner preview
+    if (data.banner?.url) {
+      const bannerUrl = formatImageUrl(data.banner.url);
+      setBannerPreview(bannerUrl);
+      setBannerImageId(data.banner._id || data.bannerId);
+    } else if (data.bannerId) {
+      setBannerImageId(data.bannerId);
+      // Banner URL will be populated when store data is fetched
+    } else {
+      setBannerPreview(null);
+      setBannerImageId(null);
+    }
 
     // Location
     locationForm.reset({
@@ -337,88 +452,88 @@ function StoreSettings() {
   // Check if basic form has changes
   useEffect(() => {
     if (!originalStoreData) return;
-    
+
     const subscription = basicForm.watch((values) => {
-      const hasBasicChanges = 
+      const hasBasicChanges =
         values.name !== (originalStoreData.name || '') ||
         values.phoneNumber !== (originalStoreData.phoneNumber || '') ||
         values.email !== (originalStoreData.email || '') ||
         values.website !== (originalStoreData.website || '');
-      
+
       setHasChanges(prev => ({ ...prev, basic: hasBasicChanges }));
     });
-    
+
     return () => subscription.unsubscribe();
   }, [basicForm, originalStoreData]);
 
   // Check if location form has changes
   useEffect(() => {
     if (!originalStoreData) return;
-    
+
     const subscription = locationForm.watch((values) => {
       const originalLocation = originalStoreData.addressLocation || {};
-      
+
       // Original workDays ni frontend formatiga o'girish (agar backend formatida bo'lsa)
       let originalWorkDays = originalStoreData.workDays || [];
       if (originalWorkDays.length > 0 && typeof originalWorkDays[0] === 'object' && originalWorkDays[0].day !== undefined) {
         originalWorkDays = convertWorkDaysFromBackendFormat(originalWorkDays);
       }
-      
-      const hasLocationChanges = 
+
+      const hasLocationChanges =
         values.addressName !== (originalStoreData.addressName || '') ||
         values.latitude !== originalLocation.latitude ||
         values.longitude !== originalLocation.longitude ||
         values.workTime !== (originalStoreData.workTime || '') ||
         JSON.stringify(workDays) !== JSON.stringify(originalWorkDays);
-      
+
       setHasChanges(prev => ({ ...prev, location: hasLocationChanges }));
     });
-    
+
     return () => subscription.unsubscribe();
   }, [locationForm, workDays, originalStoreData]);
 
   // Check if delivery form has changes
   useEffect(() => {
     if (!originalStoreData) return;
-    
+
     const subscription = deliveryForm.watch((values) => {
-      const hasDeliveryChanges = 
+      const hasDeliveryChanges =
         values.deliveryPrice !== (originalStoreData.deliveryPrice || 0) ||
         values.orderMinimumPrice !== (originalStoreData.orderMinimumPrice || 0) ||
         values.itemPrepTimeFrom !== (originalStoreData.itemPrepTimeFrom || 10) ||
         values.itemPrepTimeTo !== (originalStoreData.itemPrepTimeTo || 15);
-      
+
       setHasChanges(prev => ({ ...prev, delivery: hasDeliveryChanges }));
     });
-    
+
     return () => subscription.unsubscribe();
   }, [deliveryForm, originalStoreData]);
 
   // Check if payment/status has changes
   useEffect(() => {
     if (!originalStoreData) return;
-    
-    const hasPaymentChanges = 
+
+    const hasPaymentChanges =
       paymentMethods.acceptCash !== (originalStoreData.acceptCash || false) ||
       paymentMethods.acceptCard !== (originalStoreData.acceptCard || false) ||
       paymentMethods.acceptOnlinePayment !== (originalStoreData.acceptOnlinePayment || false) ||
       statusFlags.isActive !== (originalStoreData.isActive !== undefined ? originalStoreData.isActive : true) ||
       statusFlags.isVerified !== (originalStoreData.isVerified || false) ||
       statusFlags.isPremium !== (originalStoreData.isPremium || false);
-    
+
     setHasChanges(prev => ({ ...prev, payment: hasPaymentChanges }));
   }, [paymentMethods, statusFlags, originalStoreData]);
 
   // Check if description has changes
   useEffect(() => {
     if (!originalStoreData) return;
-    
+
     const originalDesc = originalStoreData.descriptionTranslate || {};
-    const hasDescriptionChanges = 
+    const hasDescriptionChanges =
       description.uz !== (originalDesc.uz || originalStoreData.description || '') ||
       description.ru !== (originalDesc.ru || '') ||
       description.en !== (originalDesc.en || '');
-    
+
     setHasChanges(prev => ({ ...prev, description: hasDescriptionChanges }));
   }, [description, originalStoreData]);
 
@@ -436,7 +551,7 @@ function StoreSettings() {
 
   const resetLocationForm = () => {
     if (!originalStoreData) return;
-    
+
     // workDays ni backend formatidan frontend formatiga o'girish
     let convertedWorkDays = [];
     if (originalStoreData.workDays && Array.isArray(originalStoreData.workDays) && originalStoreData.workDays.length > 0) {
@@ -446,7 +561,7 @@ function StoreSettings() {
         convertedWorkDays = originalStoreData.workDays;
       }
     }
-    
+
     locationForm.reset({
       addressName: originalStoreData.addressName || '',
       latitude: originalStoreData.addressLocation?.latitude || undefined,
@@ -514,26 +629,209 @@ function StoreSettings() {
     localStorage.setItem('storeData', JSON.stringify(mergedData));
   };
 
+  const handleLogoUpload = async (file) => {
+    if (!file) return;
+
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error('Fayl hajmi 5MB dan katta');
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Noto\'g\'ri fayl formati. Faqat JPEG, PNG yoki WebP ruxsat etiladi');
+      return;
+    }
+
+    // Show preview immediately
+    const fileReader = new FileReader();
+    fileReader.onloadend = () => {
+      setLogoPreview(fileReader.result);
+    };
+    fileReader.readAsDataURL(file);
+
+    // Store file for upload
+    setLogoFile(file);
+    setHasChanges(prev => ({ ...prev, basic: true }));
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoPreview(null);
+    setLogoFile(null);
+    setLogoImageId(null);
+    setHasChanges(prev => ({ ...prev, basic: true }));
+  };
+
+  const handleBannerUpload = async (file) => {
+    if (!file) return;
+
+    const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error('Fayl hajmi 5MB dan katta');
+      return;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error('Noto\'g\'ri fayl formati. Faqat JPEG, PNG yoki WebP ruxsat etiladi');
+      return;
+    }
+
+    // Show preview immediately
+    const fileReader = new FileReader();
+    fileReader.onloadend = () => {
+      setBannerPreview(fileReader.result);
+    };
+    fileReader.readAsDataURL(file);
+
+    // Store file for upload
+    setBannerFile(file);
+    setHasChanges(prev => ({ ...prev, basic: true }));
+  };
+
+  const handleRemoveBanner = () => {
+    setBannerPreview(null);
+    setBannerFile(null);
+    setBannerImageId(null);
+    setHasChanges(prev => ({ ...prev, basic: true }));
+  };
+
   const handleBasicSubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      let finalLogoId = logoImageId;
+      let finalBannerId = bannerImageId;
+
+      // Upload logo if new file is selected
+      let uploadedLogoData = null;
+      if (logoFile) {
+        try {
+          setIsLogoUploading(true);
+          const resizedFile = await resizeImage(logoFile, 800, 800);
+          const formData = new FormData();
+          formData.append('file', resizedFile);
+          const uploadResponse = await api.post('/image/upload', formData);
+          uploadedLogoData = uploadResponse?.data || uploadResponse;
+
+          if (uploadedLogoData?._id) {
+            finalLogoId = uploadedLogoData._id;
+            setLogoImageId(uploadedLogoData._id);
+            setLogoFile(null);
+
+            // Update preview with server URL
+            if (uploadedLogoData.url) {
+              const serverImageUrl = formatImageUrl(uploadedLogoData.url);
+              if (serverImageUrl) {
+                setLogoPreview(serverImageUrl);
+              }
+            }
+          } else {
+            throw new Error('Rasm yuklashda xatolik - image ID olinmadi');
+          }
+          setIsLogoUploading(false);
+        } catch (error) {
+          console.error('Error uploading logo:', error);
+          toast.error('Logo yuklashda xatolik yuz berdi');
+          setIsSubmitting(false);
+          setIsLogoUploading(false);
+          return;
+        }
+      }
+
+      // Upload banner if new file is selected
+      let uploadedBannerData = null;
+      if (bannerFile) {
+        try {
+          setIsBannerUploading(true);
+          const resizedFile = await resizeImage(bannerFile, 1920, 1080);
+          const formData = new FormData();
+          formData.append('file', resizedFile);
+          const uploadResponse = await api.post('/image/upload', formData);
+          uploadedBannerData = uploadResponse?.data || uploadResponse;
+
+          if (uploadedBannerData?._id) {
+            finalBannerId = uploadedBannerData._id;
+            setBannerImageId(uploadedBannerData._id);
+            setBannerFile(null);
+
+            // Update preview with server URL
+            if (uploadedBannerData.url) {
+              const serverImageUrl = formatImageUrl(uploadedBannerData.url);
+              if (serverImageUrl) {
+                setBannerPreview(serverImageUrl);
+              }
+            }
+          } else {
+            throw new Error('Rasm yuklashda xatolik - image ID olinmadi');
+          }
+          setIsBannerUploading(false);
+        } catch (error) {
+          console.error('Error uploading banner:', error);
+          toast.error('Banner yuklashda xatolik yuz berdi');
+          setIsSubmitting(false);
+          setIsBannerUploading(false);
+          return;
+        }
+      }
+
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
+        _id: storeData?._id,
         name: data.name,
         phoneNumber: data.phoneNumber,
         email: data.email || undefined,
         website: data.website || undefined,
         workTime: storeData?.workTime || '08:00-20:00', // Majburiy maydon
+        ...(finalLogoId && { logoId: finalLogoId }),
+        ...(finalBannerId && { bannerId: finalBannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
-      
+
       // Response'dan kelgan ma'lumotlarni ishlatish (agar backend yangilangan ma'lumotlarni qaytarsa)
       const updatedStoreData = response?.data || response || updateData;
-      
-      // Update original data and local state
-      updateOriginalData(updatedStoreData);
-      
+
+      // Update logo and banner in storeData
+      const updatedWithImages = {
+        ...updatedStoreData,
+      };
+
+      if (finalLogoId && uploadedLogoData) {
+        const logoUrl = uploadedLogoData.url || null;
+        updatedWithImages.logoId = finalLogoId;
+        updatedWithImages.logo = logoUrl ? {
+          _id: finalLogoId,
+          url: logoUrl,
+        } : {
+          _id: finalLogoId,
+        };
+      }
+
+      if (finalBannerId && uploadedBannerData) {
+        const bannerUrl = uploadedBannerData.url || null;
+        updatedWithImages.bannerId = finalBannerId;
+        updatedWithImages.banner = bannerUrl ? {
+          _id: finalBannerId,
+          url: bannerUrl,
+        } : {
+          _id: finalBannerId,
+        };
+      }
+
+      // Update state and localStorage
+      setStoreData(updatedWithImages);
+      setOriginalStoreData(JSON.parse(JSON.stringify(updatedWithImages)));
+      localStorage.setItem('storeData', JSON.stringify(updatedWithImages));
+
+      // Trigger localStorage change event to update ProfileHeader
+      window.dispatchEvent(new Event('localStorageChange'));
+
+      // Also update original data
+      updateOriginalData(updatedWithImages);
+
       // Form'ni yangilash
       basicForm.reset({
         name: updatedStoreData.name || data.name,
@@ -541,7 +839,7 @@ function StoreSettings() {
         email: updatedStoreData.email || data.email,
         website: updatedStoreData.website || data.website,
       });
-      
+
       setHasChanges(prev => ({ ...prev, basic: false }));
       toast.success('Asosiy ma\'lumotlar saqlandi');
     } catch (error) {
@@ -557,14 +855,15 @@ function StoreSettings() {
     setIsSubmitting(true);
     try {
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
-      const workTime = data.workTime || (workTimeRange.start && workTimeRange.end 
-        ? `${workTimeRange.start}-${workTimeRange.end}` 
+      const workTime = data.workTime || (workTimeRange.start && workTimeRange.end
+        ? `${workTimeRange.start}-${workTimeRange.end}`
         : storeData?.workTime || '08:00-20:00');
-      
+
       // workDays ni backend formatiga o'girish
       const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
-      
+
       const updateData = {
+        _id: storeData?._id, // ← Bu qatorni qo'shing
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
         addressName: data.addressName,
@@ -577,34 +876,34 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      
+
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
-      
+
       // Update original data and local state
       updateOriginalData(updatedStoreData);
-      
+
       // Map address'ni ham yangilash
       if (updatedStoreData.addressName) {
         setMapAddress(updatedStoreData.addressName);
       }
-      
+
       // Work time range'ni yangilash
       if (updatedStoreData.workTime) {
         setWorkTimeRange(parseWorkTime(updatedStoreData.workTime));
       }
-      
+
       // Work days'ni yangilash - backend formatidan frontend formatiga o'girish
       if (updatedStoreData.workDays) {
         const convertedWorkDays = convertWorkDaysFromBackendFormat(updatedStoreData.workDays);
         setWorkDays(convertedWorkDays);
       }
-      
+
       // Form'ni yangilash
-      const convertedWorkDaysForForm = updatedStoreData.workDays 
+      const convertedWorkDaysForForm = updatedStoreData.workDays
         ? convertWorkDaysFromBackendFormat(updatedStoreData.workDays)
         : data.workDays || [];
-      
+
       locationForm.reset({
         addressName: updatedStoreData.addressName || data.addressName,
         latitude: updatedStoreData.addressLocation?.latitude || data.latitude,
@@ -612,7 +911,7 @@ function StoreSettings() {
         workTime: updatedStoreData.workTime || data.workTime,
         workDays: convertedWorkDaysForForm,
       });
-      
+
       setHasChanges(prev => ({ ...prev, location: false }));
       toast.success('Manzil va ish vaqti saqlandi');
     } catch (error) {
@@ -629,6 +928,7 @@ function StoreSettings() {
     try {
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
+        _id: storeData?._id, // ← Bu qatorni qo'shing
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
         workTime: storeData?.workTime || '08:00-20:00',
@@ -639,13 +939,13 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      
+
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
-      
+
       // Update original data and local state
       updateOriginalData(updatedStoreData);
-      
+
       // Form'ni yangilash
       deliveryForm.reset({
         deliveryPrice: updatedStoreData.deliveryPrice ?? data.deliveryPrice,
@@ -653,7 +953,7 @@ function StoreSettings() {
         itemPrepTimeFrom: updatedStoreData.itemPrepTimeFrom ?? data.itemPrepTimeFrom,
         itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? data.itemPrepTimeTo,
       });
-      
+
       setHasChanges(prev => ({ ...prev, delivery: false }));
       toast.success('Yetkazib berish sozlamalari saqlandi');
     } catch (error) {
@@ -669,8 +969,8 @@ function StoreSettings() {
     setIsSubmitting(true);
     try {
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
-      // Lekin bu maydonlar faqat to'lov usullari va status uchun, shuning uchun mavjud qiymatlarni ishlatamiz
       const updateData = {
+        _id: storeData?._id, // ← Bu qatorni qo'shing
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
         workTime: storeData?.workTime || '08:00-20:00',
@@ -683,13 +983,13 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      
+
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
-      
+
       // Update original data and local state
       updateOriginalData(updatedStoreData);
-      
+
       // Payment methods va status flags'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.acceptCash !== undefined) {
         setPaymentMethods({
@@ -705,7 +1005,7 @@ function StoreSettings() {
           isPremium: updatedStoreData.isPremium || false,
         });
       }
-      
+
       setHasChanges(prev => ({ ...prev, payment: false }));
       toast.success('To\'lov usullari va status saqlandi');
     } catch (error) {
@@ -722,6 +1022,7 @@ function StoreSettings() {
     try {
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
+        _id: storeData?._id, // ← Bu qatorni qo'shing
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
         workTime: storeData?.workTime || '08:00-20:00',
@@ -734,13 +1035,13 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      
+
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
-      
+
       // Update original data and local state
       updateOriginalData(updatedStoreData);
-      
+
       // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.descriptionTranslate) {
         setDescription({
@@ -755,7 +1056,7 @@ function StoreSettings() {
           en: '',
         });
       }
-      
+
       setHasChanges(prev => ({ ...prev, description: false }));
       toast.success('Tavsif saqlandi');
     } catch (error) {
@@ -792,9 +1093,9 @@ function StoreSettings() {
   // workDays ni backend formatiga o'girish (string array -> WorkDayDto array)
   const convertWorkDaysToBackendFormat = (workDaysArray, workTime) => {
     if (!workDaysArray || workDaysArray.length === 0) return undefined;
-    
+
     const [startTime, endTime] = workTime ? workTime.split('-').map(t => t.trim()) : ['09:00', '18:00'];
-    
+
     return workDaysArray
       .filter(dayName => dayNameToNumber[dayName] !== undefined)
       .map(dayName => ({
@@ -808,7 +1109,7 @@ function StoreSettings() {
   // Backend formatidan frontend formatiga o'girish (WorkDayDto array -> string array)
   const convertWorkDaysFromBackendFormat = (workDaysArray) => {
     if (!workDaysArray || !Array.isArray(workDaysArray)) return [];
-    
+
     return workDaysArray
       .filter(day => day.isWorking !== false && numberToDayName[day.day])
       .map(day => numberToDayName[day.day])
@@ -856,49 +1157,45 @@ function StoreSettings() {
 
   return (
     <div className="space-y-4">
-      {/* Dynamic title based on store type */}
-      <div className="mb-4">
-        <h2 className="text-xl sm:text-2xl font-bold">{getStoreTypeLabel()}</h2>
-      </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Mobile/Tablet: Scrollable horizontal tabs */}
         <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-4 px-4 pb-3">
           <TabsList className="inline-flex h-auto w-max min-w-full justify-start rounded-lg bg-muted p-1.5 gap-1.5">
-            <TabsTrigger 
-              value="basic" 
+            <TabsTrigger
+              value="basic"
               className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
             >
               <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
               <span className="hidden sm:inline">Asosiy</span>
               <span className="sm:hidden">Asosiy</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="location" 
+            <TabsTrigger
+              value="location"
               className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
             >
               <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
               <span className="hidden sm:inline">Manzil</span>
               <span className="sm:hidden">Manzil</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="delivery" 
+            <TabsTrigger
+              value="delivery"
               className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
             >
               <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
               <span className="hidden sm:inline">Yetkazib berish</span>
               <span className="sm:hidden">Yetkazib</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="payment" 
+            <TabsTrigger
+              value="payment"
               className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
             >
               <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
               <span className="hidden sm:inline">To'lov</span>
               <span className="sm:hidden">To'lov</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="description" 
+            <TabsTrigger
+              value="description"
               className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
             >
               <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
@@ -937,58 +1234,180 @@ function StoreSettings() {
         {/* Basic Info Tab */}
         <TabsContent value="basic" className="mt-6">
           <form onSubmit={basicForm.handleSubmit(handleBasicSubmit)} className="space-y-6">
-      <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-semibold">Asosiy ma'lumotlar</h3>
-              
-          <div className="space-y-2">
-            <Label required className="text-xs sm:text-sm">
-              Do'kon nomi
-            </Label>
-            <Input
+            <div className="space-y-4">
+
+              {/* Logo and Banner Upload - Improved Design */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Logo Upload */}
+                <div className="space-y-2">
+
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="relative w-20 h-20 flex-shrink-0 border border-border rounded-lg overflow-hidden cursor-pointer group bg-muted/30 hover:bg-muted/50 transition-colors"
+                      onClick={() => logoFileInputRef.current?.click()}
+                    >
+                      {logoPreview ? (
+                        <>
+                          <img
+                            src={logoPreview}
+                            alt="Logo preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveLogo(); }}
+                            className="absolute top-1 right-1 p-1 bg-background/95 border border-border rounded-full text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-sm z-10"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
+                            <Upload className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        ref={logoFileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleLogoUpload(file);
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => logoFileInputRef.current?.click()}
+                        className="text-xs h-8"
+                      >
+                        {logoPreview ? 'O\'zgartirish' : 'Rasm yuklash'}
+                      </Button>
+                      {isLogoUploading && (
+                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Yuklanmoqda...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Banner Upload */}
+                <div className="space-y-2">
+
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="relative w-36 h-20 flex-shrink-0 border border-border rounded-lg overflow-hidden cursor-pointer group bg-muted/30 hover:bg-muted/50 transition-colors"
+                      onClick={() => bannerFileInputRef.current?.click()}
+                    >
+                      {bannerPreview ? (
+                        <>
+                          <img
+                            src={bannerPreview}
+                            alt="Banner preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleRemoveBanner(); }}
+                            className="absolute top-1 right-1 p-1 bg-background/95 border border-border rounded-full text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-sm z-10"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center">
+                            <Upload className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        ref={bannerFileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleBannerUpload(file);
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 pt-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => bannerFileInputRef.current?.click()}
+                        className="text-xs h-8"
+                      >
+                        {bannerPreview ? 'O\'zgartirish' : 'Rasm yuklash'}
+                      </Button>
+                      {isBannerUploading && (
+                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Yuklanmoqda...
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label required className="text-xs sm:text-sm">
+                  Do'kon nomi
+                </Label>
+                <Input
                   {...basicForm.register('name')}
-              placeholder="Do'kon nomi"
-              className="text-sm sm:text-base"
-            />
+                  placeholder="Do'kon nomi"
+                  className="text-sm sm:text-base"
+                />
                 {basicForm.formState.errors.name && (
-              <p className="text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {basicForm.formState.errors.name.message}
-              </p>
-            )}
-          </div>
+                  </p>
+                )}
+              </div>
 
-          <div className="space-y-2">
-            <Label required className="text-xs sm:text-sm">
-              Telefon raqami
-            </Label>
-            <Input
+              <div className="space-y-2">
+                <Label required className="text-xs sm:text-sm">
+                  Telefon raqami
+                </Label>
+                <Input
                   {...basicForm.register('phoneNumber')}
-              placeholder="+998901234567"
-              type="tel"
-              className="text-sm sm:text-base"
-            />
+                  placeholder="+998901234567"
+                  type="tel"
+                  className="text-sm sm:text-base"
+                />
                 {basicForm.formState.errors.phoneNumber && (
-              <p className="text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {basicForm.formState.errors.phoneNumber.message}
-              </p>
-            )}
-        </div>
+                  </p>
+                )}
+              </div>
 
-        <div className="space-y-2">
-          <Label optional className="text-xs sm:text-sm">
-            Email
-          </Label>
-          <Input
+              <div className="space-y-2">
+                <Label optional className="text-xs sm:text-sm">
+                  Email
+                </Label>
+                <Input
                   {...basicForm.register('email')}
-            placeholder="info@example.com"
-            type="email"
-            className="text-sm sm:text-base"
-          />
+                  placeholder="info@example.com"
+                  type="email"
+                  className="text-sm sm:text-base"
+                />
                 {basicForm.formState.errors.email && (
-            <p className="text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {basicForm.formState.errors.email.message}
-            </p>
-          )}
-        </div>
+                  </p>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label optional className="text-xs sm:text-sm">
@@ -1018,9 +1437,9 @@ function StoreSettings() {
               >
                 Bekor qilish
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !hasChanges.basic} 
+              <Button
+                type="submit"
+                disabled={isSubmitting || !hasChanges.basic}
                 className="text-xs sm:text-sm"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -1036,46 +1455,46 @@ function StoreSettings() {
             <div className="space-y-4">
               <h3 className="text-base sm:text-lg font-semibold">Manzil va ish vaqti</h3>
 
-        <div className="space-y-2">
-          <Label required className="text-xs sm:text-sm">
-            Manzil
-          </Label>
-          <Textarea
+              <div className="space-y-2">
+                <Label required className="text-xs sm:text-sm">
+                  Manzil
+                </Label>
+                <Textarea
                   {...locationForm.register('addressName')}
-            placeholder="To'liq manzil"
-            className="text-sm sm:text-base min-h-[80px]"
+                  placeholder="To'liq manzil"
+                  className="text-sm sm:text-base min-h-[80px]"
                   onChange={(e) => {
                     locationForm.setValue('addressName', e.target.value);
                     setMapAddress(e.target.value);
                   }}
-          />
+                />
                 {locationForm.formState.errors.addressName && (
-            <p className="text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {locationForm.formState.errors.addressName.message}
-            </p>
-          )}
-        </div>
+                  </p>
+                )}
+              </div>
 
-        {mapAddress && (
-          <div className="space-y-2">
-            <Label className="text-xs sm:text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Xarita
-            </Label>
-            <div className="rounded-lg overflow-hidden border">
-              <iframe
-                width="100%"
-                height="250"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`}
-                className="w-full"
-              />
-            </div>
-          </div>
-        )}
+              {mapAddress && (
+                <div className="space-y-2">
+                  <Label className="text-xs sm:text-sm flex items-center gap-2">
+                    <MapPin className="w-4 h-4" />
+                    Xarita
+                  </Label>
+                  <div className="rounded-lg overflow-hidden border">
+                    <iframe
+                      width="100%"
+                      height="250"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1104,15 +1523,15 @@ function StoreSettings() {
                     className="text-sm sm:text-base"
                   />
                 </div>
-      </div>
+              </div>
 
-      <Separator />
+              <Separator />
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock className="w-5 h-5" />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
                   <h4 className="text-sm sm:text-base font-semibold">Ish vaqti</h4>
-        </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -1127,7 +1546,7 @@ function StoreSettings() {
                       className="text-sm sm:text-base"
                     />
                   </div>
-        <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label className="text-xs sm:text-sm">Tugash vaqti</Label>
                     <Input
                       type="time"
@@ -1139,24 +1558,24 @@ function StoreSettings() {
                       className="text-sm sm:text-base"
                     />
                   </div>
-        </div>
+                </div>
 
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">Ish kunlari</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {DAYS.map((day) => (
-            <div
-              key={day.value}
+                    {DAYS.map((day) => (
+                      <div
+                        key={day.value}
                         className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-accent"
                         onClick={() => toggleWorkDay(day.value)}
-            >
-                  <Switch
+                      >
+                        <Switch
                           checked={workDays.includes(day.value)}
                           onCheckedChange={() => toggleWorkDay(day.value)}
-                  />
+                        />
                         <Label className="text-xs sm:text-sm cursor-pointer">
-                    {day.label}
-                  </Label>
+                          {day.label}
+                        </Label>
                       </div>
                     ))}
                   </div>
@@ -1165,23 +1584,23 @@ function StoreSettings() {
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-4 border-t">
-                  <Button
-                    type="button"
+              <Button
+                type="button"
                 variant="outline"
                 onClick={resetLocationForm}
                 disabled={!hasChanges.location}
-                    className="text-xs sm:text-sm"
-                  >
+                className="text-xs sm:text-sm"
+              >
                 Bekor qilish
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !hasChanges.location} 
+              <Button
+                type="submit"
+                disabled={isSubmitting || !hasChanges.location}
                 className="text-xs sm:text-sm"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Saqlash
-                  </Button>
+              </Button>
             </div>
           </form>
         </TabsContent>
@@ -1243,7 +1662,7 @@ function StoreSettings() {
                     Tayyorlanish vaqti (dan)
                   </Label>
                   <div className="flex items-center gap-2">
-                      <Input
+                    <Input
                       type="number"
                       min="1"
                       {...deliveryForm.register('itemPrepTimeFrom', { valueAsNumber: true })}
@@ -1262,7 +1681,7 @@ function StoreSettings() {
                     Tayyorlanish vaqti (gacha)
                   </Label>
                   <div className="flex items-center gap-2">
-                      <Input
+                    <Input
                       type="number"
                       min="1"
                       {...deliveryForm.register('itemPrepTimeTo', { valueAsNumber: true })}
@@ -1280,8 +1699,8 @@ function StoreSettings() {
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-4 border-t">
-                        <Button
-                          type="button"
+              <Button
+                type="button"
                 variant="outline"
                 onClick={resetDeliveryForm}
                 disabled={!hasChanges.delivery}
@@ -1289,14 +1708,14 @@ function StoreSettings() {
               >
                 Bekor qilish
               </Button>
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || !hasChanges.delivery} 
+              <Button
+                type="submit"
+                disabled={isSubmitting || !hasChanges.delivery}
                 className="text-xs sm:text-sm"
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Saqlash
-                        </Button>
+              </Button>
             </div>
           </form>
         </TabsContent>
@@ -1502,28 +1921,28 @@ function StoreSettings() {
                     placeholder="Inglizcha tavsif kiriting..."
                   />
                 </div>
-        </div>
-      </div>
+              </div>
+            </div>
 
-      <div className="flex items-center justify-end gap-2 pt-4 border-t">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={resetDescription}
-          disabled={!hasChanges.description}
-          className="text-xs sm:text-sm"
-        >
-          Bekor qilish
-        </Button>
-        <Button
+            <div className="flex items-center justify-end gap-2 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetDescription}
+                disabled={!hasChanges.description}
+                className="text-xs sm:text-sm"
+              >
+                Bekor qilish
+              </Button>
+              <Button
                 onClick={handleDescriptionSubmit}
-          disabled={isSubmitting || !hasChanges.description}
-          className="text-xs sm:text-sm"
-        >
-          {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Saqlash
-        </Button>
-      </div>
+                disabled={isSubmitting || !hasChanges.description}
+                className="text-xs sm:text-sm"
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Saqlash
+              </Button>
+            </div>
           </div>
         </TabsContent>
       </Tabs>

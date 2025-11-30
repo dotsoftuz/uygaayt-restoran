@@ -2,14 +2,18 @@
 
 import * as React from 'react';
 import {
-  Calculator,
-  Calendar,
-  CreditCard,
-  Search,
+  LayoutDashboard,
+  ClipboardList,
+  FolderTree,
+  Package,
+  DollarSign,
+  Tag,
   Settings,
-  Smile,
-  User,
+  History,
+  HelpCircle,
+  Search,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 import {
   CommandDialog,
@@ -18,8 +22,6 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  CommandSeparator,
-  CommandShortcut,
 } from '@/components/ui/command';
 import { Kbd } from '@/components/ui/kbd';
 import {
@@ -28,8 +30,67 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+const navigationItems = [
+  {
+    title: 'Dashboard',
+    url: '/dashboard',
+    icon: LayoutDashboard,
+    keywords: ['dashboard', 'home', 'main'],
+  },
+  {
+    title: 'Orders',
+    url: '/dashboard/orders',
+    icon: ClipboardList,
+    keywords: ['orders', 'order', 'buyurtmalar'],
+  },
+  {
+    title: 'Categories',
+    url: '/dashboard/catalog',
+    icon: FolderTree,
+    keywords: ['categories', 'category', 'katalog', 'catalog'],
+  },
+  {
+    title: 'Products',
+    url: '/dashboard/products',
+    icon: Package,
+    keywords: ['products', 'product', 'mahsulotlar', 'mahsulot'],
+  },
+  {
+    title: 'Finance',
+    url: '/dashboard/finance',
+    icon: DollarSign,
+    keywords: ['finance', 'financial', 'moliya', 'money'],
+  },
+  {
+    title: 'Promotions',
+    url: '/dashboard/promotions',
+    icon: Tag,
+    keywords: ['promotions', 'promotion', 'aktsiya', 'discount'],
+  },
+  {
+    title: 'Settings',
+    url: '/dashboard/settings',
+    icon: Settings,
+    keywords: ['settings', 'setting', 'sozlamalar', 'config'],
+  },
+  {
+    title: 'Activity Log',
+    url: '/dashboard/activity-log',
+    icon: History,
+    keywords: ['activity', 'log', 'history', 'tarix'],
+  },
+  {
+    title: 'Help',
+    url: '/dashboard/help',
+    icon: HelpCircle,
+    keywords: ['help', 'yordam', 'support'],
+  },
+];
+
 export function SearchCommandDialog() {
   const [open, setOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const down = (e) => {
@@ -42,6 +103,34 @@ export function SearchCommandDialog() {
     document.addEventListener('keydown', down);
     return () => document.removeEventListener('keydown', down);
   }, []);
+
+  // Reset when dialog closes
+  React.useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+    }
+  }, [open]);
+
+  const filteredNavItems = React.useMemo(() => {
+    if (!searchQuery.trim()) {
+      return navigationItems;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return navigationItems.filter((item) => {
+      const titleMatch = item.title.toLowerCase().includes(query);
+      const keywordMatch = item.keywords.some((keyword) =>
+        keyword.toLowerCase().includes(query)
+      );
+      return titleMatch || keywordMatch;
+    });
+  }, [searchQuery]);
+
+  const handleSelect = (url) => {
+    navigate(url);
+    setOpen(false);
+    setSearchQuery('');
+  };
 
   return (
     <>
@@ -73,41 +162,30 @@ export function SearchCommandDialog() {
 
       {/* Command Dialog */}
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Type a command or search..." />
+        <CommandInput
+          placeholder="Sahifalarni qidiring..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Suggestions">
-            <CommandItem>
-              <Calendar />
-              <span>Calendar</span>
-            </CommandItem>
-            <CommandItem>
-              <Smile />
-              <span>Search Emoji</span>
-            </CommandItem>
-            <CommandItem>
-              <Calculator />
-              <span>Calculator</span>
-            </CommandItem>
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading="Settings">
-            <CommandItem>
-              <User />
-              <span>Profile</span>
-              <CommandShortcut>⌘P</CommandShortcut>
-            </CommandItem>
-            <CommandItem>
-              <CreditCard />
-              <span>Billing</span>
-              <CommandShortcut>⌘B</CommandShortcut>
-            </CommandItem>
-            <CommandItem>
-              <Settings />
-              <span>Settings</span>
-              <CommandShortcut>⌘S</CommandShortcut>
-            </CommandItem>
-          </CommandGroup>
+          {filteredNavItems.length > 0 ? (
+            <CommandGroup heading="Sahifalar">
+              {filteredNavItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <CommandItem
+                    key={item.url}
+                    onSelect={() => handleSelect(item.url)}
+                  >
+                    <Icon className="w-4 h-4 mr-2" />
+                    <span>{item.title}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          ) : (
+            <CommandEmpty>Hech nima topilmadi.</CommandEmpty>
+          )}
         </CommandList>
       </CommandDialog>
     </>

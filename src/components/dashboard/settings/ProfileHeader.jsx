@@ -1,27 +1,30 @@
 import { useAppContext } from '@/context/AppContext';
-import { Pencil, Trash } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import api from '@/services/api';
+import { MapPin, Clock } from 'lucide-react';
+
+// Helper function to format image URL
+const formatImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  let url = imageUrl;
+  if (url.startsWith('uploads/')) {
+    url = url.replace('uploads/', '');
+  }
+  return `${cleanBaseUrl}/uploads/${url}`;
+};
 
 function ProfileHeader({
   imageSrc,
-  setImageSrc,
-  imageSelected,
-  setImageSelected,
-  setIsFormChanged,
 }) {
   const { userData } = useAppContext();
   const [storeData, setStoreData] = useState(null);
   const storeDataRef = useRef(null);
+  const [bannerSrc, setBannerSrc] = useState(null);
 
-  const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    if (userData?.photoURL) {
-      setImageSrc(userData.photoURL);
-    }
-  }, [userData]);
+  // Load logo from storeData - this is handled by parent component now
 
   // Fetch store data
   useEffect(() => {
@@ -50,11 +53,40 @@ function ProfileHeader({
         await new Promise(resolve => setTimeout(resolve, 200));
         const response = await api.get('/store/get');
         const data = response?.data || response;
-        
+
         if (data) {
+          // Merge with existing localStorage data to preserve logo and banner if backend doesn't return it
+          try {
+            const existingStoreDataStr = localStorage.getItem('storeData');
+            if (existingStoreDataStr) {
+              const existingStoreData = JSON.parse(existingStoreDataStr);
+              // If backend data doesn't have logo but localStorage does, preserve it
+              if (!data.logo && existingStoreData.logo) {
+                data.logo = existingStoreData.logo;
+              }
+              // If backend data doesn't have banner but localStorage does, preserve it
+              if (!data.banner && existingStoreData.banner) {
+                data.banner = existingStoreData.banner;
+              }
+            }
+          } catch (e) {
+            console.error('Error merging store data:', e);
+          }
+
           setStoreData(data);
           storeDataRef.current = data;
           localStorage.setItem('storeData', JSON.stringify(data));
+
+          // Set banner image
+          if (data.banner?.url) {
+            const bannerUrl = formatImageUrl(data.banner.url);
+            setBannerSrc(bannerUrl);
+          } else {
+            setBannerSrc(null);
+          }
+
+          // Trigger localStorage change event
+          window.dispatchEvent(new Event('localStorageChange'));
         }
       } catch (error) {
         console.error('Error fetching store data:', error);
@@ -89,6 +121,14 @@ function ProfileHeader({
             if (currentDataStr !== newDataStr) {
               setStoreData(cachedData);
               storeDataRef.current = cachedData;
+
+              // Update banner image
+              if (cachedData.banner?.url) {
+                const bannerUrl = formatImageUrl(cachedData.banner.url);
+                setBannerSrc(bannerUrl);
+              } else {
+                setBannerSrc(null);
+              }
             }
           }
         }
@@ -122,95 +162,78 @@ function ProfileHeader({
     return workTime.replace('-', ' - ');
   };
 
-  const handleImageClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const fileReader = new FileReader();
-      fileReader.onloadend = () => {
-        setImageSrc(fileReader.result);
-        setImageSelected(true);
-      };
-      fileReader.readAsDataURL(file);
-    }
-    setIsFormChanged(true);
-  };
-
-  const handleRemoveImage = (e) => {
-    e.stopPropagation();
-    setImageSrc(null);
-    setImageSelected(false);
-    setIsFormChanged(false);
-  };
-
   return (
-    <Card>
-      <CardContent className="p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="relative w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0">
+    <Card className="overflow-hidden border-0 shadow-sm">
+      {/* Banner Image Section */}
+      <div className="relative w-full h-40 sm:h-48 md:h-56 lg:h-64 bg-gradient-to-r from-primary/10 via-primary/5 to-background overflow-hidden">
+        {bannerSrc ? (
+          <img
+            src={bannerSrc}
+            alt="Store banner"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-muted/50 to-muted/30" />
+        )}
+
+        {/* Logo Overlay */}
+        <div className="absolute left-4 sm:left-6 bottom-4 sm:bottom-6 z-20">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 flex-shrink-0 border-4 border-background shadow-xl rounded-xl overflow-hidden bg-background">
             <img
               src={imageSrc ? imageSrc : '/assets/logos/uygaayt-shape.svg'}
-              alt="Profile avatar"
-              className="w-full h-full object-cover rounded-lg cursor-pointer"
-              onClick={handleImageClick}
+              alt="Store logo"
+              className="w-full h-full object-cover"
             />
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              accept="image/*"
-              onChange={handleFileChange}
-              multiple={false}
-            />
-            {imageSelected && (
-              <button
-                onClick={handleRemoveImage}
-                className="absolute -top-1.5 -right-1.5 z-10 p-1.5 bg-background border border-border rounded-full text-destructive shadow-sm hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                aria-label="Remove image"
-              >
-                <Trash className="w-3 h-3 sm:w-4 sm:h-4" />
-              </button>
-            )}
-            <div
-              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg opacity-0 hover:opacity-100 transition-opacity cursor-pointer"
-              onClick={handleImageClick}
-            >
-              <Pencil className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-1">
-              {storeData?.workTime ? formatWorkTime(storeData.workTime) : '08:00 - 20:00'}
-            </p>
-            <div className="flex items-center gap-1.5 sm:gap-2 mb-1">
-              <h3 className="text-base sm:text-lg font-semibold truncate">
-                {storeData?.name || userData?.displayName || 'Uygaayt Super Admin'}
-              </h3>
-              {storeData?.isVerified && (
-                <svg
-                  title="Verified"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary flex-shrink-0"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.49 4.49 0 0 1-3.498-1.306 4.491 4.491 0 0 1-1.307-3.498A4.49 4.49 0 0 1 2.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 0 1 1.307-3.497 4.49 4.49 0 0 1 3.497-1.307Zm7.007 6.387a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-            </div>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">
-              {storeData?.addressName || userData?.location || 'Jizzakh, Uzbekistan'}
-            </p>
           </div>
         </div>
-      </CardContent>
+
+        {/* Store Info Overlay */}
+        <div className="absolute left-32 sm:left-36 md:left-40 bottom-4 sm:bottom-6 right-4 sm:right-6 z-20">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-4">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-background drop-shadow-lg mb-1.5 truncate">
+                {storeData?.name || userData?.displayName || 'Uygaayt Super Admin'}
+              </h2>
+
+              {/* Store Details */}
+              <div className="flex flex-col gap-1 text-xs sm:text-sm text-back drop-shadow-md text-background">
+                {storeData?.addressName || userData?.location ? (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="truncate">
+                      {storeData?.addressName || userData?.location || 'Jizzakh, Uzbekistan'}
+                    </span>
+                  </div>
+                ) : null}
+
+                {storeData?.workTime && (
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span>{formatWorkTime(storeData.workTime)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Status Badge */}
+            {storeData?.isActive !== undefined && (
+              <div className="flex-shrink-0">
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium shadow-md ${storeData.isActive
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-500 text-white'
+                    }`}
+                >
+                  {storeData.isActive ? 'Faol' : 'Nofaol'}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Gradient overlay for better text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/50 to-transparent pointer-events-none" />
+      </div>
     </Card>
   );
 }

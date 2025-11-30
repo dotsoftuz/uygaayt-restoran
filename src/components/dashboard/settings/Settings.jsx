@@ -22,6 +22,18 @@ import OrderSettings from './OrderSettings';
 import NotificationPreferences from './NotificationPreferences';
 import SystemSettings from './SystemSettings';
 
+// Helper function to format image URL
+const formatImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  let url = imageUrl;
+  if (url.startsWith('uploads/')) {
+    url = url.replace('uploads/', '');
+  }
+  return `${cleanBaseUrl}/uploads/${url}`;
+};
+
 const SETTINGS_TABS = [
   {
     value: 'store',
@@ -68,20 +80,75 @@ function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'store';
 
-  const [imageSrc, setImageSrc] = useState();
-  const [imageSelected, setImageSelected] = useState(false);
-  const [isFormChanged, setIsFormChanged] = useState(false);
+  const [imageSrc, setImageSrc] = useState(null);
+
+  // Load logo from storeData
+  useEffect(() => {
+    const loadLogo = async () => {
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const storeData = JSON.parse(storeDataStr);
+          // Check for logo object with url
+          if (storeData.logo?.url) {
+            const logoUrl = formatImageUrl(storeData.logo.url);
+            setImageSrc(logoUrl);
+          } 
+          // Fallback: if logoId exists but logo object doesn't have url, fetch from API
+          else if (storeData.logoId && !storeData.logo) {
+            // Try to fetch logo from API if we have logoId but no logo object
+            try {
+              const token = localStorage.getItem('token');
+              if (token) {
+                // Try to get image by ID - but we don't have direct endpoint
+                // So we'll keep the logoId and let it be handled by backend on next fetch
+                // For now, set to null and it will be populated when store data is fetched
+                setImageSrc(null);
+              }
+            } catch (fetchError) {
+              console.error('Error fetching logo:', fetchError);
+              setImageSrc(null);
+            }
+          } else {
+            setImageSrc(null);
+          }
+        } else {
+          setImageSrc(null);
+        }
+      } catch (error) {
+        console.error('Error loading logo:', error);
+        setImageSrc(null);
+      }
+    };
+
+    loadLogo();
+
+    // Listen for store data updates
+    const handleStorageChange = () => {
+      loadLogo();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorageChange', handleStorageChange);
+
+    // Poll localStorage periodically to catch updates from same tab
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadLogo();
+      }
+    }, 1000); // Check every second
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorageChange', handleStorageChange);
+      clearInterval(pollInterval);
+    };
+  }, []);
 
   return (
     <div className="space-y-4 py-2 sm:py-4">
       {/* Profile Header */}
-      <ProfileHeader
-        imageSrc={imageSrc}
-        setImageSrc={setImageSrc}
-        imageSelected={imageSelected}
-        setImageSelected={setImageSelected}
-        setIsFormChanged={setIsFormChanged}
-      />
+      <ProfileHeader imageSrc={imageSrc} />
 
       {/* Settings Tabs */}
       <Tabs 

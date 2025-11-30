@@ -147,6 +147,16 @@ const ClientInfoCard = ({ order, onCall }) => {
             </Button>
           </div>
         </div>
+        {/* YANGI: Store ma'lumotlari */}
+        {order.store && (
+          <div>
+            <Label className="text-xs sm:text-sm text-muted-foreground">Do'kon</Label>
+            <p className="font-medium text-sm sm:text-base mt-1">{order.store.name || order.storeId || '-'}</p>
+            {order.store.phoneNumber && (
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.store.phoneNumber}</p>
+            )}
+          </div>
+        )}
         <div>
           <Label className="text-xs sm:text-sm text-muted-foreground">Manzil</Label>
           <p className="font-medium text-sm sm:text-base mt-1 break-words">{order.address}</p>

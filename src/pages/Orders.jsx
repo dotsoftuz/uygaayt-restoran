@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import api from '@/services/api';
 import {
   Card,
   CardContent,
@@ -337,8 +338,12 @@ function Orders() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
-  const [fakeOrders] = useState(generateFakeOrders());
   const [viewMode, setViewMode] = useState('table'); // Default to table/list view
+  
+  // YANGI: API dan orderlarni olish
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [storeId, setStoreId] = useState(localStorage.getItem('storeId') || '');
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState('');
@@ -354,9 +359,47 @@ function Orders() {
   const [itemsPerPage, setItemsPerPage] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // YANGI: API dan orderlarni olish
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!storeId) {
+        // StoreId yo'q bo'lsa, fake data ishlatish
+        setOrders(generateFakeOrders());
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        const params = {
+          page: currentPage,
+          limit: itemsPerPage,
+          storeId: storeId,  // YANGI: storeId filter
+        };
+        
+        // Status filter
+        if (statusFilter !== 'all') {
+          // Backend da status filter qo'shish kerak
+        }
+        
+        const response = await api.post('/order/paging', params);
+        const ordersData = response?.data || response || [];
+        setOrders(ordersData);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        // Xato bo'lsa, fake data ishlatish
+        setOrders(generateFakeOrders());
+        toast.error('Buyurtmalarni yuklashda xatolik yuz berdi');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchOrders();
+  }, [storeId, currentPage, itemsPerPage, statusFilter]);
+
   // Filter and sort orders
   const filteredAndSortedOrders = useMemo(() => {
-    let filtered = [...fakeOrders];
+    let filtered = [...orders];
 
     // Search filter
     if (debouncedSearchTerm) {

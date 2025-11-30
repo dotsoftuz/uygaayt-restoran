@@ -384,7 +384,7 @@ function Products() {
       await loadProducts();
     } catch (error) {
       console.error('Error saving product:', error);
-      
+
       // Show validation errors if available
       // API interceptor returns response.data, so error is already the data object
       if (error?.data && Array.isArray(error.data)) {
@@ -402,7 +402,7 @@ function Products() {
       } else {
         toast.error('Mahsulotni saqlashda xatolik yuz berdi');
       }
-      
+
       throw error;
     }
   };
@@ -1107,7 +1107,7 @@ function Products() {
                               >
                                 {product.inStock || 0} dona
                               </Badge>
-                              {isLowStock && (
+                              {!!isLowStock && (
                                 <AlertTriangle className="h-3 w-3 text-yellow-500" />
                               )}
                             </div>
