@@ -2,9 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAppContext } from '@/context/AppContext';
-import { auth, db, storage } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadString } from 'firebase/storage';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -37,32 +34,15 @@ function General({ photo, isFormChanged, setIsFormChanged, setImageSelected }) {
 
   const onSubmit = async (data) => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('No user is logged in.');
-      }
-
-      let photoURL = userData?.photoURL || null;
-
-      if (photo.startsWith('data:')) {
-        if (!photo.startsWith('data:')) {
-          throw new Error('Invalid photo format. Please select a valid image.');
-        }
-
-        const storageRef = ref(storage, `user_photos/${currentUser.uid}`);
-        await uploadString(storageRef, photo, 'data_url');
-        photoURL = await getDownloadURL(storageRef);
-      }
-
+      // Firebase removed - use backend API instead
       const updatedData = {
         displayName: data.displayName,
         location: data.location,
-        photoURL,
+        // photoURL: photoURL, // Handle photo upload via backend API
       };
 
-      await setDoc(doc(db, 'users', currentUser.uid), updatedData, {
-        merge: true,
-      });
+      // TODO: Call backend API to update store settings
+      console.warn('General settings update: Firebase removed, use backend API');
 
       setUserData((prevUserData) => ({
         ...prevUserData,

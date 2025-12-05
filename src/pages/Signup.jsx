@@ -2,16 +2,9 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { auth, db } from '@/firebase';
-import {
-  createUserWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup,
-} from 'firebase/auth';
 import zxcvbn from 'zxcvbn';
 
 import { Progress } from '@/components/ui/progress';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ChevronLeft } from 'lucide-react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -42,45 +35,13 @@ const Signup = () => {
   };
 
   const onSubmit = async (data) => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
-      const user = userCredential.user;
-
-      await setDoc(doc(db, 'users', user.uid), {
-        email: data.email,
-        displayName: data.displayName || 'User',
-      });
-
-      navigate('/dashboard');
-    } catch (error) {
-      setError(error.message);
-    }
+    setError('Signup functionality is not available. Please use the backend API for registration.');
+    // Firebase removed - use backend API instead
   };
 
   const handleGoogleSignup = async () => {
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDocSnapshot = await getDoc(userDocRef);
-
-      if (!userDocSnapshot.exists()) {
-        await setDoc(userDocRef, {
-          email: user.email,
-          displayName: user.displayName || 'Google User',
-        });
-      }
-
-      navigate('/dashboard');
-    } catch (error) {
-      setError(error.message);
-    }
+    setError('Google signup functionality is not available. Please use the backend API for registration.');
+    // Firebase removed - use backend API instead
   };
 
   const handlePasswordChange = (e) => {

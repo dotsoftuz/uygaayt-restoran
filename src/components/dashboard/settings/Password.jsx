@@ -1,12 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import {
-  updateEmail,
-  updatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from 'firebase/auth';
-import { auth } from '@/firebase';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -26,43 +19,24 @@ function Password() {
   } = useForm();
 
   useEffect(() => {
-    if (auth.currentUser) {
-      setEmail(auth.currentUser.email);
+    // Firebase removed - get email from backend API or localStorage
+    const storeData = localStorage.getItem('storeData');
+    if (storeData) {
+      try {
+        const store = JSON.parse(storeData);
+        if (store.email) {
+          setEmail(store.email);
+        }
+      } catch (e) {
+        console.error('Error parsing store data:', e);
+      }
     }
-  }, [auth]);
+  }, []);
 
   const onSubmit = async (data) => {
-    const { currentPassword, newPassword } = data;
-
-    try {
-      const user = auth.currentUser;
-
-      if (!user) {
-        setError('You must be signed in to make changes.');
-        return;
-      }
-
-      const credential = EmailAuthProvider.credential(
-        user.email,
-        currentPassword
-      );
-      await reauthenticateWithCredential(user, credential);
-
-      if (newPassword) {
-        try {
-          await updatePassword(user, newPassword);
-          toast('Password updated successfully');
-          reset();
-        } catch (err) {
-          setError(err.message);
-        }
-      }
-    } catch (err) {
-      console.error('Reauthentication error:', err.message);
-      setError(
-        'Failed to update account details. Please check the current password.'
-      );
-    }
+    setError('Password update functionality is not available. Please use the backend API for password updates.');
+    // Firebase removed - use backend API instead
+    toast.error('Password update functionality is not available. Please use the backend API for password updates.');
   };
 
   const newPassword = watch('newPassword');

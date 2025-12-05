@@ -1,61 +1,24 @@
-import { useState, useEffect } from 'react';
-import {
-  collection,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  onSnapshot,
-} from 'firebase/firestore';
-import { db } from '@/firebase';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 export const useTodos = (userId) => {
   const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
-  const fetchTodos = () => {
-    setLoading(true);
-    const todosCollection = collection(db, `users/${userId}/todos`);
-    const unsubscribe = onSnapshot(todosCollection, (snapshot) => {
-      const todosList = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setTodos(todosList);
-      setLoading(false);
-    });
-
-    return unsubscribe;
-  };
-
+  // Firebase removed - use backend API instead
   const addTodo = async (todo) => {
-    const todosCollection = collection(db, `users/${userId}/todos`);
-    await addDoc(todosCollection, todo);
-    toast('Todo added successfully.');
-    fetchTodos();
+    console.warn('addTodo: Firebase functionality removed, use backend API');
+    toast('Todo functionality is not available. Use backend API instead.');
   };
 
   const updateTodo = async (id, updatedData) => {
-    const todoDoc = doc(db, `users/${userId}/todos`, id);
-    await updateDoc(todoDoc, updatedData);
-    fetchTodos(); // Refresh todos
+    console.warn('updateTodo: Firebase functionality removed, use backend API');
   };
 
   const deleteTodo = async (id) => {
-    const todoDoc = doc(db, `users/${userId}/todos`, id);
-    await deleteDoc(todoDoc);
-    toast('Todo deleted successfully.');
-    fetchTodos(); // Refresh todos
+    console.warn('deleteTodo: Firebase functionality removed, use backend API');
+    toast('Todo functionality is not available. Use backend API instead.');
   };
-
-  useEffect(() => {
-    if (userId) {
-      const unsubscribe = fetchTodos();
-      return () => unsubscribe();
-    }
-  }, [userId]);
 
   return { todos, loading, addTodo, updateTodo, deleteTodo };
 };

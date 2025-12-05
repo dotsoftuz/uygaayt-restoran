@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/firebase';
 import { Link } from 'react-router-dom';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,13 +31,8 @@ const ForgotPassword = () => {
 
   const onSubmit = async (data) => {
     setMessage('');
-    setError('');
-    try {
-      await sendPasswordResetEmail(auth, data.email);
-      setMessage('Password reset email sent! Check your inbox');
-    } catch (err) {
-      setError(err.message);
-    }
+    setError('Password reset functionality is not available. Please use the backend API for password reset.');
+    // Firebase removed - use backend API instead
   };
 
   return (
