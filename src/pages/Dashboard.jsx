@@ -18,6 +18,7 @@ import ProductDetail from './ProductDetail';
 import Catalog from './Catalog';
 import Finance from './Finance';
 import Promotions from './Promotions';
+import PromotionDetail from './PromotionDetail';
 import Reviews from './Reviews';
 import ActivityLog from './ActivityLog';
 import Help from './Help';
@@ -82,6 +83,7 @@ function Dashboard() {
             <Route path="catalog" element={<Catalog />} />
             <Route path="finance" element={<Finance />} />
             <Route path="promotions" element={<Promotions />} />
+            <Route path="promotion-detail/:id" element={<PromotionDetail />} />
             <Route path="reviews" element={<Reviews />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="activity-log" element={<ActivityLog />} />

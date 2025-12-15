@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -150,7 +150,7 @@ const StatusBadge = ({ promotion }) => {
 };
 
 // Promotion Row Component (Mobile Card View)
-const PromotionCard = ({ promotion, onEdit, onDelete, onToggleActive, onCopyCode }) => {
+const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail }) => {
   const formatDiscount = (promo) => {
     if (promo.type === 'percentage') {
       return `${promo.discountValue}%`;
@@ -159,20 +159,38 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onToggleActive, onCopyCode
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card
+      className="hover:shadow-md transition-shadow cursor-pointer"
+      onClick={() => onViewDetail(promotion)}
+    >
       <CardContent className="p-4 space-y-3">
+        {/* Banner Image */}
+        {promotion.bannerImage?.formattedUrl && (
+          <div className="w-full h-32 rounded-lg overflow-hidden -mx-4 -mt-4 mb-2">
+            <img
+              src={promotion.bannerImage.formattedUrl}
+              alt={promotion.code}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono font-semibold text-sm sm:text-base">
+              <span
+                className="font-mono font-semibold text-sm sm:text-base cursor-pointer hover:text-primary"
+                onClick={() => onViewDetail(promotion)}
+                title="Batafsil ko'rish"
+              >
                 {promotion.code}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 flex-shrink-0"
-                onClick={() => onCopyCode(promotion.code)}
+                onClick={(e) => { e.stopPropagation(); onCopyCode(promotion.code); }}
                 title="Nusxalash"
               >
                 <Copy className="h-3 w-3" />
@@ -207,11 +225,6 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onToggleActive, onCopyCode
 
         {/* Conditions */}
         <div className="space-y-1 text-xs">
-          {promotion.firstOrderOnly && (
-            <Badge variant="outline" className="text-xs">
-              Birinchi buyurtma
-            </Badge>
-          )}
           {promotion.usageLimitPerUser && (
             <p className="text-muted-foreground">
               {promotion.usageLimitPerUser} marta/foydalanuvchi
@@ -248,25 +261,7 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onToggleActive, onCopyCode
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onToggleActive(promotion.id)}
-            className="flex-1 text-xs"
-          >
-            {promotion.isActive ? (
-              <>
-                <XCircle className="h-3 w-3 mr-1" />
-                Yopish
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Faollashtirish
-              </>
-            )}
-          </Button>
+        <div className="flex items-center gap-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
           <Button
             variant="outline"
             size="sm"
@@ -296,8 +291,8 @@ const PromotionTableRow = ({
   isMobile,
   onEdit,
   onDelete,
-  onToggleActive,
   onCopyCode,
+  onViewDetail,
 }) => {
   const formatDiscount = (promo) => {
     if (promo.type === 'percentage') {
@@ -307,19 +302,35 @@ const PromotionTableRow = ({
   };
 
   return (
-    <TableRow className="hover:bg-muted/50">
+    <TableRow
+      className="hover:bg-muted/50 cursor-pointer"
+      onClick={() => onViewDetail(promotion)}
+    >
       <TableCell className="max-w-[200px]">
         <div className="flex items-center gap-2 min-w-0">
+          {promotion.bannerImage?.formattedUrl && (
+            <div className="w-16 h-10 flex-shrink-0 rounded overflow-hidden cursor-pointer" onClick={() => onViewDetail(promotion)}>
+              <img
+                src={promotion.bannerImage.formattedUrl}
+                alt={promotion.code}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 min-w-0">
-              <span className="font-mono font-semibold text-sm sm:text-base truncate">
+              <span
+                className="font-mono font-semibold text-sm sm:text-base truncate cursor-pointer hover:text-primary"
+                onClick={() => onViewDetail(promotion)}
+                title="Batafsil ko'rish"
+              >
                 {promotion.code}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 flex-shrink-0"
-                onClick={() => onCopyCode(promotion.code)}
+                onClick={(e) => { e.stopPropagation(); onCopyCode(promotion.code); }}
                 title="Nusxalash"
               >
                 <Copy className="h-3 w-3" />
@@ -347,11 +358,6 @@ const PromotionTableRow = ({
       </TableCell>
       <TableCell className="hidden md:table-cell max-w-[180px]">
         <div className="space-y-1 text-xs">
-          {promotion.firstOrderOnly && (
-            <Badge variant="outline" className="text-xs">
-              Birinchi buyurtma
-            </Badge>
-          )}
           {promotion.usageLimitPerUser && (
             <p className="text-muted-foreground truncate">
               {promotion.usageLimitPerUser} marta/foydalanuvchi
@@ -395,31 +401,23 @@ const PromotionTableRow = ({
         {isMobile ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onToggleActive(promotion.id)}>
-                {promotion.isActive ? (
-                  <>
-                    <XCircle className="h-4 w-4" />
-                    Yopish
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Faollashtirish
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(promotion)}>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(promotion); }}>
                 <Edit className="h-4 w-4" />
                 Tahrirlash
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={() => onDelete(promotion)}
+                onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
                 className="text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
@@ -428,25 +426,12 @@ const PromotionTableRow = ({
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="flex items-center justify-end gap-1">
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
-              onClick={() => onToggleActive(promotion.id)}
-              title={promotion.isActive ? 'Yopish' : 'Faollashtirish'}
-            >
-              {promotion.isActive ? (
-                <XCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-              ) : (
-                <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4" />
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 sm:h-8 sm:w-8"
-              onClick={() => onEdit(promotion)}
+              onClick={(e) => { e.stopPropagation(); onEdit(promotion); }}
             >
               <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -454,7 +439,7 @@ const PromotionTableRow = ({
               variant="ghost"
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
-              onClick={() => onDelete(promotion)}
+              onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
             >
               <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -467,6 +452,7 @@ const PromotionTableRow = ({
 
 function Promotions() {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [promotions, setPromotions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -498,9 +484,40 @@ function Promotions() {
     }, 0);
   };
 
-  const handleEdit = (promotion) => {
-    setEditingPromotion(promotion);
-    setPromotionFormOpen(true);
+  const handleEdit = async (promotion) => {
+    // Fetch full promotion data with banner image
+    try {
+      const response = await api.get(`/store/promocode/get-by-id/${promotion.id}`);
+      const fullPromotion = response?.data || response;
+
+      // Map to form format
+      const mappedPromotion = {
+        ...promotion,
+        name: fullPromotion.name || promotion.name || '',
+        code: fullPromotion.code || promotion.code || '',
+        discountValue: fullPromotion.amount || promotion.discountValue,
+        minOrderValue: fullPromotion.minOrderPrice ?? promotion.minOrderValue ?? 0,
+        validFrom: fullPromotion.fromDate ? new Date(fullPromotion.fromDate) : promotion.validFrom,
+        validUntil: fullPromotion.toDate ? new Date(fullPromotion.toDate) : promotion.validUntil,
+        usageLimitPerUser: fullPromotion.maxUsageForUser ?? promotion.usageLimitPerUser ?? 1,
+        usageLimitTotal: fullPromotion.maxUsage ?? promotion.usageLimitTotal ?? 1,
+        description: fullPromotion.description || promotion.description || '',
+        bannerImageId: fullPromotion.bannerImageId || promotion.bannerImageId || null,
+        bannerImage: fullPromotion.bannerImage ? {
+          _id: fullPromotion.bannerImage._id,
+          url: fullPromotion.bannerImage.url,
+          formattedUrl: formatImageUrl(fullPromotion.bannerImage.url),
+        } : promotion.bannerImage || null,
+      };
+
+      setEditingPromotion(mappedPromotion);
+      setPromotionFormOpen(true);
+    } catch (error) {
+      console.error('Error fetching promotion details:', error);
+      // Fallback to existing promotion data
+      setEditingPromotion(promotion);
+      setPromotionFormOpen(true);
+    }
   };
 
   // Fetch promotions from backend
@@ -512,15 +529,15 @@ function Promotions() {
         limit: 100,
         search: debouncedSearchTerm || undefined,
       });
-      
+
       // Backend paging response structure: { data: { total: number, data: [...] } }
       // API interceptor returns response.data, so response should be { total: number, data: [...] }
       // But sometimes interceptor might not work, so we handle both cases
       console.log('Promotions API Response:', response);
-      
+
       // Handle different response structures
       let promotionsList = [];
-      
+
       // Case 1: Interceptor didn't work - full response with statusCode
       if (response?.data?.data && Array.isArray(response.data.data)) {
         // Structure: { statusCode: 200, data: { total: 2, data: [...] } }
@@ -543,9 +560,21 @@ function Promotions() {
         promotionsList = Array.isArray(response.data.data) ? response.data.data : [];
         console.log('Using response.data.data (fallback)');
       }
-      
+
       console.log('Promotions List:', promotionsList, 'Count:', promotionsList.length);
-      
+
+      // Helper function to format image URL
+      const formatImageUrl = (imageUrl) => {
+        if (!imageUrl) return null;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+        const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+        let url = imageUrl;
+        if (url.startsWith('uploads/')) {
+          url = url.replace('uploads/', '');
+        }
+        return `${cleanBaseUrl}/uploads/${url}`;
+      };
+
       // Map backend data to frontend format
       const mappedPromotions = (Array.isArray(promotionsList) ? promotionsList : []).map((promo) => ({
         id: promo._id,
@@ -560,8 +589,13 @@ function Promotions() {
         usedCount: promo.usedCount || 0,
         isActive: promo.state === 'active',
         description: promo.description || '',
+        bannerImageId: promo.bannerImageId || null,
+        bannerImage: promo.bannerImage ? {
+          _id: promo.bannerImage._id,
+          url: promo.bannerImage.url,
+          formattedUrl: formatImageUrl(promo.bannerImage.url),
+        } : null,
         // Map for form compatibility
-        type: 'fixed', // Backend only supports fixed amounts
         discountValue: promo.amount,
         minOrderValue: promo.minOrderPrice || 0,
         validFrom: promo.fromDate ? new Date(promo.fromDate) : new Date(),
@@ -569,7 +603,7 @@ function Promotions() {
         usageLimitTotal: promo.maxUsage,
         usageLimitPerUser: promo.maxUsageForUser || 1,
       }));
-      
+
       setPromotions(mappedPromotions);
     } catch (error) {
       console.error('Error fetching promotions:', error);
@@ -587,9 +621,8 @@ function Promotions() {
     try {
       // Map form data to backend DTO format
       const backendData = {
-        name: promotionData.code || promotionData.name || 'Promo kod',
+        name: promotionData.name || promotionData.code || 'Promo kod',
         code: promotionData.code,
-        // Agar type 'percentage' bo'lsa, xatolik ko'rsatish yoki faqat 'fixed' qabul qilish
         amount: promotionData.discountValue || promotionData.amount,
         fromDate: promotionData.validFrom || promotionData.fromDate,
         toDate: promotionData.validUntil || promotionData.toDate,
@@ -618,10 +651,9 @@ function Promotions() {
         backendData.description = promotionData.description.trim();
       }
 
-      // Type validation - faqat fixed amount qo'llab-quvvatlanadi
-      if (promotionData.type === 'percentage') {
-        toast.error('Hozircha faqat belgilangan summa (fixed) chegirma qo\'llab-quvvatlanadi. Iltimos, "Belgilangan summa" ni tanlang.');
-        return;
+      // Include bannerImageId if provided
+      if (promotionData.bannerImageId) {
+        backendData.bannerImageId = promotionData.bannerImageId;
       }
 
       if (editingPromotion) {
@@ -638,25 +670,25 @@ function Promotions() {
       // Close form and reset editing promotion FIRST
       setEditingPromotion(null);
       setPromotionFormOpen(false);
-      
+
       // Mark that we just saved to prevent sheet from reopening
       justSavedRef.current = true;
-      
+
       // Remove drawer parameter from URL to prevent sheet from reopening
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('drawer');
       setSearchParams(newParams, { replace: true });
-      
+
       // Refresh promotions list after closing
       await fetchPromotions();
-      
+
       // Reset the flag after a short delay to allow URL updates to complete
       setTimeout(() => {
         justSavedRef.current = false;
       }, 100);
     } catch (error) {
       console.error('Error saving promotion:', error);
-      
+
       // Handle validation errors
       if (error?.data && Array.isArray(error.data)) {
         const validationMessages = error.data.map(err => err.message || `${err.property}: ${err.message}`).join(', ');
@@ -694,13 +726,8 @@ function Promotions() {
     toast.success('Promo kod nusxalandi');
   };
 
-  const handleToggleActive = (promotionId) => {
-    setPromotions((prev) =>
-      prev.map((promo) =>
-        promo.id === promotionId ? { ...promo, isActive: !promo.isActive } : promo
-      )
-    );
-    toast.success('Promo kod holati o\'zgartirildi');
+  const handleViewDetail = (promotion) => {
+    navigate(`/dashboard/promotion-detail/${promotion.id}`);
   };
 
   // Watch for URL parameter to open drawer and dialogs
@@ -708,18 +735,18 @@ function Promotions() {
     const drawer = searchParams.get('drawer');
     const dialog = searchParams.get('dialog');
     const promotionId = searchParams.get('promotionId');
-    
+
     // Agar biz yangi promo kod qo'shgan bo'lsak, sheetni qayta ochmaslik
     if (justSavedRef.current) {
       return;
     }
-    
+
     // Faqat sheet yopiq bo'lganda ochish (agar ochiq bo'lsa, qayta ochmaslik)
     if (drawer === 'create-promotion' && !promotionFormOpen) {
       setEditingPromotion(null);
       setPromotionFormOpen(true);
     }
-    
+
     if (dialog === 'delete-promotion' && promotionId) {
       const promotion = promotions.find(p => p.id === promotionId);
       if (promotion) {
@@ -741,17 +768,17 @@ function Promotions() {
     if (justSavedRef.current) {
       return;
     }
-    
+
     const params = new URLSearchParams();
-    
+
     if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
-    
+
     // Preserve drawer parameter if exists (but only if we didn't just save)
     const drawer = searchParams.get('drawer');
     if (drawer && !justSavedRef.current) {
       params.set('drawer', drawer);
     }
-    
+
     setSearchParams(params, { replace: true });
   }, [debouncedSearchTerm, searchParams]);
 
@@ -794,15 +821,15 @@ function Promotions() {
                 promotion={promotion}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onToggleActive={handleToggleActive}
                 onCopyCode={handleCopyCode}
+                onViewDetail={handleViewDetail}
               />
             ))}
           </div>
         ) : (
           // Desktop Table View
-      <Card>
-        <CardContent className="p-0">
+          <Card>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -825,8 +852,8 @@ function Promotions() {
                       isMobile={isMobile}
                       onEdit={handleEdit}
                       onDelete={handleDelete}
-                      onToggleActive={handleToggleActive}
                       onCopyCode={handleCopyCode}
+                      onViewDetail={handleViewDetail}
                     />
                   ))}
                 </TableBody>
@@ -834,16 +861,16 @@ function Promotions() {
             </CardContent>
           </Card>
         )
-          ) : (
+      ) : (
         <Empty>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <Tag className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>
-                {searchTerm
+              {searchTerm
                 ? 'Promo kod topilmadi'
-                  : 'Hech qanday promo kod yo\'q'}
+                : 'Hech qanday promo kod yo\'q'}
             </EmptyTitle>
             <EmptyDescription>
               {searchTerm
@@ -877,8 +904,8 @@ function Promotions() {
       />
 
       {/* Delete Confirmation Dialog */}
-      <Dialog 
-        open={deleteDialogOpen} 
+      <Dialog
+        open={deleteDialogOpen}
         onOpenChange={(open) => {
           setDeleteDialogOpen(open);
           const params = new URLSearchParams(searchParams);

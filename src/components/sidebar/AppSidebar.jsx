@@ -104,7 +104,7 @@ export function AppSidebar({ ...props }) {
     <Sidebar collapsible="icon" className="px-2" {...props}>
       <SidebarHeader className="pt-4">
         <img
-          src="/assets/logos/uygaayt-super-admin.svg"
+          src="/assets/logos/uygaayt-store-admin.svg"
           alt="Creative Studio"
           className="w-32 mx-auto group-data-[collapsible=icon]:hidden"
         />

@@ -357,8 +357,11 @@ function StoreSettings() {
       setLogoPreview(logoUrl);
       setLogoImageId(data.logo._id || data.logoId);
     } else if (data.logoId) {
+      // Fallback: if we have logoId but no logo object, log a warning
+      // This should not happen after backend fix, but keeping for debugging
+      console.warn('Logo ID exists but logo object is not populated. Logo ID:', data.logoId);
       setLogoImageId(data.logoId);
-      // Logo URL will be populated when store data is fetched
+      setLogoPreview(null); // No preview available without URL
     } else {
       setLogoPreview(null);
       setLogoImageId(null);
@@ -370,8 +373,11 @@ function StoreSettings() {
       setBannerPreview(bannerUrl);
       setBannerImageId(data.banner._id || data.bannerId);
     } else if (data.bannerId) {
+      // Fallback: if we have bannerId but no banner object, log a warning
+      // This should not happen after backend fix, but keeping for debugging
+      console.warn('Banner ID exists but banner object is not populated. Banner ID:', data.bannerId);
       setBannerImageId(data.bannerId);
-      // Banner URL will be populated when store data is fetched
+      setBannerPreview(null); // No preview available without URL
     } else {
       setBannerPreview(null);
       setBannerImageId(null);
@@ -624,9 +630,13 @@ function StoreSettings() {
   // Update original data after successful save
   const updateOriginalData = (updatedData) => {
     const mergedData = { ...originalStoreData, ...updatedData };
-    setOriginalStoreData(JSON.parse(JSON.stringify(mergedData)));
-    setStoreData(mergedData);
-    localStorage.setItem('storeData', JSON.stringify(mergedData));
+    // Preserve logo and banner if they exist
+    const preservedData = preserveImagesInResponse(mergedData, originalStoreData);
+    setOriginalStoreData(JSON.parse(JSON.stringify(preservedData)));
+    setStoreData(preservedData);
+    localStorage.setItem('storeData', JSON.stringify(preservedData));
+    // Trigger localStorage change event to update ProfileHeader
+    window.dispatchEvent(new Event('localStorageChange'));
   };
 
   const handleLogoUpload = async (file) => {
@@ -699,11 +709,48 @@ function StoreSettings() {
     setHasChanges(prev => ({ ...prev, basic: true }));
   };
 
+  // Helper function to get current logo and banner IDs
+  const getCurrentImageIds = () => {
+    return {
+      logoId: logoImageId || storeData?.logoId || storeData?.logo?._id,
+      bannerId: bannerImageId || storeData?.bannerId || storeData?.banner?._id,
+    };
+  };
+
+  // Helper function to preserve logo and banner in updated data
+  const preserveImagesInResponse = (responseData, currentData) => {
+    const preserved = { ...responseData };
+    
+    // Preserve logo if it exists in response or current data
+    if (responseData?.logo) {
+      preserved.logo = responseData.logo;
+      preserved.logoId = responseData.logo._id || responseData.logoId;
+    } else if (currentData?.logo) {
+      preserved.logo = currentData.logo;
+      preserved.logoId = currentData.logoId || currentData.logo._id;
+    } else if (currentData?.logoId) {
+      preserved.logoId = currentData.logoId;
+    }
+
+    // Preserve banner if it exists in response or current data
+    if (responseData?.banner) {
+      preserved.banner = responseData.banner;
+      preserved.bannerId = responseData.banner._id || responseData.bannerId;
+    } else if (currentData?.banner) {
+      preserved.banner = currentData.banner;
+      preserved.bannerId = currentData.bannerId || currentData.banner._id;
+    } else if (currentData?.bannerId) {
+      preserved.bannerId = currentData.bannerId;
+    }
+
+    return preserved;
+  };
+
   const handleBasicSubmit = async (data) => {
     setIsSubmitting(true);
     try {
-      let finalLogoId = logoImageId;
-      let finalBannerId = bannerImageId;
+      let finalLogoId = logoImageId || storeData?.logoId || storeData?.logo?._id;
+      let finalBannerId = bannerImageId || storeData?.bannerId || storeData?.banner?._id;
 
       // Upload logo if new file is selected
       let uploadedLogoData = null;
@@ -795,10 +842,9 @@ function StoreSettings() {
       const updatedStoreData = response?.data || response || updateData;
 
       // Update logo and banner in storeData
-      const updatedWithImages = {
-        ...updatedStoreData,
-      };
+      let updatedWithImages = { ...updatedStoreData };
 
+      // If new logo was uploaded, use uploaded data
       if (finalLogoId && uploadedLogoData) {
         const logoUrl = uploadedLogoData.url || null;
         updatedWithImages.logoId = finalLogoId;
@@ -808,8 +854,17 @@ function StoreSettings() {
         } : {
           _id: finalLogoId,
         };
+      } else if (finalLogoId) {
+        // Preserve existing logo
+        updatedWithImages.logoId = finalLogoId;
+        if (storeData?.logo) {
+          updatedWithImages.logo = storeData.logo;
+        } else if (updatedStoreData?.logo) {
+          updatedWithImages.logo = updatedStoreData.logo;
+        }
       }
 
+      // If new banner was uploaded, use uploaded data
       if (finalBannerId && uploadedBannerData) {
         const bannerUrl = uploadedBannerData.url || null;
         updatedWithImages.bannerId = finalBannerId;
@@ -819,7 +874,18 @@ function StoreSettings() {
         } : {
           _id: finalBannerId,
         };
+      } else if (finalBannerId) {
+        // Preserve existing banner
+        updatedWithImages.bannerId = finalBannerId;
+        if (storeData?.banner) {
+          updatedWithImages.banner = storeData.banner;
+        } else if (updatedStoreData?.banner) {
+          updatedWithImages.banner = updatedStoreData.banner;
+        }
       }
+
+      // Preserve images from response if they exist
+      updatedWithImages = preserveImagesInResponse(updatedWithImages, storeData);
 
       // Update state and localStorage
       setStoreData(updatedWithImages);
@@ -862,6 +928,9 @@ function StoreSettings() {
       // workDays ni backend formatiga o'girish
       const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
 
+      // Get current logo and banner IDs to preserve them
+      const { logoId, bannerId } = getCurrentImageIds();
+
       const updateData = {
         _id: storeData?._id, // ← Bu qatorni qo'shing
         name: storeData?.name || '',
@@ -873,6 +942,8 @@ function StoreSettings() {
         } : undefined,
         workTime: workTime,
         workDays: convertedWorkDays,
+        ...(logoId && { logoId }),
+        ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
@@ -880,8 +951,11 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
 
+      // Preserve logo and banner in the response
+      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
+
       // Update original data and local state
-      updateOriginalData(updatedStoreData);
+      updateOriginalData(updatedWithImages);
 
       // Map address'ni ham yangilash
       if (updatedStoreData.addressName) {
@@ -926,6 +1000,9 @@ function StoreSettings() {
   const handleDeliverySubmit = async (data) => {
     setIsSubmitting(true);
     try {
+      // Get current logo and banner IDs to preserve them
+      const { logoId, bannerId } = getCurrentImageIds();
+
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
         _id: storeData?._id, // ← Bu qatorni qo'shing
@@ -936,6 +1013,8 @@ function StoreSettings() {
         orderMinimumPrice: data.orderMinimumPrice || 0,
         itemPrepTimeFrom: data.itemPrepTimeFrom || 10,
         itemPrepTimeTo: data.itemPrepTimeTo || 15,
+        ...(logoId && { logoId }),
+        ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
@@ -943,8 +1022,11 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
 
+      // Preserve logo and banner in the response
+      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
+
       // Update original data and local state
-      updateOriginalData(updatedStoreData);
+      updateOriginalData(updatedWithImages);
 
       // Form'ni yangilash
       deliveryForm.reset({
@@ -968,6 +1050,9 @@ function StoreSettings() {
   const handlePaymentStatusSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Get current logo and banner IDs to preserve them
+      const { logoId, bannerId } = getCurrentImageIds();
+
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
         _id: storeData?._id, // ← Bu qatorni qo'shing
@@ -980,6 +1065,8 @@ function StoreSettings() {
         isActive: statusFlags.isActive,
         isVerified: statusFlags.isVerified,
         isPremium: statusFlags.isPremium,
+        ...(logoId && { logoId }),
+        ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
@@ -987,8 +1074,11 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
 
+      // Preserve logo and banner in the response
+      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
+
       // Update original data and local state
-      updateOriginalData(updatedStoreData);
+      updateOriginalData(updatedWithImages);
 
       // Payment methods va status flags'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.acceptCash !== undefined) {
@@ -1020,6 +1110,9 @@ function StoreSettings() {
   const handleDescriptionSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Get current logo and banner IDs to preserve them
+      const { logoId, bannerId } = getCurrentImageIds();
+
       // Backend'da majburiy maydonlar: name, phoneNumber, workTime
       const updateData = {
         _id: storeData?._id, // ← Bu qatorni qo'shing
@@ -1032,6 +1125,8 @@ function StoreSettings() {
           ru: description.ru || '',
           en: description.en || '',
         },
+        ...(logoId && { logoId }),
+        ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
@@ -1039,8 +1134,11 @@ function StoreSettings() {
       // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
 
+      // Preserve logo and banner in the response
+      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
+
       // Update original data and local state
-      updateOriginalData(updatedStoreData);
+      updateOriginalData(updatedWithImages);
 
       // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
       if (updatedStoreData.descriptionTranslate) {
