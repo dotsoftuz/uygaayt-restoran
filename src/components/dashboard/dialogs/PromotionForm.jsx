@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -116,6 +117,7 @@ const promotionSchema = z.object({
   description: z.string().optional(),
   productIds: z.array(z.string()).optional().default([]),
   bannerImageId: z.string().optional().nullable(),
+  isShow: z.boolean().optional().default(false),
 }).refine((data) => {
   if (data.validUntil <= data.validFrom) {
     return false;
@@ -158,6 +160,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       description: '',
       productIds: [],
       bannerImageId: null,
+      isShow: false,
     },
   });
 
@@ -212,6 +215,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
         description: '',
         productIds: [],
         bannerImageId: null,
+        isShow: false,
       });
       setBannerPreview(null);
       setBannerFile(null);
@@ -235,6 +239,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
         description: promotion.description || '',
         productIds: promotion.productIds || [],
         bannerImageId: bannerId,
+        isShow: promotion.isShow ?? false,
       });
 
       // Set banner preview if exists
@@ -261,6 +266,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
         description: '',
         productIds: [],
         bannerImageId: null,
+        isShow: false,
       });
       setBannerPreview(null);
       setBannerFile(null);
@@ -467,10 +473,14 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel optional>Banner rasm</FormLabel>
+                    <FormDescription className="mb-2">
+                      Tavsiya etilgan o'lcham: 1200x300 px (Aspect ratio: 4:1).
+                      Boshqa o'lchamdagi rasmlar avtomatik ravishda moslashtiriladi va kesiladi (object-cover).
+                    </FormDescription>
                     <FormControl>
                       <div className="space-y-2">
                         <div
-                          className="relative w-full h-48 sm:h-64 border border-border rounded-lg overflow-hidden cursor-pointer group bg-muted/30 hover:bg-muted/50 transition-colors"
+                          className="relative w-full aspect-[4/1] border border-border rounded-lg overflow-hidden cursor-pointer group bg-muted/30 hover:bg-muted/50 transition-colors"
                           onClick={() => bannerFileInputRef.current?.click()}
                         >
                           {bannerPreview ? (
@@ -727,6 +737,28 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                       Bitta foydalanuvchi bu promokodni necha marta ishlatishi mumkinligi
                     </FormDescription>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* 11. Banner ko'rsatish (isShow) */}
+              <FormField
+                control={form.control}
+                name="isShow"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Banner ko'rsatish</FormLabel>
+                      <FormDescription>
+                        Mijoz ilovasida banner ko'rinishini boshqarish
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

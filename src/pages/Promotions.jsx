@@ -14,6 +14,8 @@ import {
   XCircle,
   Calendar,
   TrendingUp,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -150,7 +152,7 @@ const StatusBadge = ({ promotion }) => {
 };
 
 // Promotion Row Component (Mobile Card View)
-const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail }) => {
+const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, onToggleIsShow }) => {
   const formatDiscount = (promo) => {
     if (promo.type === 'percentage') {
       return `${promo.discountValue}%`;
@@ -265,6 +267,15 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail }
           <Button
             variant="outline"
             size="sm"
+            onClick={() => onToggleIsShow(promotion)}
+            className="flex-1 text-xs"
+            title={promotion.isShow ? "Banner yashirish" : "Banner ko'rsatish"}
+          >
+            {promotion.isShow ? "Yashirish" : "Ko'rsatish"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => onEdit(promotion)}
             className="flex-1 text-xs"
           >
@@ -292,6 +303,7 @@ const PromotionTableRow = ({
   onEdit,
   onDelete,
   onCopyCode,
+  onToggleIsShow,
   onViewDetail,
 }) => {
   const formatDiscount = (promo) => {
@@ -417,6 +429,12 @@ const PromotionTableRow = ({
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                onClick={(e) => { e.stopPropagation(); onToggleIsShow(promotion); }}
+              >
+                {promotion.isShow ? "Banner yashirish" : "Banner ko'rsatish"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
                 className="text-destructive"
               >
@@ -432,14 +450,17 @@ const PromotionTableRow = ({
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
               onClick={(e) => { e.stopPropagation(); onEdit(promotion); }}
+              title="Tahrirlash"
             >
               <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
+
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
               onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
+              title="O'chirish"
             >
               <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -656,6 +677,11 @@ function Promotions() {
         backendData.bannerImageId = promotionData.bannerImageId;
       }
 
+      // Include isShow if provided
+      if (promotionData.isShow !== undefined && promotionData.isShow !== null) {
+        backendData.isShow = promotionData.isShow;
+      }
+
       if (editingPromotion) {
         await api.put('/store/promocode/update', {
           _id: editingPromotion.id,
@@ -698,6 +724,38 @@ function Promotions() {
       } else {
         toast.error('Promo kodni saqlashda xatolik yuz berdi');
       }
+    }
+  };
+
+  const handleToggleIsShow = async (promotion) => {
+    try {
+      const newIsShow = !promotion.isShow;
+
+      // Fetch current promotion data first to ensure we have all fields
+      const response = await api.get(`/store/promocode/get-by-id/${promotion.id}`);
+      const currentPromo = response?.data || response;
+
+      // Update only the isShow field
+      await api.put(`/store/promocode/update`, {
+        _id: promotion.id,
+        name: currentPromo.name || promotion.name,
+        code: currentPromo.code || promotion.code,
+        amount: currentPromo.amount || promotion.amount || promotion.discountValue,
+        minOrderPrice: currentPromo.minOrderPrice ?? promotion.minOrderPrice ?? promotion.minOrderValue ?? 0,
+        fromDate: currentPromo.fromDate || promotion.fromDate || promotion.validFrom,
+        toDate: currentPromo.toDate || promotion.toDate || promotion.validUntil,
+        maxUsage: currentPromo.maxUsage || promotion.maxUsage || promotion.usageLimitTotal,
+        maxUsageForUser: currentPromo.maxUsageForUser ?? promotion.maxUsageForUser ?? promotion.usageLimitPerUser ?? 1,
+        description: currentPromo.description || promotion.description || '',
+        bannerImageId: currentPromo.bannerImageId || promotion.bannerImageId || null,
+        state: currentPromo.state || (promotion.isActive ? 'active' : 'inactive'),
+        isShow: newIsShow,
+      });
+      toast.success(`Banner ko'rsatish ${newIsShow ? 'yoqildi' : 'o\'chirildi'}`);
+      await fetchPromotions();
+    } catch (error) {
+      console.error('Error toggling isShow:', error);
+      toast.error(error?.response?.data?.message || error?.message || 'Banner ko\'rsatishni o\'zgartirishda xatolik yuz berdi');
     }
   };
 
@@ -823,6 +881,7 @@ function Promotions() {
                 onDelete={handleDelete}
                 onCopyCode={handleCopyCode}
                 onViewDetail={handleViewDetail}
+                onToggleIsShow={handleToggleIsShow}
               />
             ))}
           </div>
