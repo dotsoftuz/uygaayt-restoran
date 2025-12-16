@@ -77,7 +77,8 @@ export const uploadImage = async (file) => {
   formData.append('file', file);
   // Content-Type header'ni o'rnatmaslik kerak - axios FormData uchun avtomatik o'rnatadi
   // va to'g'ri boundary parametrini qo'shadi
-  return api.post('/image/upload', formData);
+  // Product images uchun product/upload endpoint ishlatiladi (white background, padding, resize)
+  return api.post('/image/product/upload', formData);
 };
 
 // Helper function to fetch categories for product form

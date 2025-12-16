@@ -68,7 +68,7 @@ const productSchema = z.object({
   mainImageId: z.string().optional().nullable(),
   imageIds: z.array(z.string()).default([]),
   discountEnabled: z.boolean().default(false),
-  discountType: z.enum(['AMOUNT', 'PERCENT']).optional(),
+  discountType: z.enum(['amount', 'percent']).optional(),
   discountValue: z.number().min(0).optional(),
   discountStartAt: z.date().optional().nullable(),
   discountEndAt: z.date().optional().nullable(),
@@ -243,7 +243,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       mainImageId: null,
       imageIds: [],
       discountEnabled: false,
-      discountType: 'AMOUNT',
+      discountType: 'amount',
       discountValue: 0,
       discountStartAt: null,
       discountEndAt: null,
@@ -345,7 +345,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
               mainImageId: productData.mainImage?._id || null,
               imageIds: productData.images?.map((img) => img._id) || [],
               discountEnabled: productData.discountEnabled || false,
-              discountType: productData.discountType || 'AMOUNT',
+              discountType: productData.discountType || 'amount',
               discountValue: productData.discountValue || 0,
               discountStartAt: productData.discountStartAt ? new Date(productData.discountStartAt) : null,
               discountEndAt: productData.discountEndAt ? new Date(productData.discountEndAt) : null,
@@ -375,7 +375,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         mainImageId: null,
         imageIds: [],
         discountEnabled: false,
-        discountType: 'AMOUNT',
+        discountType: 'amount',
         discountValue: 0,
         discountStartAt: null,
         discountEndAt: null,
@@ -596,7 +596,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       // Add discount data if enabled
       if (data.discountEnabled) {
         payload.discountEnabled = true;
-        payload.discountType = data.discountType || 'AMOUNT';
+        payload.discountType = data.discountType || 'amount';
 
         if (data.discountValue !== undefined && data.discountValue !== null && data.discountValue !== '') {
           const discountValue = typeof data.discountValue === 'number'
@@ -1075,8 +1075,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="AMOUNT">So'm (miqdor)</SelectItem>
-                                <SelectItem value="PERCENT">Foiz (%)</SelectItem>
+                                <SelectItem value="amount">So'm (miqdor)</SelectItem>
+                                <SelectItem value="percent">Foiz (%)</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1090,12 +1090,12 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel optional>
-                              {form.watch('discountType') === 'PERCENT'
+                              {form.watch('discountType') === 'percent'
                                 ? 'Chegirma foizi'
                                 : 'Chegirma miqdori (so\'m)'}
                             </FormLabel>
                             <FormControl>
-                              {form.watch('discountType') === 'PERCENT' ? (
+                              {form.watch('discountType') === 'percent' ? (
                                 <NumericFormat
                                   customInput={Input}
                                   suffix="%"
