@@ -10,7 +10,6 @@ import {
   Store,
   ShoppingCart,
   Bell,
-  Settings,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -20,7 +19,6 @@ import ProfileHeader from './ProfileHeader';
 import StoreSettings from './StoreSettings';
 import OrderSettings from './OrderSettings';
 import NotificationPreferences from './NotificationPreferences';
-import SystemSettings from './SystemSettings';
 
 // Helper function to format image URL
 const formatImageUrl = (imageUrl) => {
@@ -52,12 +50,6 @@ const SETTINGS_TABS = [
     label: 'Xabarnomalar',
     icon: Bell,
     description: 'Email, push va SMS xabarnomalar',
-  },
-  {
-    value: 'system',
-    label: 'Tizim sozlamalari',
-    icon: Settings,
-    description: 'Jamoa va API kalitlar',
   },
   {
     value: 'appearance',
@@ -255,12 +247,6 @@ function SettingsPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="system" className="mt-0">
-              <div className="max-w-4xl">
-                <SystemSettings />
-              </div>
-            </TabsContent>
-
             <TabsContent value="appearance" className="mt-0">
               <div className="max-w-2xl">
                 <Appearance />
@@ -292,12 +278,6 @@ function SettingsPage() {
           <TabsContent value="notifications" className="mt-0">
             <div className="w-full">
               <NotificationPreferences />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="system" className="mt-0">
-            <div className="w-full">
-              <SystemSettings />
             </div>
           </TabsContent>
 

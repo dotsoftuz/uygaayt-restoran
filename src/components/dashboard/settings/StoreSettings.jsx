@@ -9,7 +9,6 @@ import { Textarea } from '@/components/ui/textarea';
 import TextEditor from '@/components/ui/text-editor';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -33,6 +32,15 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import YandexMap from '@/components/ui/yandex-map';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // Helper function to resize images
 function resizeImage(file, maxWidth, maxHeight) {
@@ -90,6 +98,24 @@ const formatImageUrl = (imageUrl) => {
   return `${cleanBaseUrl}/uploads/${url}`;
 };
 
+// Helper function to format number with spaces (10 000)
+const formatNumber = (value) => {
+  if (!value && value !== 0) return '';
+  const numStr = String(value).replace(/\s/g, '').replace(/,/g, '');
+  if (!numStr) return '';
+  const num = parseFloat(numStr);
+  if (isNaN(num)) return '';
+  return num.toLocaleString('uz-UZ').replace(/,/g, ' ');
+};
+
+// Helper function to parse formatted number
+const parseNumber = (value) => {
+  if (!value) return 0;
+  const numStr = String(value).replace(/\s/g, '').replace(/,/g, '');
+  const num = parseFloat(numStr);
+  return isNaN(num) ? 0 : num;
+};
+
 // Validation schemas
 const basicInfoSchema = z.object({
   name: z.string().min(1, 'Do\'kon nomi majburiy'),
@@ -106,12 +132,6 @@ const locationSchema = z.object({
   workDays: z.array(z.string()).optional(),
 });
 
-const deliverySchema = z.object({
-  deliveryPrice: z.number().min(0, 'Yetkazib berish narxi 0 dan kichik bo\'lmasligi kerak'),
-  orderMinimumPrice: z.number().min(0, 'Minimal buyurtma narxi 0 dan kichik bo\'lmasligi kerak'),
-  itemPrepTimeFrom: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
-  itemPrepTimeTo: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
-});
 
 const DAYS = [
   { value: 'monday', label: 'Dushanba' },
@@ -128,8 +148,8 @@ function StoreSettings() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [storeData, setStoreData] = useState(null);
   const [originalStoreData, setOriginalStoreData] = useState(null); // Original data for comparison
-  const [activeTab, setActiveTab] = useState('basic');
   const [mapAddress, setMapAddress] = useState('');
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   // Logo upload state
   const [logoPreview, setLogoPreview] = useState(null);
@@ -149,8 +169,6 @@ function StoreSettings() {
   const [hasChanges, setHasChanges] = useState({
     basic: false,
     location: false,
-    delivery: false,
-    payment: false,
     description: false,
   });
 
@@ -176,28 +194,6 @@ function StoreSettings() {
     },
   });
 
-  const deliveryForm = useForm({
-    resolver: zodResolver(deliverySchema),
-    defaultValues: {
-      deliveryPrice: 0,
-      orderMinimumPrice: 0,
-      itemPrepTimeFrom: 10,
-      itemPrepTimeTo: 15,
-    },
-  });
-
-  // Payment and status states
-  const [paymentMethods, setPaymentMethods] = useState({
-    acceptCash: false,
-    acceptCard: false,
-    acceptOnlinePayment: false,
-  });
-
-  const [statusFlags, setStatusFlags] = useState({
-    isActive: true,
-    isVerified: false,
-    isPremium: false,
-  });
 
   // Description states
   const [description, setDescription] = useState({
@@ -211,6 +207,33 @@ function StoreSettings() {
 
   // Ref to track if fetch is in progress
   const fetchInProgressRef = useRef(false);
+
+  // Address location state for API call
+  const [addressLocation, setAddressLocation] = useState(null);
+
+  // Fetch address name by coordinates (like Admin app)
+  useEffect(() => {
+    const fetchAddressName = async () => {
+      if (addressLocation?.latitude && addressLocation?.longitude) {
+        try {
+          const response = await api.post('/address/by-point', {
+            latitude: addressLocation.latitude,
+            longitude: addressLocation.longitude,
+          });
+          
+          if (response?.data?.name) {
+            locationForm.setValue('addressName', response.data.name);
+            setMapAddress(response.data.name);
+          }
+        } catch (error) {
+          console.error('Error fetching address name:', error);
+          // Xatolik bo'lsa ham, YandexMap'dan kelgan manzilni ishlatish
+        }
+      }
+    };
+
+    fetchAddressName();
+  }, [addressLocation]);
 
   // Fetch store data - faqat birinchi marta yoki komponent mount bo'lganda
   useEffect(() => {
@@ -394,27 +417,6 @@ function StoreSettings() {
 
     setMapAddress(data.addressName || '');
 
-    // Delivery
-    deliveryForm.reset({
-      deliveryPrice: data.deliveryPrice || 0,
-      orderMinimumPrice: data.orderMinimumPrice || 0,
-      itemPrepTimeFrom: data.itemPrepTimeFrom || 10,
-      itemPrepTimeTo: data.itemPrepTimeTo || 15,
-    });
-
-    // Payment methods
-    setPaymentMethods({
-      acceptCash: data.acceptCash || false,
-      acceptCard: data.acceptCard || false,
-      acceptOnlinePayment: data.acceptOnlinePayment || false,
-    });
-
-    // Status flags
-    setStatusFlags({
-      isActive: data.isActive !== undefined ? data.isActive : true,
-      isVerified: data.isVerified || false,
-      isPremium: data.isPremium || false,
-    });
 
     // Description
     if (data.descriptionTranslate) {
@@ -498,37 +500,6 @@ function StoreSettings() {
     return () => subscription.unsubscribe();
   }, [locationForm, workDays, originalStoreData]);
 
-  // Check if delivery form has changes
-  useEffect(() => {
-    if (!originalStoreData) return;
-
-    const subscription = deliveryForm.watch((values) => {
-      const hasDeliveryChanges =
-        values.deliveryPrice !== (originalStoreData.deliveryPrice || 0) ||
-        values.orderMinimumPrice !== (originalStoreData.orderMinimumPrice || 0) ||
-        values.itemPrepTimeFrom !== (originalStoreData.itemPrepTimeFrom || 10) ||
-        values.itemPrepTimeTo !== (originalStoreData.itemPrepTimeTo || 15);
-
-      setHasChanges(prev => ({ ...prev, delivery: hasDeliveryChanges }));
-    });
-
-    return () => subscription.unsubscribe();
-  }, [deliveryForm, originalStoreData]);
-
-  // Check if payment/status has changes
-  useEffect(() => {
-    if (!originalStoreData) return;
-
-    const hasPaymentChanges =
-      paymentMethods.acceptCash !== (originalStoreData.acceptCash || false) ||
-      paymentMethods.acceptCard !== (originalStoreData.acceptCard || false) ||
-      paymentMethods.acceptOnlinePayment !== (originalStoreData.acceptOnlinePayment || false) ||
-      statusFlags.isActive !== (originalStoreData.isActive !== undefined ? originalStoreData.isActive : true) ||
-      statusFlags.isVerified !== (originalStoreData.isVerified || false) ||
-      statusFlags.isPremium !== (originalStoreData.isPremium || false);
-
-    setHasChanges(prev => ({ ...prev, payment: hasPaymentChanges }));
-  }, [paymentMethods, statusFlags, originalStoreData]);
 
   // Check if description has changes
   useEffect(() => {
@@ -583,31 +554,6 @@ function StoreSettings() {
     setHasChanges(prev => ({ ...prev, location: false }));
   };
 
-  const resetDeliveryForm = () => {
-    if (!originalStoreData) return;
-    deliveryForm.reset({
-      deliveryPrice: originalStoreData.deliveryPrice || 0,
-      orderMinimumPrice: originalStoreData.orderMinimumPrice || 0,
-      itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom || 10,
-      itemPrepTimeTo: originalStoreData.itemPrepTimeTo || 15,
-    });
-    setHasChanges(prev => ({ ...prev, delivery: false }));
-  };
-
-  const resetPaymentStatus = () => {
-    if (!originalStoreData) return;
-    setPaymentMethods({
-      acceptCash: originalStoreData.acceptCash || false,
-      acceptCard: originalStoreData.acceptCard || false,
-      acceptOnlinePayment: originalStoreData.acceptOnlinePayment || false,
-    });
-    setStatusFlags({
-      isActive: originalStoreData.isActive !== undefined ? originalStoreData.isActive : true,
-      isVerified: originalStoreData.isVerified || false,
-      isPremium: originalStoreData.isPremium || false,
-    });
-    setHasChanges(prev => ({ ...prev, payment: false }));
-  };
 
   const resetDescription = () => {
     if (!originalStoreData) return;
@@ -638,6 +584,51 @@ function StoreSettings() {
     // Trigger localStorage change event to update ProfileHeader
     window.dispatchEvent(new Event('localStorageChange'));
   };
+
+  // Update forms when storeData changes (after save)
+  useEffect(() => {
+    if (storeData && originalStoreData) {
+      // Only update if data has actually changed (to avoid infinite loops)
+      // Compare only relevant fields that affect forms
+      const storeDataStr = JSON.stringify({
+        name: storeData.name,
+        phoneNumber: storeData.phoneNumber,
+        email: storeData.email,
+        website: storeData.website,
+        addressName: storeData.addressName,
+        addressLocation: storeData.addressLocation,
+        workTime: storeData.workTime,
+        workDays: storeData.workDays,
+        deliveryPrice: storeData.deliveryPrice,
+        orderMinimumPrice: storeData.orderMinimumPrice,
+        itemPrepTimeFrom: storeData.itemPrepTimeFrom,
+        itemPrepTimeTo: storeData.itemPrepTimeTo,
+        logoId: storeData.logoId,
+        bannerId: storeData.bannerId,
+      });
+      const originalDataStr = JSON.stringify({
+        name: originalStoreData.name,
+        phoneNumber: originalStoreData.phoneNumber,
+        email: originalStoreData.email,
+        website: originalStoreData.website,
+        addressName: originalStoreData.addressName,
+        addressLocation: originalStoreData.addressLocation,
+        workTime: originalStoreData.workTime,
+        workDays: originalStoreData.workDays,
+        deliveryPrice: originalStoreData.deliveryPrice,
+        orderMinimumPrice: originalStoreData.orderMinimumPrice,
+        itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom,
+        itemPrepTimeTo: originalStoreData.itemPrepTimeTo,
+        logoId: originalStoreData.logoId,
+        bannerId: originalStoreData.bannerId,
+      });
+      
+      if (storeDataStr !== originalDataStr) {
+        populateForms(storeData);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeData, originalStoreData]);
 
   const handleLogoUpload = async (file) => {
     if (!file) return;
@@ -887,15 +878,7 @@ function StoreSettings() {
       // Preserve images from response if they exist
       updatedWithImages = preserveImagesInResponse(updatedWithImages, storeData);
 
-      // Update state and localStorage
-      setStoreData(updatedWithImages);
-      setOriginalStoreData(JSON.parse(JSON.stringify(updatedWithImages)));
-      localStorage.setItem('storeData', JSON.stringify(updatedWithImages));
-
-      // Trigger localStorage change event to update ProfileHeader
-      window.dispatchEvent(new Event('localStorageChange'));
-
-      // Also update original data
+      // Update original data and local state (this also updates localStorage and triggers event)
       updateOriginalData(updatedWithImages);
 
       // Form'ni yangilash
@@ -954,7 +937,7 @@ function StoreSettings() {
       // Preserve logo and banner in the response
       const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
 
-      // Update original data and local state
+      // Update original data and local state (this also updates localStorage and triggers event)
       updateOriginalData(updatedWithImages);
 
       // Map address'ni ham yangilash
@@ -997,115 +980,6 @@ function StoreSettings() {
     }
   };
 
-  const handleDeliverySubmit = async (data) => {
-    setIsSubmitting(true);
-    try {
-      // Get current logo and banner IDs to preserve them
-      const { logoId, bannerId } = getCurrentImageIds();
-
-      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
-      const updateData = {
-        _id: storeData?._id, // ← Bu qatorni qo'shing
-        name: storeData?.name || '',
-        phoneNumber: storeData?.phoneNumber || '',
-        workTime: storeData?.workTime || '08:00-20:00',
-        deliveryPrice: data.deliveryPrice || 0,
-        orderMinimumPrice: data.orderMinimumPrice || 0,
-        itemPrepTimeFrom: data.itemPrepTimeFrom || 10,
-        itemPrepTimeTo: data.itemPrepTimeTo || 15,
-        ...(logoId && { logoId }),
-        ...(bannerId && { bannerId }),
-      };
-
-      const response = await api.put('/store/update', updateData);
-
-      // Response'dan kelgan ma'lumotlarni ishlatish
-      const updatedStoreData = response?.data || response || updateData;
-
-      // Preserve logo and banner in the response
-      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
-
-      // Update original data and local state
-      updateOriginalData(updatedWithImages);
-
-      // Form'ni yangilash
-      deliveryForm.reset({
-        deliveryPrice: updatedStoreData.deliveryPrice ?? data.deliveryPrice,
-        orderMinimumPrice: updatedStoreData.orderMinimumPrice ?? data.orderMinimumPrice,
-        itemPrepTimeFrom: updatedStoreData.itemPrepTimeFrom ?? data.itemPrepTimeFrom,
-        itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? data.itemPrepTimeTo,
-      });
-
-      setHasChanges(prev => ({ ...prev, delivery: false }));
-      toast.success('Yetkazib berish sozlamalari saqlandi');
-    } catch (error) {
-      console.error('Error updating delivery:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
-      toast.error(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePaymentStatusSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      // Get current logo and banner IDs to preserve them
-      const { logoId, bannerId } = getCurrentImageIds();
-
-      // Backend'da majburiy maydonlar: name, phoneNumber, workTime
-      const updateData = {
-        _id: storeData?._id, // ← Bu qatorni qo'shing
-        name: storeData?.name || '',
-        phoneNumber: storeData?.phoneNumber || '',
-        workTime: storeData?.workTime || '08:00-20:00',
-        acceptCash: paymentMethods.acceptCash,
-        acceptCard: paymentMethods.acceptCard,
-        acceptOnlinePayment: paymentMethods.acceptOnlinePayment,
-        isActive: statusFlags.isActive,
-        isVerified: statusFlags.isVerified,
-        isPremium: statusFlags.isPremium,
-        ...(logoId && { logoId }),
-        ...(bannerId && { bannerId }),
-      };
-
-      const response = await api.put('/store/update', updateData);
-
-      // Response'dan kelgan ma'lumotlarni ishlatish
-      const updatedStoreData = response?.data || response || updateData;
-
-      // Preserve logo and banner in the response
-      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
-
-      // Update original data and local state
-      updateOriginalData(updatedWithImages);
-
-      // Payment methods va status flags'ni ham yangilash (agar response'dan kelgan bo'lsa)
-      if (updatedStoreData.acceptCash !== undefined) {
-        setPaymentMethods({
-          acceptCash: updatedStoreData.acceptCash || false,
-          acceptCard: updatedStoreData.acceptCard || false,
-          acceptOnlinePayment: updatedStoreData.acceptOnlinePayment || false,
-        });
-      }
-      if (updatedStoreData.isActive !== undefined) {
-        setStatusFlags({
-          isActive: updatedStoreData.isActive !== undefined ? updatedStoreData.isActive : true,
-          isVerified: updatedStoreData.isVerified || false,
-          isPremium: updatedStoreData.isPremium || false,
-        });
-      }
-
-      setHasChanges(prev => ({ ...prev, payment: false }));
-      toast.success('To\'lov usullari va status saqlandi');
-    } catch (error) {
-      console.error('Error updating payment/status:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
-      toast.error(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleDescriptionSubmit = async () => {
     setIsSubmitting(true);
@@ -1166,6 +1040,257 @@ function StoreSettings() {
     }
   };
 
+  // Bitta umumiy submit funksiyasi - barcha sozlamalarni saqlaydi
+  const handleSaveAll = async () => {
+    // Barcha formlarni validatsiya qilish
+    const basicData = basicForm.getValues();
+    const locationData = locationForm.getValues();
+
+    // Basic form validatsiyasi
+    try {
+      await basicForm.trigger();
+      if (!basicForm.formState.isValid) {
+        toast.error('Asosiy ma\'lumotlarda xatolik bor. Iltimos, tekshiring.');
+        return;
+      }
+    } catch (error) {
+      toast.error('Asosiy ma\'lumotlarda xatolik bor.');
+      return;
+    }
+
+    // Location form validatsiyasi
+    try {
+      await locationForm.trigger();
+      if (!locationForm.formState.isValid) {
+        toast.error('Manzil ma\'lumotlarida xatolik bor. Iltimos, tekshiring.');
+        return;
+      }
+    } catch (error) {
+      toast.error('Manzil ma\'lumotlarida xatolik bor.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      let finalLogoId = logoImageId || storeData?.logoId || storeData?.logo?._id;
+      let finalBannerId = bannerImageId || storeData?.bannerId || storeData?.banner?._id;
+
+      // Upload logo if new file is selected
+      let uploadedLogoData = null;
+      if (logoFile) {
+        try {
+          setIsLogoUploading(true);
+          const resizedFile = await resizeImage(logoFile, 800, 800);
+          const formData = new FormData();
+          formData.append('file', resizedFile);
+          const uploadResponse = await api.post('/image/upload', formData);
+          uploadedLogoData = uploadResponse?.data || uploadResponse;
+
+          if (uploadedLogoData?._id) {
+            finalLogoId = uploadedLogoData._id;
+            setLogoImageId(uploadedLogoData._id);
+            setLogoFile(null);
+
+            if (uploadedLogoData.url) {
+              const serverImageUrl = formatImageUrl(uploadedLogoData.url);
+              if (serverImageUrl) {
+                setLogoPreview(serverImageUrl);
+              }
+            }
+          } else {
+            throw new Error('Rasm yuklashda xatolik - image ID olinmadi');
+          }
+          setIsLogoUploading(false);
+        } catch (error) {
+          console.error('Error uploading logo:', error);
+          toast.error('Logo yuklashda xatolik yuz berdi');
+          setIsSubmitting(false);
+          setIsLogoUploading(false);
+          return;
+        }
+      }
+
+      // Upload banner if new file is selected
+      let uploadedBannerData = null;
+      if (bannerFile) {
+        try {
+          setIsBannerUploading(true);
+          const resizedFile = await resizeImage(bannerFile, 1920, 1080);
+          const formData = new FormData();
+          formData.append('file', resizedFile);
+          const uploadResponse = await api.post('/image/upload', formData);
+          uploadedBannerData = uploadResponse?.data || uploadResponse;
+
+          if (uploadedBannerData?._id) {
+            finalBannerId = uploadedBannerData._id;
+            setBannerImageId(uploadedBannerData._id);
+            setBannerFile(null);
+
+            if (uploadedBannerData.url) {
+              const serverImageUrl = formatImageUrl(uploadedBannerData.url);
+              if (serverImageUrl) {
+                setBannerPreview(serverImageUrl);
+              }
+            }
+          } else {
+            throw new Error('Rasm yuklashda xatolik - image ID olinmadi');
+          }
+          setIsBannerUploading(false);
+        } catch (error) {
+          console.error('Error uploading banner:', error);
+          toast.error('Banner yuklashda xatolik yuz berdi');
+          setIsSubmitting(false);
+          setIsBannerUploading(false);
+          return;
+        }
+      }
+
+      // Work time va work days ni tayyorlash
+      const workTime = locationData.workTime || (workTimeRange.start && workTimeRange.end
+        ? `${workTimeRange.start}-${workTimeRange.end}`
+        : storeData?.workTime || '08:00-20:00');
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
+
+      // Barcha ma'lumotlarni bitta obyektga yig'ish
+      const updateData = {
+        _id: storeData?._id,
+        name: basicData.name,
+        phoneNumber: basicData.phoneNumber,
+        email: basicData.email || undefined,
+        website: basicData.website || undefined,
+        addressName: locationData.addressName,
+        addressLocation: locationData.latitude && locationData.longitude ? {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+        } : undefined,
+        workTime: workTime,
+        workDays: convertedWorkDays,
+        description: description.uz || '',
+        descriptionTranslate: {
+          uz: description.uz || '',
+          ru: description.ru || '',
+          en: description.en || '',
+        },
+        ...(finalLogoId && { logoId: finalLogoId }),
+        ...(finalBannerId && { bannerId: finalBannerId }),
+      };
+
+      const response = await api.put('/store/update', updateData);
+      const updatedStoreData = response?.data || response || updateData;
+
+      // Update logo and banner in storeData
+      let updatedWithImages = { ...updatedStoreData };
+
+      if (finalLogoId && uploadedLogoData) {
+        const logoUrl = uploadedLogoData.url || null;
+        updatedWithImages.logoId = finalLogoId;
+        updatedWithImages.logo = logoUrl ? {
+          _id: finalLogoId,
+          url: logoUrl,
+        } : {
+          _id: finalLogoId,
+        };
+      } else if (finalLogoId) {
+        updatedWithImages.logoId = finalLogoId;
+        if (storeData?.logo) {
+          updatedWithImages.logo = storeData.logo;
+        } else if (updatedStoreData?.logo) {
+          updatedWithImages.logo = updatedStoreData.logo;
+        }
+      }
+
+      if (finalBannerId && uploadedBannerData) {
+        const bannerUrl = uploadedBannerData.url || null;
+        updatedWithImages.bannerId = finalBannerId;
+        updatedWithImages.banner = bannerUrl ? {
+          _id: finalBannerId,
+          url: bannerUrl,
+        } : {
+          _id: finalBannerId,
+        };
+      } else if (finalBannerId) {
+        updatedWithImages.bannerId = finalBannerId;
+        if (storeData?.banner) {
+          updatedWithImages.banner = storeData.banner;
+        } else if (updatedStoreData?.banner) {
+          updatedWithImages.banner = updatedStoreData.banner;
+        }
+      }
+
+      updatedWithImages = preserveImagesInResponse(updatedWithImages, storeData);
+
+      // Update state and localStorage
+      setStoreData(updatedWithImages);
+      setOriginalStoreData(JSON.parse(JSON.stringify(updatedWithImages)));
+      localStorage.setItem('storeData', JSON.stringify(updatedWithImages));
+      window.dispatchEvent(new Event('localStorageChange'));
+      updateOriginalData(updatedWithImages);
+
+      // Update all forms
+      basicForm.reset({
+        name: updatedStoreData.name || basicData.name,
+        phoneNumber: updatedStoreData.phoneNumber || basicData.phoneNumber,
+        email: updatedStoreData.email || basicData.email,
+        website: updatedStoreData.website || basicData.website,
+      });
+
+      const convertedWorkDaysForForm = updatedStoreData.workDays
+        ? convertWorkDaysFromBackendFormat(updatedStoreData.workDays)
+        : workDays;
+
+      locationForm.reset({
+        addressName: updatedStoreData.addressName || locationData.addressName,
+        latitude: updatedStoreData.addressLocation?.latitude || locationData.latitude,
+        longitude: updatedStoreData.addressLocation?.longitude || locationData.longitude,
+        workTime: updatedStoreData.workTime || workTime,
+        workDays: convertedWorkDaysForForm,
+      });
+
+      if (updatedStoreData.workTime) {
+        setWorkTimeRange(parseWorkTime(updatedStoreData.workTime));
+      }
+
+      if (updatedStoreData.workDays) {
+        const convertedWorkDays = convertWorkDaysFromBackendFormat(updatedStoreData.workDays);
+        setWorkDays(convertedWorkDays);
+      }
+
+      if (updatedStoreData.addressName) {
+        setMapAddress(updatedStoreData.addressName);
+      }
+
+
+      if (updatedStoreData.descriptionTranslate) {
+        setDescription({
+          uz: updatedStoreData.descriptionTranslate.uz || updatedStoreData.description || '',
+          ru: updatedStoreData.descriptionTranslate.ru || '',
+          en: updatedStoreData.descriptionTranslate.en || '',
+        });
+      } else if (updatedStoreData.description) {
+        setDescription({
+          uz: updatedStoreData.description || '',
+          ru: '',
+          en: '',
+        });
+      }
+
+      // Reset all change flags
+      setHasChanges({
+        basic: false,
+        location: false,
+        description: false,
+      });
+
+      toast.success('Barcha sozlamalar muvaffaqiyatli saqlandi');
+    } catch (error) {
+      console.error('Error updating store settings:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      toast.error(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Kun nomlarini raqamga o'girish
   const dayNameToNumber = {
     'sunday': 0,
@@ -1216,11 +1341,17 @@ function StoreSettings() {
 
   const toggleWorkDay = (day) => {
     setWorkDays((prev) => {
-      if (prev.includes(day)) {
-        return prev.filter((d) => d !== day);
-      } else {
-        return [...prev, day];
-      }
+      const newWorkDays = prev.includes(day)
+        ? prev.filter((d) => d !== day)
+        : [...prev, day];
+      
+      // Update form value
+      locationForm.setValue('workDays', newWorkDays);
+      
+      // Mark location as changed
+      setHasChanges(prev => ({ ...prev, location: true }));
+      
+      return newWorkDays;
     });
   };
 
@@ -1254,84 +1385,14 @@ function StoreSettings() {
   }
 
   return (
-    <div className="space-y-4">
-
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Mobile/Tablet: Scrollable horizontal tabs */}
-        <div className="lg:hidden overflow-x-auto scrollbar-hide -mx-4 px-4 pb-3">
-          <TabsList className="inline-flex h-auto w-max min-w-full justify-start rounded-lg bg-muted p-1.5 gap-1.5">
-            <TabsTrigger
-              value="basic"
-              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
-            >
-              <Store className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Asosiy</span>
-              <span className="sm:hidden">Asosiy</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="location"
-              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
-            >
-              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Manzil</span>
-              <span className="sm:hidden">Manzil</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="delivery"
-              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
-            >
-              <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Yetkazib berish</span>
-              <span className="sm:hidden">Yetkazib</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="payment"
-              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
-            >
-              <CreditCard className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
-              <span className="hidden sm:inline">To'lov</span>
-              <span className="sm:hidden">To'lov</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="description"
-              className="text-xs sm:text-sm whitespace-nowrap flex-shrink-0 px-2.5 sm:px-3 py-2"
-            >
-              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-1.5 flex-shrink-0" />
-              <span className="hidden sm:inline">Tavsif</span>
-              <span className="sm:hidden">Tavsif</span>
-            </TabsTrigger>
-          </TabsList>
+    <div className="space-y-8">
+      {/* Basic Info Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 pb-2 border-b">
+          <Store className="w-5 h-5" />
+          <h2 className="text-lg sm:text-xl font-semibold">Asosiy ma'lumotlar</h2>
         </div>
-
-        {/* Desktop: Grid layout */}
-        <div className="hidden lg:block">
-          <TabsList className="grid w-full grid-cols-5 gap-2">
-            <TabsTrigger value="basic" className="text-sm">
-              <Store className="w-4 h-4 mr-2 flex-shrink-0" />
-              Asosiy
-            </TabsTrigger>
-            <TabsTrigger value="location" className="text-sm">
-              <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
-              Manzil
-            </TabsTrigger>
-            <TabsTrigger value="delivery" className="text-sm">
-              <Truck className="w-4 h-4 mr-2 flex-shrink-0" />
-              Yetkazib berish
-            </TabsTrigger>
-            <TabsTrigger value="payment" className="text-sm">
-              <CreditCard className="w-4 h-4 mr-2 flex-shrink-0" />
-              To'lov
-            </TabsTrigger>
-            <TabsTrigger value="description" className="text-sm">
-              <FileText className="w-4 h-4 mr-2 flex-shrink-0" />
-              Tavsif
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Basic Info Tab */}
-        <TabsContent value="basic" className="mt-6">
-          <form onSubmit={basicForm.handleSubmit(handleBasicSubmit)} className="space-y-6">
+          <div className="space-y-6">
             <div className="space-y-4">
 
               {/* Logo and Banner Upload - Improved Design */}
@@ -1482,6 +1543,7 @@ function StoreSettings() {
                   placeholder="+998901234567"
                   type="tel"
                   className="text-sm sm:text-base"
+                  disabled
                 />
                 {basicForm.formState.errors.phoneNumber && (
                   <p className="text-xs text-destructive">
@@ -1524,35 +1586,17 @@ function StoreSettings() {
                 )}
               </div>
             </div>
+          </div>
+      </div>
 
-            <div className="flex items-center justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetBasicForm}
-                disabled={!hasChanges.basic}
-                className="text-xs sm:text-sm"
-              >
-                Bekor qilish
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || !hasChanges.basic}
-                className="text-xs sm:text-sm"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Saqlash
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-
-        {/* Location & Hours Tab */}
-        <TabsContent value="location" className="mt-6">
-          <form onSubmit={locationForm.handleSubmit(handleLocationSubmit)} className="space-y-6">
-            <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-semibold">Manzil va ish vaqti</h3>
-
+      {/* Location & Hours Section */}
+      <div className="space-y-4 pt-6 border-t">
+        <div className="flex items-center gap-2 pb-2 border-b">
+          <MapPin className="w-5 h-5" />
+          <h2 className="text-lg sm:text-xl font-semibold">Manzil va ish vaqti</h2>
+        </div>
+          <div className="space-y-6">
+              <div className="space-y-4">
               <div className="space-y-2">
                 <Label required className="text-xs sm:text-sm">
                   Manzil
@@ -1573,26 +1617,44 @@ function StoreSettings() {
                 )}
               </div>
 
-              {mapAddress && (
-                <div className="space-y-2">
-                  <Label className="text-xs sm:text-sm flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Xarita
-                  </Label>
-                  <div className="rounded-lg overflow-hidden border">
-                    <iframe
-                      width="100%"
-                      height="250"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={`https://www.google.com/maps?q=${encodeURIComponent(mapAddress)}&output=embed`}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-              )}
+              <div className="space-y-2">
+                <Label className="text-xs sm:text-sm flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Xarita - Joyni tanlang
+                </Label>
+                <YandexMap
+                  center={
+                    locationForm.watch('latitude') && locationForm.watch('longitude')
+                      ? {
+                          latitude: locationForm.watch('latitude'),
+                          longitude: locationForm.watch('longitude'),
+                        }
+                      : undefined
+                  }
+                  onCoordinateChange={(coords) => {
+                    locationForm.setValue('latitude', coords.latitude);
+                    locationForm.setValue('longitude', coords.longitude);
+                    // Set addressLocation to trigger API call for address name
+                    setAddressLocation({
+                      latitude: coords.latitude,
+                      longitude: coords.longitude,
+                    });
+                  }}
+                  onAddressChange={(address) => {
+                    // This is a fallback if API doesn't work, but API should be primary
+                    // Only set if address is valid (not coordinates)
+                    if (address && address.trim() !== '' && !/^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(address.trim()) && !/\d+\.\d+,\s*\d+\.\d+/.test(address)) {
+                      locationForm.setValue('addressName', address);
+                      setMapAddress(address);
+                    }
+                  }}
+                  height="400px"
+                  zoom={14}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Xaritada joyni tanlang yoki pin'ni surib o'zgartiring. Manzil avtomatik yangilanadi.
+                </p>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1680,318 +1742,17 @@ function StoreSettings() {
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetLocationForm}
-                disabled={!hasChanges.location}
-                className="text-xs sm:text-sm"
-              >
-                Bekor qilish
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || !hasChanges.location}
-                className="text-xs sm:text-sm"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Saqlash
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-
-        {/* Delivery Tab */}
-        <TabsContent value="delivery" className="mt-6">
-          <form onSubmit={deliveryForm.handleSubmit(handleDeliverySubmit)} className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Truck className="w-5 h-5" />
-                <h3 className="text-base sm:text-lg font-semibold">Yetkazib berish sozlamalari</h3>
-              </div>
-
-              <div className="space-y-2">
-                <Label required className="text-xs sm:text-sm">
-                  Yetkazib berish narxi
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    {...deliveryForm.register('deliveryPrice', { valueAsNumber: true })}
-                    className="text-sm sm:text-base"
-                  />
-                  <span className="text-xs sm:text-sm text-muted-foreground">so'm</span>
-                </div>
-                {deliveryForm.formState.errors.deliveryPrice && (
-                  <p className="text-xs text-destructive">
-                    {deliveryForm.formState.errors.deliveryPrice.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label required className="text-xs sm:text-sm">
-                  Minimal buyurtma narxi
-                </Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="1000"
-                    {...deliveryForm.register('orderMinimumPrice', { valueAsNumber: true })}
-                    className="text-sm sm:text-base"
-                  />
-                  <span className="text-xs sm:text-sm text-muted-foreground">so'm</span>
-                </div>
-                {deliveryForm.formState.errors.orderMinimumPrice && (
-                  <p className="text-xs text-destructive">
-                    {deliveryForm.formState.errors.orderMinimumPrice.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label required className="text-xs sm:text-sm">
-                    Tayyorlanish vaqti (dan)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      {...deliveryForm.register('itemPrepTimeFrom', { valueAsNumber: true })}
-                      className="text-sm sm:text-base"
-                    />
-                    <span className="text-xs sm:text-sm text-muted-foreground">daqiqa</span>
-                  </div>
-                  {deliveryForm.formState.errors.itemPrepTimeFrom && (
-                    <p className="text-xs text-destructive">
-                      {deliveryForm.formState.errors.itemPrepTimeFrom.message}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label required className="text-xs sm:text-sm">
-                    Tayyorlanish vaqti (gacha)
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      {...deliveryForm.register('itemPrepTimeTo', { valueAsNumber: true })}
-                      className="text-sm sm:text-base"
-                    />
-                    <span className="text-xs sm:text-sm text-muted-foreground">daqiqa</span>
-                  </div>
-                  {deliveryForm.formState.errors.itemPrepTimeTo && (
-                    <p className="text-xs text-destructive">
-                      {deliveryForm.formState.errors.itemPrepTimeTo.message}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetDeliveryForm}
-                disabled={!hasChanges.delivery}
-                className="text-xs sm:text-sm"
-              >
-                Bekor qilish
-              </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting || !hasChanges.delivery}
-                className="text-xs sm:text-sm"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Saqlash
-              </Button>
-            </div>
-          </form>
-        </TabsContent>
-
-        {/* Payment & Status Tab */}
-        <TabsContent value="payment" className="mt-6">
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <CreditCard className="w-5 h-5" />
-                <h3 className="text-base sm:text-lg font-semibold">To'lov usullari</h3>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Naqd pul</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Mijozlar naqd pul bilan to'lov qilishlari mumkin
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={paymentMethods.acceptCash}
-                    onCheckedChange={(checked) =>
-                      setPaymentMethods({ ...paymentMethods, acceptCash: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Bank kartasi</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Terminal yoki bank kartasi orqali to'lov
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={paymentMethods.acceptCard}
-                    onCheckedChange={(checked) =>
-                      setPaymentMethods({ ...paymentMethods, acceptCard: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <CreditCard className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Onlayn to'lov</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Onlayn to'lov tizimlari orqali to'lov
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={paymentMethods.acceptOnlinePayment}
-                    onCheckedChange={(checked) =>
-                      setPaymentMethods({ ...paymentMethods, acceptOnlinePayment: checked })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-semibold">Status</h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    {statusFlags.isActive ? (
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-red-500" />
-                    )}
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Faol</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Do'kon faol holatda va buyurtmalarni qabul qiladi
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={statusFlags.isActive}
-                    onCheckedChange={(checked) =>
-                      setStatusFlags({ ...statusFlags, isActive: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    {statusFlags.isVerified ? (
-                      <CheckCircle2 className="w-5 h-5 text-blue-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-400" />
-                    )}
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Tasdiqlangan</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Do'kon ma'lumotlari tasdiqlangan
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={statusFlags.isVerified}
-                    onCheckedChange={(checked) =>
-                      setStatusFlags({ ...statusFlags, isVerified: checked })
-                    }
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
-                    {statusFlags.isPremium ? (
-                      <Star className="w-5 h-5 text-yellow-500" />
-                    ) : (
-                      <Star className="w-5 h-5 text-gray-400" />
-                    )}
-                    <div>
-                      <Label className="text-sm sm:text-base font-medium">Premium</Label>
-                      <p className="text-xs text-muted-foreground">
-                        Premium do'kon statusi
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={statusFlags.isPremium}
-                    onCheckedChange={(checked) =>
-                      setStatusFlags({ ...statusFlags, isPremium: checked })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetPaymentStatus}
-                disabled={!hasChanges.payment}
-                className="text-xs sm:text-sm"
-              >
-                Bekor qilish
-              </Button>
-              <Button
-                onClick={handlePaymentStatusSubmit}
-                disabled={isSubmitting || !hasChanges.payment}
-                className="text-xs sm:text-sm"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Saqlash
-              </Button>
-            </div>
           </div>
-        </TabsContent>
+      </div>
 
-        {/* Description Tab */}
-        <TabsContent value="description" className="mt-6">
+      {/* Description Section */}
+      <div className="space-y-4 pt-6 border-t">
+        <div className="flex items-center gap-2 pb-2 border-b">
+          <FileText className="w-5 h-5" />
+          <h2 className="text-lg sm:text-xl font-semibold">Tavsif</h2>
+        </div>
           <div className="space-y-6">
             <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-semibold">Tavsif</h3>
-
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs sm:text-sm">O'zbekcha tavsif</Label>
@@ -2021,29 +1782,63 @@ function StoreSettings() {
                 </div>
               </div>
             </div>
-
-            <div className="flex items-center justify-end gap-2 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetDescription}
-                disabled={!hasChanges.description}
-                className="text-xs sm:text-sm"
-              >
-                Bekor qilish
-              </Button>
-              <Button
-                onClick={handleDescriptionSubmit}
-                disabled={isSubmitting || !hasChanges.description}
-                className="text-xs sm:text-sm"
-              >
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Saqlash
-              </Button>
-            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+      </div>
+
+      {/* Bitta umumiy Saqlash tugmasi */}
+      <div className="sticky bottom-0 bg-background/95 backdrop-blur-sm border-t pt-4 pb-4 mt-8 z-10">
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCancelDialog(true)}
+            disabled={!Object.values(hasChanges).some(hasChange => hasChange)}
+            className="text-sm sm:text-base"
+          >
+            Bekor qilish
+          </Button>
+          <Button
+            onClick={handleSaveAll}
+            disabled={isSubmitting || !Object.values(hasChanges).some(hasChange => hasChange)}
+            className="text-sm sm:text-base min-w-[120px]"
+          >
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Saqlash
+          </Button>
+        </div>
+      </div>
+
+      {/* Bekor qilish dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Bekor qilish</DialogTitle>
+            <DialogDescription>
+              Barcha o'zgarishlar bekor qilinadi va asl qiymatlarga qaytadi. Bu amalni bekor qilib bo'lmaydi.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelDialog(false)}
+            >
+              Yopish
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                resetBasicForm();
+                resetLocationForm();
+                resetDescription();
+                setShowCancelDialog(false);
+                toast.success('Barcha o\'zgarishlar bekor qilindi');
+              }}
+            >
+              Bekor qilish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
