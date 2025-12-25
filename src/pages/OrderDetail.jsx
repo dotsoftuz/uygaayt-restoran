@@ -153,6 +153,8 @@ const mapOrderFromBackend = (backendOrder) => {
     } : null,
     store: backendOrder.store,
     storeId: backendOrder.storeId,
+    orderStructureType: backendOrder.orderStructureType || 'singleStore',
+    stores: backendOrder.stores || [],
     itemPrice: backendOrder.itemPrice || 0,
     deliveryPrice: backendOrder.deliveryPrice || 0,
     discount: backendOrder.discount || 0,
@@ -607,6 +609,16 @@ const OrderInfo = ({ order }) => {
             <p className="font-medium text-sm sm:text-base">{order.store.name}</p>
             {order.store.phoneNumber && (
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.store.phoneNumber}</p>
+            )}
+            {order.store.addressName && (
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">📍 {order.store.addressName}</p>
+            )}
+            {order.orderStructureType === 'combined' && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs text-muted-foreground">
+                  ℹ️ Bu birlashtirilgan buyurtma. Faqat sizning do'koningiz mahsulotlari ko'rsatilmoqda.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -529,6 +529,7 @@ function Promotions() {
           url: fullPromotion.bannerImage.url,
           formattedUrl: formatImageUrl(fullPromotion.bannerImage.url),
         } : promotion.bannerImage || null,
+        isShow: fullPromotion.isShow ?? promotion.isShow ?? false,
       };
 
       setEditingPromotion(mappedPromotion);
@@ -616,6 +617,7 @@ function Promotions() {
           url: promo.bannerImage.url,
           formattedUrl: formatImageUrl(promo.bannerImage.url),
         } : null,
+        isShow: promo.isShow ?? false,
         // Map for form compatibility
         discountValue: promo.amount,
         minOrderValue: promo.minOrderPrice || 0,
