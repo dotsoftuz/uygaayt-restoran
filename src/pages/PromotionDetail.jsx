@@ -10,6 +10,9 @@ import {
     User,
     ShoppingCart,
     DollarSign,
+    Code,
+    Package,
+    BarChart3,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -130,6 +133,8 @@ function PromotionDetail() {
                     fullName: `${item.customer.firstName || ''} ${item.customer.lastName || ''}`.trim() || 'Noma\'lum',
                 } : null,
                 order: item.order ? {
+                    _id: item.order._id || item.orderId,
+                    id: item.order._id || item.orderId,
                     number: item.order.number || '',
                     createdAt: item.order.createdAt ? new Date(item.order.createdAt) : null,
                     totalPrice: item.order.totalPrice || 0,
@@ -189,17 +194,22 @@ function PromotionDetail() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div className="flex items-center gap-3">
-                    <Button
+                    {/* <Button
                         variant="outline"
                         size="icon"
                         onClick={() => navigate('/dashboard/promotions')}
                     >
                         <ArrowLeft className="h-4 w-4" />
-                    </Button>
+                    </Button> */}
                     <div>
-                        <h2 className="title">{promotion.name || promotion.code}</h2>
+                        <div className="flex items-center gap-2">
+                            <h2 className="title">{promotion.name || promotion.code}</h2>
+                            <Badge variant={promotion.isActive ? "default" : "secondary"}>
+                                {promotion.isActive ? 'Faol' : 'Faol emas'}
+                            </Badge>
+                        </div>
                         <p className="paragraph">
-                            Promokod ma'lumotlari va ishlatilganlik tarixi
+                            {promotion.description || "Tavsif mavjud emas"}
                         </p>
                     </div>
                 </div>
@@ -224,20 +234,21 @@ function PromotionDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Code className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Promokod</span>
                         </div>
-                        <p className="text-lg font-semibold font-mono">{promotion.code}</p>
+                        <p className="text-base font-semibold font-mono">{promotion.code}</p>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Chegirma summasi</span>
                         </div>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base font-semibold">
                             {promotion.amount.toLocaleString()} so'm
                         </p>
                     </CardContent>
@@ -245,11 +256,11 @@ function PromotionDetail() {
 
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                             <TrendingUp className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Ishlatilgan</span>
                         </div>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base font-semibold">
                             {promotion.usedCount || 0}
                             {promotion.maxUsage && (
                                 <span className="text-sm text-muted-foreground font-normal">
@@ -262,64 +273,100 @@ function PromotionDetail() {
 
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
+                        <div className="flex items-center gap-2 mb-1">
                             <User className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Foydalanuvchi limiti</span>
                         </div>
-                        <p className="text-lg font-semibold">
+                        <p className="text-base font-semibold">
                             {promotion.maxUsageForUser || 1} marta
                         </p>
                     </CardContent>
                 </Card>
             </div>
 
-            {/* Additional Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Additional Info and Statistics */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card>
-                    <CardContent className="p-4 space-y-3">
-                        <div>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Package className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">Minimal buyurtma summasi</span>
-                            <p className="text-base font-medium">
-                                {promotion.minOrderPrice.toLocaleString()} so'm
-                            </p>
                         </div>
-                        {promotion.description && (
-                            <div>
-                                <span className="text-sm text-muted-foreground">Tavsif</span>
-                                <p className="text-base">{promotion.description}</p>
-                            </div>
-                        )}
+                        <p className="text-base font-semibold">
+                            {promotion.minOrderPrice.toLocaleString()} so'm
+                        </p>
                     </CardContent>
                 </Card>
 
                 <Card>
-                    <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center gap-2">
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <span className="text-sm text-muted-foreground">Boshlanish sanasi</span>
-                                <p className="text-base font-medium">
+                            <span className="text-sm text-muted-foreground">Boshlanish sanasi</span>
+                        </div>
+                        <div className="flex justify-between items-start gap-2 mt-2">
+                            <div className="flex-1">
+                                <p className="text-base font-semibold">
                                     {promotion.fromDate ? formatDate(promotion.fromDate) : '-'}
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                                <span className="text-sm text-muted-foreground">Tugash sanasi</span>
-                                <p className="text-base font-medium">
+                            <span className="text-sm text-muted-foreground">Tugash sanasi</span>
+                        </div>
+                        <div className="flex justify-between items-start gap-2 mt-2">
+
+                            <div className="flex-1">
+                                <p className="text-base font-semibold">
                                     {promotion.toDate ? formatDate(promotion.toDate) : '-'}
                                 </p>
                             </div>
                         </div>
-                        <div>
-                            <span className="text-sm text-muted-foreground">Holati</span>
-                            <div className="mt-1">
-                                <Badge variant={promotion.isActive ? "default" : "secondary"}>
-                                    {promotion.isActive ? 'Faol' : 'Faol emas'}
-                                </Badge>
-                            </div>
+                    </CardContent>
+                </Card>
+
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Jami ishlatilgan</span>
                         </div>
+                        <p className="text-base font-semibold">
+                            {promotion.usedCount || 0}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                            <DollarSign className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Jami chegirma</span>
+                        </div>
+                        <p className="text-base font-semibold text-primary">
+                            {history.reduce((sum, item) => sum + (item.amount || 0), 0).toLocaleString()} so'm
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-2 mb-1">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Noyob mijozlar</span>
+                        </div>
+                        <p className="text-base font-semibold">
+                            {new Set(history.map(item => item.customer?.phoneNumber).filter(Boolean)).size}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -378,7 +425,10 @@ function PromotionDetail() {
                                             </TableCell>
                                             <TableCell className="hidden md:table-cell">
                                                 {item.order ? (
-                                                    <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                                                        onClick={() => navigate(`/dashboard/order-detail/${item.order._id || item.order.id}`)}
+                                                    >
                                                         <ShoppingCart className="h-3 w-3 text-muted-foreground" />
                                                         <span className="font-mono text-sm">
                                                             #{item.order.number}
