@@ -151,6 +151,7 @@ const mapOrderFromBackend = (backendOrder) => {
       discountValue: backendOrder.promocodePrice,
       discountAmount: backendOrder.promocodePrice,
     } : null,
+    promocode: backendOrder.promocode || null,
     store: backendOrder.store,
     storeId: backendOrder.storeId,
     orderStructureType: backendOrder.orderStructureType || 'singleStore',
@@ -389,24 +390,22 @@ const OrderProducts = ({ order }) => {
             <span className="text-muted-foreground">Barcha mahsulotlar:</span>
             <span className="font-medium">{formatNumber(order.itemPrice)} so'm</span>
           </div>
-          {order.deliveryPrice > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Yetkazib berish:</span>
-              <span className="font-medium">{formatNumber(order.deliveryPrice)} so'm</span>
-            </div>
-          )}
           {order.usedBalance > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Foydalanilgan balans:</span>
               <span className="font-medium text-primary">-{formatNumber(order.usedBalance)} so'm</span>
             </div>
           )}
-          {order.promocodePrice > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Promo kod:</span>
-              <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
-            </div>
-          )}
+          {(() => {
+            const isStorePromocode = order.promocode && order.storeId && 
+              order.promocode.storeId?.toString().toLowerCase() === order.storeId.toString().toLowerCase();
+            return isStorePromocode && order.promocodePrice > 0 ? (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Promo kod:</span>
+                <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
+              </div>
+            ) : null;
+          })()}
           {order.discount > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Chegirma:</span>
@@ -415,7 +414,15 @@ const OrderProducts = ({ order }) => {
           )}
           <div className="flex justify-between font-bold text-base sm:text-lg pt-3 border-t">
             <span>Umumiy:</span>
-            <span className="text-primary">{formatNumber(order.totalPrice)} so'm</span>
+            <span className="text-primary">
+              {(() => {
+                const isStorePromocode = order.promocode && order.storeId && 
+                  order.promocode.storeId?.toString().toLowerCase() === order.storeId.toString().toLowerCase();
+                const promoDiscount = isStorePromocode && order.promocodePrice > 0 ? order.promocodePrice : 0;
+                const total = order.itemPrice - promoDiscount;
+                return `${formatNumber(total)} so'm`;
+              })()}
+            </span>
           </div>
         </div>
       </CardContent>

@@ -354,7 +354,6 @@ function Orders() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
-  const [deliveryTypeFilter, setDeliveryTypeFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -481,13 +480,6 @@ function Orders() {
       );
     }
 
-    // Delivery type filter
-    if (deliveryTypeFilter !== 'all') {
-      filtered = filtered.filter(
-        (order) => order.deliveryType === deliveryTypeFilter
-      );
-    }
-
     // Period filter
     if (periodFilter !== 'all') {
       const now = new Date();
@@ -529,7 +521,6 @@ function Orders() {
     debouncedSearchTerm,
     statusFilter,
     paymentTypeFilter,
-    deliveryTypeFilter,
     periodFilter,
     sortBy,
   ]);
@@ -543,23 +534,28 @@ function Orders() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, deliveryTypeFilter, periodFilter, sortBy]);
+  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, periodFilter, sortBy]);
 
-  // Read filters and pagination from URL on mount
+  // Read filters and pagination from URL on mount and when URL changes
   useEffect(() => {
     const search = searchParams.get('search');
     const status = searchParams.get('status');
     const payment = searchParams.get('payment');
-    const delivery = searchParams.get('delivery');
     const period = searchParams.get('period');
     const sort = searchParams.get('sort');
     const page = searchParams.get('page');
     const limit = searchParams.get('limit');
     
     if (search !== null) setSearchTerm(search);
-    if (status !== null) setStatusFilter(status);
+    if (status !== null) {
+      const statusMap = {
+        'pending': 'pending',
+        'completed': 'completed',
+        'cancelled': 'cancelled',
+      };
+      setStatusFilter(statusMap[status] || status || 'all');
+    }
     if (payment !== null) setPaymentTypeFilter(payment);
-    if (delivery !== null) setDeliveryTypeFilter(delivery);
     if (period !== null) setPeriodFilter(period);
     if (sort !== null) setSortBy(sort);
     if (page !== null) {
@@ -570,7 +566,7 @@ function Orders() {
       const limitNum = parseInt(limit, 10);
       if ([10, 20, 30, 40, 50].includes(limitNum)) setItemsPerPage(limitNum);
     }
-  }, []); // Only on mount
+  }, [searchParams]);
 
   // Update URL when filters change (using debounced search)
   useEffect(() => {
@@ -579,12 +575,11 @@ function Orders() {
     if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (paymentTypeFilter !== 'all') params.set('payment', paymentTypeFilter);
-    if (deliveryTypeFilter !== 'all') params.set('delivery', deliveryTypeFilter);
     if (periodFilter !== 'all') params.set('period', periodFilter);
     if (sortBy !== 'newest') params.set('sort', sortBy);
     
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, deliveryTypeFilter, periodFilter, sortBy]);
+  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, periodFilter, sortBy]);
 
   // Update URL when pagination changes
   useEffect(() => {
@@ -670,7 +665,6 @@ function Orders() {
   const hasActiveFilters =
     statusFilter !== 'all' ||
     paymentTypeFilter !== 'all' ||
-    deliveryTypeFilter !== 'all' ||
     periodFilter !== 'all';
 
   return (
@@ -710,7 +704,6 @@ function Orders() {
             Filtrlar {hasActiveFilters && `(${[
               statusFilter !== 'all' ? 1 : 0,
               paymentTypeFilter !== 'all' ? 1 : 0,
-              deliveryTypeFilter !== 'all' ? 1 : 0,
               periodFilter !== 'all' ? 1 : 0,
             ].reduce((a, b) => a + b, 0)})`}
           </Button>
@@ -719,14 +712,13 @@ function Orders() {
         {(!isMobile || filtersOpen) && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Holat" />
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Buyurtma holati" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Barcha holatlar</SelectItem>
+                <SelectItem value="all">Umumiy buyurtmalar</SelectItem>
                 <SelectItem value="pending">Kutilmoqda</SelectItem>
-                <SelectItem value="processing">Jarayonda</SelectItem>
-                <SelectItem value="completed">Tugallangan</SelectItem>
+                <SelectItem value="completed">Bajarilgan</SelectItem>
                 <SelectItem value="cancelled">Bekor qilingan</SelectItem>
               </SelectContent>
             </Select>
@@ -740,17 +732,6 @@ function Orders() {
                 <SelectItem value="cash">Naqd</SelectItem>
                 <SelectItem value="card">Karta</SelectItem>
                 <SelectItem value="online">Online</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={deliveryTypeFilter} onValueChange={setDeliveryTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Yetkazib berish" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Barcha</SelectItem>
-                <SelectItem value="pickup">Olib ketish</SelectItem>
-                <SelectItem value="delivery">Yetkazib berish</SelectItem>
               </SelectContent>
             </Select>
 

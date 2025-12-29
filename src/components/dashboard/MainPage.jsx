@@ -10,22 +10,24 @@ import {
   DollarSign,
   ArrowRight,
   Clock,
+  XCircle,
+  CheckCircle,
+  ShoppingCart,
+  Ticket,
 } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from '@/components/ui/chart';
 import {
-  ComposedChart,
-  Line,
-  Bar,
-  XAxis,
-  YAxis,
+  AreaChart,
+  Area,
   CartesianGrid,
-  Legend,
+  XAxis,
 } from 'recharts';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Card,
   CardContent,
@@ -34,134 +36,223 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { formatNumber, formatDate } from '@/lib/utils';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { formatNumber } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import api from '@/services/api';
+import { toast } from 'sonner';
+import DashboardMap from './DashboardMap';
 
-// Mock data generator
-const generateFakeOrders = () => {
-  const statuses = ['pending', 'accepted', 'preparing', 'ready', 'delivered'];
-  const names = [
-    'Ali Valiyev',
-    'Dilshoda Karimova',
-    'Javohir Toshmatov',
-    'Malika Yusupova',
-    'Sardor Rahimov',
-  ];
-
-  return names.map((name, index) => ({
-    id: `ORD-${String(index + 1).padStart(6, '0')}`,
-    clientName: name,
-    amount: Math.floor(Math.random() * 500000) + 50000,
-    status: statuses[Math.floor(Math.random() * statuses.length)],
-    createdAt: new Date(Date.now() - index * 60 * 60 * 1000),
-  }));
-};
-
-const generateChartData = (days) => {
-  const data = [];
-  const now = new Date();
-  
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    const dayName = date.toLocaleDateString('uz-UZ', { weekday: 'short' });
-    
-    data.push({
-      name: dayName,
-      orders: Math.floor(Math.random() * 50) + 20,
-      revenue: Math.floor(Math.random() * 5000000) + 2000000,
-    });
-  }
-  
-  return data;
+const chartConfig = {
+  completed: {
+    label: 'Bajarilgan',
+    color: '#22c55e',
+  },
+  cancelled: {
+    label: 'Bekor qilingan',
+    color: '#ef4444',
+  },
+  total: {
+    label: 'Umumiy',
+    color: '#3b82f6',
+  },
 };
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const [chartPeriod, setChartPeriod] = useState(searchParams.get('period') || '7');
+  const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = useState('');
 
-  // Mock orders data
-  const allOrders = useMemo(() => generateFakeOrders(), []);
-  const last5Orders = useMemo(() => allOrders.slice(0, 5), [allOrders]);
-
-  // Calculate statistics
-  const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const todayOrders = allOrders.filter(
-      (order) => new Date(order.createdAt) >= today
-    );
-    
-    const newOrders = allOrders.filter(
-      (order) => order.status === 'pending' || order.status === 'accepted'
-    );
-    
-    const todayRevenue = todayOrders.reduce((sum, order) => sum + order.amount, 0);
-    const totalRevenue = allOrders.reduce((sum, order) => sum + order.amount, 0);
-    const averageOrderValue = allOrders.length > 0 
-      ? Math.round(totalRevenue / allOrders.length) 
-      : 0;
-
-    return {
-      todayOrders: todayOrders.length,
-      todayRevenue,
-      newOrders: newOrders.length,
-      averageOrderValue,
-    };
-  }, [allOrders]);
-
-  const chartData = useMemo(() => {
-    return generateChartData(Number(chartPeriod));
-  }, [chartPeriod]);
-
-  // Update URL when chart period changes
   useEffect(() => {
-    if (chartPeriod) {
-      setSearchParams({ period: chartPeriod }, { replace: true });
-    }
-  }, [chartPeriod]);
-
-  const getStatusBadge = (status) => {
-    const configs = {
-      pending: { label: t('pending'), variant: 'secondary' },
-      accepted: { label: t('accepted'), variant: 'default' },
-      preparing: { label: t('preparing'), variant: 'default' },
-      ready: { label: t('ready'), variant: 'default' },
-      delivered: { label: t('delivered'), variant: 'default' },
+    const fetchStoreName = () => {
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const storeData = JSON.parse(storeDataStr);
+          setStoreName(storeData.name || storeData.legalName || '');
+        }
+      } catch (error) {
+        console.error('Error parsing store data:', error);
+      }
     };
 
-    const config = configs[status] || configs.pending;
-    return (
-      <Badge variant={config.variant} className="text-xs">
-        {config.label}
-      </Badge>
-    );
+    fetchStoreName();
+
+    const handleStorageChange = () => {
+      fetchStoreName();
+    };
+
+    window.addEventListener('localStorageChange', handleStorageChange);
+    return () => {
+      window.removeEventListener('localStorageChange', handleStorageChange);
+    };
+  }, []);
+
+  const [dateRange, setDateRange] = useState(() => {
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
+    if (dateFrom && dateTo) {
+      return {
+        from: new Date(dateFrom),
+        to: new Date(dateTo),
+      };
+    }
+    return null;
+  });
+
+  const [statistics, setStatistics] = useState({
+    totalOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
+    totalRevenue: 0,
+    productsSold: 0,
+    totalPromocodes: 0,
+    areaChartData: [],
+    orderLocations: [],
+  });
+
+  const fetchStatistics = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: 1,
+        limit: 200,
+      };
+
+      if (dateRange?.from && dateRange?.to) {
+        params.dateFrom = dateRange.from.toISOString();
+        params.dateTo = dateRange.to.toISOString();
+      }
+
+      const [ordersResponse, promocodesResponse] = await Promise.all([
+        api.post('/store/order/paging', params),
+        api.post('/store/promocode/paging', { page: 1, limit: 200 }),
+      ]);
+
+      const orders = ordersResponse?.data?.data || [];
+      const promocodes = promocodesResponse?.data?.data || [];
+
+      const totalOrders = orders.length;
+      const completedOrders = orders.filter(
+        (order) => order.state?.state === 'completed'
+      ).length;
+      const cancelledOrders = orders.filter(
+        (order) => order.state?.state === 'cancelled'
+      ).length;
+      const totalRevenue = orders
+        .filter((order) => order.state?.state === 'completed')
+        .reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+
+      let productsSold = 0;
+      orders.forEach((order) => {
+        if (order.items && Array.isArray(order.items)) {
+          productsSold += order.items.reduce(
+            (sum, item) => sum + (item.quantity || 0),
+            0
+          );
+        }
+      });
+
+      const totalPromocodes = promocodes.length;
+
+      const ordersByDate = {};
+      orders.forEach((order) => {
+        const orderDate = new Date(order.createdAt);
+        const dateKey = orderDate.toISOString().split('T')[0];
+
+        if (!ordersByDate[dateKey]) {
+          ordersByDate[dateKey] = {
+            date: dateKey,
+            completed: 0,
+            cancelled: 0,
+            total: 0,
+          };
+        }
+
+        ordersByDate[dateKey].total += 1;
+        if (order.state?.state === 'completed') {
+          ordersByDate[dateKey].completed += 1;
+        } else if (order.state?.state === 'cancelled') {
+          ordersByDate[dateKey].cancelled += 1;
+        }
+      });
+
+      const areaChartData = Object.values(ordersByDate)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .map((item) => ({
+          date: item.date,
+          completed: item.completed,
+          cancelled: item.cancelled,
+          total: item.total,
+        }));
+
+      const orderLocations = orders
+        .filter(
+          (order) =>
+            order.addressLocation &&
+            order.addressLocation.latitude &&
+            order.addressLocation.longitude
+        )
+        .map((order) => ({
+          _id: order._id,
+          addressLocation: order.addressLocation,
+          addressName: order.addressName || 'Noma\'lum',
+        }));
+
+      setStatistics({
+        totalOrders,
+        completedOrders,
+        cancelledOrders,
+        totalRevenue,
+        productsSold,
+        totalPromocodes,
+        areaChartData,
+        orderLocations,
+      });
+    } catch (error) {
+      console.error('Error fetching statistics:', error);
+      toast.error('Statistikani yuklashda xatolik yuz berdi');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleOrderClick = (orderId) => {
-    navigate(`/dashboard/order-detail/${orderId}`);
+  useEffect(() => {
+    fetchStatistics();
+  }, [dateRange]);
+
+  useEffect(() => {
+    if (dateRange?.from && dateRange?.to) {
+      setSearchParams({
+        dateFrom: dateRange.from.toISOString(),
+        dateTo: dateRange.to.toISOString(),
+      });
+    } else {
+      const newParams = { ...searchParams };
+      delete newParams.dateFrom;
+      delete newParams.dateTo;
+      setSearchParams(newParams);
+    }
+  }, [dateRange]);
+
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 min-[1200px]:grid-cols-4 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar overflow-hidden">
-        {/* Bugungi buyurtmalar */}
-        <div 
+    <div className="space-y-4 py-2 sm:py-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Welcome back, {storeName || 'Dashboard'}</h1>
+        <DateRangePicker
+          date={dateRange}
+          onDateChange={handleDateRangeChange}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 min-[1200px]:grid-cols-3 border border-border rounded-xl bg-gradient-to-br from-sidebar/60 to-sidebar overflow-hidden">
+        <div
           className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
           onClick={() => navigate('/dashboard/orders')}
         >
@@ -170,267 +261,234 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              {t('todayOrders')}
+              Umumiy Buyurtmalar
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.todayOrders} {t('unit')}
+              {loading ? '...' : statistics.totalOrders}
             </h3>
-            <p className="text-xs text-muted-foreground/60">
-              {t('totalOrders')}
-            </p>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        {/* Bugungi daromad */}
-        <div 
+        <div
           className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/orders?status=cancelled')}
+        >
+          <div className="bg-destructive/10 rounded-full p-2 border border-destructive/20">
+            <XCircle className="h-6 w-6 text-destructive" />
+          </div>
+          <div>
+            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              Bekor qilingan
+            </p>
+            <h3 className="text-2xl font-semibold mb-1 text-destructive">
+              {loading ? '...' : statistics.cancelledOrders}
+            </h3>
+          </div>
+          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-destructive" />
+        </div>
+
+        <div
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/orders?status=completed')}
+        >
+          <div className="bg-green-500/10 rounded-full p-2 border border-green-500/20">
+            <CheckCircle className="h-6 w-6 text-green-500" />
+          </div>
+          <div>
+            <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
+              Bajarilgan
+            </p>
+            <h3 className="text-2xl font-semibold mb-1 text-green-500">
+              {loading ? '...' : statistics.completedOrders}
+            </h3>
+          </div>
+          <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-green-500" />
+        </div>
+
+        <div
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
           onClick={() => navigate('/dashboard/finance')}
         >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <CreditCard className="h-6 w-6 text-primary" />
+            <DollarSign className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              {t('todayRevenue')}
+              Umumiy kirim
             </p>
-            <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {formatNumber(stats.todayRevenue)} so'm
+            <h3 className="text-xl font-semibold mb-1 text-primary">
+              {loading ? '...' : formatNumber(statistics.totalRevenue)} so'm
             </h3>
-            <p className="text-xs text-muted-foreground/60">
-              {t('paymentMethods')}
-            </p>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        {/* Yangi buyurtmalar */}
-        <div 
+        <div
           className="relative flex items-center gap-4 group p-4 lg:p-5 border-r border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
-          onClick={() => navigate('/dashboard/orders?status=pending')}
+          onClick={() => navigate('/dashboard/products')}
         >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <AlertCircle className="h-6 w-6 text-primary" />
+            <ShoppingCart className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              {t('newOrders')}
+              Sotilgan mahsulotlar
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {stats.newOrders} {t('unit')}
+              {loading ? '...' : statistics.productsSold}
             </h3>
-            <p className="text-xs text-muted-foreground/60">
-              {t('unopenedOrders')}
-            </p>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        {/* O'rtacha buyurtma qiymati */}
-        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
+        <div
+          className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
+          onClick={() => navigate('/dashboard/promotions')}
+        >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <TrendingUp className="h-6 w-6 text-primary" />
+            <Ticket className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              {t('averageOrder')}
+              Umumiy promokodlar
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {formatNumber(stats.averageOrderValue)} so'm
+              {loading ? '...' : statistics.totalPromocodes}
             </h3>
-            <p className="text-xs text-muted-foreground/60">
-              {t('averageValue')}
-            </p>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* So'nggi 5 buyurtma */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base sm:text-lg">{t('recentOrders')}</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">
-                  {t('last5Orders')}
-                </CardDescription>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/dashboard/orders')}
-                className="text-xs sm:text-sm"
-              >
-                {t('all')}
-                <ArrowRight className="ml-1 h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isMobile ? (
-              <div className="space-y-2 p-4">
-                {last5Orders.map((order) => (
-                  <div
-                    key={order.id}
-                    onClick={() => handleOrderClick(order.id)}
-                    className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-accent transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{order.clientName}</p>
-                      <p className="text-xs text-muted-foreground">{order.id}</p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-2">
-                      <span className="text-sm font-semibold">
-                        {formatNumber(order.amount)} so'm
-                      </span>
-                      {getStatusBadge(order.status)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[120px]">{t('orderId')}</TableHead>
-                    <TableHead>{t('client')}</TableHead>
-                    <TableHead className="text-right">{t('amount')}</TableHead>
-                    <TableHead className="w-[140px]">{t('status')}</TableHead>
-                    <TableHead className="w-[120px] text-right">{t('time')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {last5Orders.map((order) => (
-                    <TableRow
-                      key={order.id}
-                      onClick={() => handleOrderClick(order.id)}
-                      className="cursor-pointer hover:bg-accent"
-                    >
-                      <TableCell className="font-mono text-xs sm:text-sm">
-                        {order.id}
-                      </TableCell>
-                      <TableCell className="font-medium text-sm sm:text-base">
-                        {order.clientName}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-sm sm:text-base">
-                        {formatNumber(order.amount)} so'm
-                      </TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell className="text-right text-xs sm:text-sm text-muted-foreground">
-                        {formatDate(order.createdAt.getTime())}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Tezkor amallar */}
+      <div className="space-y-4">
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">{t('quickActions')}</CardTitle>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">
+              Buyurtmalar statistikasi
+            </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              {t('quickAccessButtons')}
+              Holat bo'yicha buyurtmalar
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <Button
-              className="w-full justify-start"
-              onClick={() => navigate('/dashboard/products?drawer=create-product')}
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              <span className="text-xs sm:text-sm">{t('addProduct')}</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => navigate('/dashboard/orders')}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              <span className="text-xs sm:text-sm">{t('viewOrders')}</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => navigate('/dashboard/finance')}
-            >
-              <DollarSign className="mr-2 h-4 w-4" />
-              <span className="text-xs sm:text-sm">{t('payoutRequest')}</span>
-            </Button>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full">
+              <AreaChart data={statistics.areaChartData}>
+                <defs>
+                  <linearGradient id="fillCompleted" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="#22c55e"
+                      stopOpacity={0.6}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="#22c55e"
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+                  <linearGradient id="fillCancelled" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="#ef4444"
+                      stopOpacity={0.6}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="#ef4444"
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+                  <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor="#3b82f6"
+                      stopOpacity={0.6}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="#3b82f6"
+                      stopOpacity={0.05}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  minTickGap={32}
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('uz-UZ', {
+                      month: 'short',
+                      day: 'numeric',
+                    });
+                  }}
+                />
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(value) => {
+                        return new Date(value).toLocaleDateString('uz-UZ', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        });
+                      }}
+                      indicator="dot"
+                    />
+                  }
+                />
+                <Area
+                  dataKey="completed"
+                  type="natural"
+                  fill="url(#fillCompleted)"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  stackId="a"
+                />
+                <Area
+                  dataKey="cancelled"
+                  type="natural"
+                  fill="url(#fillCancelled)"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  stackId="a"
+                />
+                <Area
+                  dataKey="total"
+                  type="natural"
+                  fill="url(#fillTotal)"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  stackId="a"
+                />
+                <ChartLegend content={<ChartLegendContent />} />
+              </AreaChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base sm:text-lg">
+              Zakazlar bo'yicha hududlar statistikasi
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              Xaritada buyurtmalar
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DashboardMap
+              height="400px"
+              orderLocations={statistics.orderLocations}
+            />
           </CardContent>
         </Card>
       </div>
-
-      {/* Grafik: Buyurtma va daromad */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle className="text-base sm:text-lg">{t('ordersAndRevenue')}</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
-                {t('weeklyMonthlyStats')}
-              </CardDescription>
-            </div>
-            <Tabs value={chartPeriod} onValueChange={setChartPeriod} className="w-full sm:w-auto">
-              <TabsList className="grid w-full sm:w-auto grid-cols-3">
-                <TabsTrigger value="7" className="text-xs sm:text-sm">{t('days7')}</TabsTrigger>
-                <TabsTrigger value="30" className="text-xs sm:text-sm">{t('days30')}</TabsTrigger>
-                <TabsTrigger value="90" className="text-xs sm:text-sm">{t('days90')}</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={{}} className="h-[300px] sm:h-[400px]">
-            <ComposedChart
-              data={chartData}
-              margin={{ top: 10, right: 20, bottom: 0, left: -10 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-              />
-              <YAxis 
-                yAxisId="left"
-                label={{ value: t('orders'), angle: -90, position: 'insideLeft' }}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-              />
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
-                label={{ value: t('revenue'), angle: 90, position: 'insideRight' }}
-                tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                tickFormatter={(value) => `${(value / 1000000).toFixed(1)}M`}
-              />
-              <ChartTooltip 
-                content={<ChartTooltipContent />}
-              />
-              <Legend />
-              <Bar
-                yAxisId="left"
-                dataKey="orders"
-                name={t('orders')}
-                fill="hsl(var(--primary))"
-                radius={[4, 4, 0, 0]}
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="revenue"
-                name={t('revenue')}
-                stroke="hsl(var(--chart-2))"
-                strokeWidth={2}
-                dot={{ r: 4, fill: 'hsl(var(--chart-2))' }}
-              />
-            </ComposedChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
     </div>
   );
 }
