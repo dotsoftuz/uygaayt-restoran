@@ -392,6 +392,23 @@ function Orders() {
       ? `#${order.number}`
       : order._id || order.id || '#0';
     
+    // Combined order-lar uchun store-specific price hisoblash
+    let displayAmount = order.totalPrice || 0;
+    if (order.orderStructureType === 'combined' && order.combinedStores && Array.isArray(order.combinedStores)) {
+      const currentStoreId = storeId?.toString().toLowerCase() || '';
+      const storeData = order.combinedStores.find((store) => {
+        const storeStoreId = store.storeId?.toString().toLowerCase() || '';
+        return storeStoreId === currentStoreId;
+      });
+      
+      if (storeData) {
+        const storeSubtotal = storeData.subtotal || 0;
+        const storePromocodePrice = storeData.promocodePrice || 0;
+        const storeUsedBalance = storeData.usedBalance || 0;
+        displayAmount = storeSubtotal - storePromocodePrice - storeUsedBalance;
+      }
+    }
+    
     return {
       id: orderId,
       _id: order._id || order.id, // Backend ID ni saqlash
@@ -399,7 +416,7 @@ function Orders() {
         ? `${customer.firstName} ${customer.lastName || ''}`.trim()
         : customer.name || 'Noma\'lum mijoz',
       phone: customer.phoneNumber || customer.phone || '',
-      amount: order.totalPrice || 0,
+      amount: displayAmount,
       paymentType: order.paymentType || 'cash',
       status: mapOrderState(state),
       deliveryType: deliveryType,

@@ -65,8 +65,22 @@ const mapOrderFromBackend = (backendOrder) => {
     }
   };
 
+  // Combined order-lar uchun store-specific items olish
+  let itemsToMap = backendOrder.items || [];
+  if (backendOrder.orderStructureType === 'combined' && backendOrder.stores && Array.isArray(backendOrder.stores) && backendOrder.stores.length > 0) {
+    const currentStoreId = localStorage.getItem('storeId')?.toString().toLowerCase() || '';
+    const storeData = backendOrder.stores.find((store) => {
+      const storeStoreId = store.storeId?.toString().toLowerCase() || '';
+      return storeStoreId === currentStoreId;
+    });
+    
+    if (storeData && storeData.items && Array.isArray(storeData.items)) {
+      itemsToMap = storeData.items;
+    }
+  }
+
   // Items mapping - yaxshiroq error handling
-  const items = (backendOrder.items || []).map((item, index) => {
+  const items = itemsToMap.map((item, index) => {
     console.log(`🔍 Mapping item ${index}:`, item);
 
     // Product name ni olish - turli variantlarni tekshirish
@@ -155,7 +169,11 @@ const mapOrderFromBackend = (backendOrder) => {
     store: backendOrder.store,
     storeId: backendOrder.storeId,
     orderStructureType: backendOrder.orderStructureType || 'singleStore',
-    stores: backendOrder.stores || [],
+    stores: (backendOrder.stores || []).map(store => ({
+      ...store,
+      promocodePrice: store.promocodePrice || 0,
+      usedBalance: store.usedBalance || 0,
+    })),
     itemPrice: backendOrder.itemPrice || 0,
     deliveryPrice: backendOrder.deliveryPrice || 0,
     discount: backendOrder.discount || 0,
@@ -396,16 +414,12 @@ const OrderProducts = ({ order }) => {
               <span className="font-medium text-primary">-{formatNumber(order.usedBalance)} so'm</span>
             </div>
           )}
-          {(() => {
-            const isStorePromocode = order.promocode && order.storeId && 
-              order.promocode.storeId?.toString().toLowerCase() === order.storeId.toString().toLowerCase();
-            return isStorePromocode && order.promocodePrice > 0 ? (
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Promo kod:</span>
-                <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
-              </div>
-            ) : null;
-          })()}
+          {order.promocodePrice > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Promo kod:</span>
+              <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
+            </div>
+          )}
           {order.discount > 0 && (
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Chegirma:</span>
@@ -416,10 +430,9 @@ const OrderProducts = ({ order }) => {
             <span>Umumiy:</span>
             <span className="text-primary">
               {(() => {
-                const isStorePromocode = order.promocode && order.storeId && 
-                  order.promocode.storeId?.toString().toLowerCase() === order.storeId.toString().toLowerCase();
-                const promoDiscount = isStorePromocode && order.promocodePrice > 0 ? order.promocodePrice : 0;
-                const total = order.itemPrice - promoDiscount;
+                const promoDiscount = order.promocodePrice > 0 ? order.promocodePrice : 0;
+                const balanceDiscount = order.usedBalance > 0 ? order.usedBalance : 0;
+                const total = order.itemPrice - promoDiscount - balanceDiscount;
                 return `${formatNumber(total)} so'm`;
               })()}
             </span>
