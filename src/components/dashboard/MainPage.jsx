@@ -108,7 +108,7 @@ function AdminDashboard() {
     cancelledOrders: 0,
     totalRevenue: 0,
     productsSold: 0,
-    totalPromocodes: 0,
+    storeViewsCount: 0,
     areaChartData: [],
     orderLocations: [],
   });
@@ -126,13 +126,16 @@ function AdminDashboard() {
         params.dateTo = dateRange.to.toISOString();
       }
 
-      const [ordersResponse, promocodesResponse] = await Promise.all([
+      const [ordersResponse, statisticsResponse] = await Promise.all([
         api.post('/store/order/paging', params),
-        api.post('/store/promocode/paging', { page: 1, limit: 200 }),
+        api.post('/store/statistics', {
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+        }),
       ]);
 
       const orders = ordersResponse?.data?.data || [];
-      const promocodes = promocodesResponse?.data?.data || [];
+      const storeStatistics = statisticsResponse?.data || {};
 
       const totalOrders = orders.length;
       const completedOrders = orders.filter(
@@ -155,7 +158,7 @@ function AdminDashboard() {
         }
       });
 
-      const totalPromocodes = promocodes.length;
+      const storeViewsCount = storeStatistics.storeViewsCount || 0;
 
       const ordersByDate = {};
       orders.forEach((order) => {
@@ -207,7 +210,7 @@ function AdminDashboard() {
         cancelledOrders,
         totalRevenue,
         productsSold,
-        totalPromocodes,
+        storeViewsCount,
         areaChartData,
         orderLocations,
       });
@@ -344,17 +347,16 @@ function AdminDashboard() {
 
         <div
           className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
-          onClick={() => navigate('/dashboard/promotions')}
         >
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
-            <Ticket className="h-6 w-6 text-primary" />
+            <Eye className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Umumiy promokodlar
+              Sahifa ko'rildi
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
-              {loading ? '...' : statistics.totalPromocodes}
+              {loading ? '...' : statistics.storeViewsCount}
             </h3>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
