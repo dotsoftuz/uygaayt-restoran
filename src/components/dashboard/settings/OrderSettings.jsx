@@ -15,9 +15,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Truck, CreditCard, Loader2, CheckCircle2, XCircle, Star } from 'lucide-react';
+import { Truck, CreditCard, Loader2, CheckCircle2, XCircle, Star, Package, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/services/api';
+import PackageItemForm from './PackageItemForm';
+import { Badge } from '@/components/ui/badge';
+import { fetchStoreCategories } from '@/services/storeCategories';
 
 // Helper function to format number with spaces (10 000)
 const formatNumber = (value) => {
@@ -51,6 +54,10 @@ function OrderSettings() {
   const [originalStoreData, setOriginalStoreData] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showPackageItemForm, setShowPackageItemForm] = useState(false);
+  const [packageItems, setPackageItems] = useState([]);
+  const [editingPackageItem, setEditingPackageItem] = useState(null);
+  const [categoriesMap, setCategoriesMap] = useState({});
 
   // Delivery form
   const deliveryForm = useForm({
@@ -98,6 +105,10 @@ function OrderSettings() {
           setOriginalStoreData(JSON.parse(JSON.stringify(data)));
           populateForms(data);
           localStorage.setItem('storeData', JSON.stringify(data));
+          
+          if (data.packageItems) {
+            setPackageItems(Array.isArray(data.packageItems) ? data.packageItems : []);
+          }
         }
       } catch (error) {
         console.error('Error fetching store data:', error);
@@ -106,6 +117,26 @@ function OrderSettings() {
 
     fetchStoreData();
   }, []);
+
+  useEffect(() => {
+    if (packageItems.length > 0) {
+      fetchStoreCategories({ page: 1, limit: 200 })
+        .then((res) => {
+          let categoriesList = [];
+          if (res?.data?.data) {
+            categoriesList = res.data.data;
+          } else if (res?.data && Array.isArray(res.data)) {
+            categoriesList = res.data;
+          }
+          const map = {};
+          categoriesList.forEach(cat => {
+            map[String(cat._id)] = cat;
+          });
+          setCategoriesMap(map);
+        })
+        .catch(console.error);
+    }
+  }, [packageItems.length]);
 
   const populateForms = (data) => {
     // Delivery
@@ -469,6 +500,152 @@ function OrderSettings() {
 
       <Separator />
 
+      <div className="space-y-4 pt-6 border-t">
+          <div className="flex items-center justify-between pb-2 border-b">
+            <div className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
+              <h2 className="text-lg sm:text-xl font-semibold">Qo'shimcha itemlar</h2>
+            </div>
+            {packageItems.length === 0 && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setEditingPackageItem(null);
+                  setShowPackageItemForm(true);
+                }}
+                size="sm"
+                className="text-xs sm:text-sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Qo'shish
+              </Button>
+            )}
+          </div>
+        <div className="space-y-4">
+          {packageItems.length === 0 ? (
+            <div className="border rounded-lg p-8 text-center">
+              <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-sm text-muted-foreground mb-2">
+                Hozircha qo'shimcha itemlar mavjud emas
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Customer cart'ga product qo'shganda avtomatik qo'shiladigan itemlar
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {packageItems.map((item, index) => {
+                const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+                const itemName = item.name?.[currentLang] || item.name?.uz || item.name || 'Nomsiz';
+                
+                const formatImageUrl = (imageUrl) => {
+                  if (!imageUrl) return null;
+                  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+                  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+                  let url = imageUrl;
+                  if (url.startsWith('uploads/')) {
+                    url = url.replace('uploads/', '');
+                  }
+                  if (!url.startsWith('http')) {
+                    return `${cleanBaseUrl}/uploads/${url}`;
+                  }
+                  return url;
+                };
+                
+                let imageUrl = null;
+                if (item.image?.url) {
+                  imageUrl = formatImageUrl(item.image.url);
+                } else if (item.imageId) {
+                  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+                  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+                  imageUrl = `${cleanBaseUrl}/image/get/${item.imageId}`;
+                } else if (item.image && typeof item.image === 'string') {
+                  imageUrl = formatImageUrl(item.image);
+                }
+                
+                const getCategoryName = (categoryId) => {
+                  const category = categoriesMap[String(categoryId)];
+                  if (!category) return '';
+                  const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+                  return category.name?.[currentLang] || category.name?.uz || category.name || '';
+                };
+                
+                return (
+                  <div
+                    key={item._id || index}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt={itemName}
+                          className="w-16 h-16 object-cover rounded-lg border"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-16 h-16 bg-muted rounded-lg flex items-center justify-center ${imageUrl ? 'hidden' : ''}`}>
+                        <Package className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">{itemName}</p>
+                          {item.isActive !== false ? (
+                            <Badge variant="default" className="text-xs">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Faol
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              <XCircle className="w-3 h-3 mr-1" />
+                              Nofaol
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {item.price?.toLocaleString('uz-UZ') || 0} so'm
+                        </p>
+                        {item.categoryIds && item.categoryIds.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {item.categoryIds.map((categoryId) => {
+                              const categoryName = getCategoryName(categoryId);
+                              if (!categoryName) return null;
+                              return (
+                                <Badge key={String(categoryId)} variant="outline" className="text-xs">
+                                  {categoryName}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs mt-2">
+                            Barcha kategoriyalar uchun
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingPackageItem(item);
+                        setShowPackageItemForm(true);
+                      }}
+                    >
+                      Tahrirlash
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="space-y-4">
             <h4 className="text-base sm:text-lg font-semibold">Status</h4>
 
@@ -595,6 +772,72 @@ function OrderSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PackageItemForm
+        open={showPackageItemForm}
+        onOpenChange={(open) => {
+          setShowPackageItemForm(open);
+          if (!open) {
+            setEditingPackageItem(null);
+          }
+        }}
+        packageItem={editingPackageItem}
+        onSave={async (data) => {
+          try {
+            let updatedPackageItems;
+            if (editingPackageItem) {
+              updatedPackageItems = packageItems.map(item => 
+                (item._id === editingPackageItem._id || item._id === editingPackageItem.id) 
+                  ? { ...data, _id: editingPackageItem._id || editingPackageItem.id }
+                  : item
+              );
+            } else {
+              updatedPackageItems = [...packageItems, { ...data, _id: `temp_${Date.now()}` }];
+            }
+            
+            const deliveryData = deliveryForm.getValues();
+            const { logoId, bannerId } = getCurrentImageIds();
+            
+            const updateData = {
+              _id: storeData?._id,
+              name: storeData?.name || '',
+              phoneNumber: storeData?.phoneNumber || '',
+              workTime: storeData?.workTime || '08:00-20:00',
+              deliveryPrice: deliveryData.deliveryPrice || 0,
+              orderMinimumPrice: deliveryData.orderMinimumPrice || 0,
+              itemPrepTimeFrom: deliveryData.itemPrepTimeFrom || 10,
+              itemPrepTimeTo: deliveryData.itemPrepTimeTo || 15,
+              acceptCash: paymentMethods.acceptCash,
+              acceptCard: paymentMethods.acceptCard,
+              acceptOnlinePayment: paymentMethods.acceptOnlinePayment,
+              isActive: statusFlags.isActive,
+              isVerified: statusFlags.isVerified,
+              isPremium: statusFlags.isPremium,
+              packageItems: updatedPackageItems,
+              ...(logoId && { logoId }),
+              ...(bannerId && { bannerId }),
+            };
+            
+            const response = await api.put('/store/update', updateData);
+            const updatedData = response?.data || response || updateData;
+            const updatedWithImages = preserveImagesInResponse(updatedData, storeData);
+            
+            const finalPackageItems = updatedData.packageItems || updatedPackageItems;
+            setPackageItems(finalPackageItems);
+            
+            const newStoreData = { ...storeData, ...updatedWithImages, packageItems: finalPackageItems };
+            setStoreData(newStoreData);
+            setOriginalStoreData({ ...originalStoreData, ...updatedWithImages, packageItems: finalPackageItems });
+            localStorage.setItem('storeData', JSON.stringify(newStoreData));
+            
+            toast.success(editingPackageItem ? 'Qo\'shimcha item yangilandi' : 'Qo\'shimcha item saqlandi');
+            setEditingPackageItem(null);
+          } catch (error) {
+            console.error('Error saving package item:', error);
+            throw error;
+          }
+        }}
+      />
     </div>
   );
 }
