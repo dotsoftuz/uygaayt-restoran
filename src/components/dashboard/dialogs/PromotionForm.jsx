@@ -43,7 +43,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { NumericFormat } from 'react-number-format';
 import api from '@/services/api';
-import { uploadImage } from '@/services/storeProducts';
+import { uploadImage } from '@/services/storeCategories';
 
 // Helper function to resize image
 function resizeImage(file, maxWidth, maxHeight) {
