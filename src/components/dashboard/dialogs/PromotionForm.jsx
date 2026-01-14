@@ -289,7 +289,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
       if (bannerFile) {
         try {
           setIsBannerUploading(true);
-          const resizedFile = await resizeImage(bannerFile, 1920, 1080);
+          const resizedFile = await resizeImage(bannerFile, 1600, 400);
           const uploadResponse = await uploadImage(resizedFile);
           const uploadedBannerData = uploadResponse?.data || uploadResponse;
 
@@ -474,8 +474,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                   <FormItem>
                     <FormLabel optional>Banner rasm</FormLabel>
                     <FormDescription className="mb-2">
-                      Tavsiya etilgan o'lcham: 1200x300 px (Aspect ratio: 4:1).
-                      Boshqa o'lchamdagi rasmlar avtomatik ravishda moslashtiriladi va kesiladi (object-cover).
+                      Kutilgan o'lcham: 1600x400 px (Aspect ratio: 4:1). Mijoz dasturda banner 90pt balandlikda ko'rsatiladi. Boshqa o'lchamdagi rasmlar avtomatik ravishda moslashtiriladi va kesiladi.
                     </FormDescription>
                     <FormControl>
                       <div className="space-y-2">
