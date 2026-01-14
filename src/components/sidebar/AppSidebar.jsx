@@ -20,8 +20,6 @@ import {
   DollarSign,
   Tag,
   Star,
-  History,
-  HelpCircle,
 } from 'lucide-react';
 
 import {
@@ -87,16 +85,6 @@ export function AppSidebar({ ...props }) {
       title: 'Sozlamalar',
       url: '/dashboard/settings',
       icon: Settings,
-    },
-    {
-      title: 'Faollik jurnali',
-      url: '/dashboard/activity-log',
-      icon: History,
-    },
-    {
-      title: 'Yordam',
-      url: '/dashboard/help',
-      icon: HelpCircle,
     },
   ];
 
