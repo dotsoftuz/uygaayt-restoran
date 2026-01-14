@@ -165,6 +165,8 @@ function StoreSettings() {
   const bannerFileInputRef = useRef(null);
   const [isBannerUploading, setIsBannerUploading] = useState(false);
 
+  const [isShowReview, setIsShowReview] = useState(true);
+
   // Track changes for each tab
   const [hasChanges, setHasChanges] = useState({
     basic: false,
@@ -433,6 +435,8 @@ function StoreSettings() {
       });
     }
 
+    setIsShowReview(data.isShowReview !== undefined ? data.isShowReview : true);
+
     // Work days - backend formatidan frontend formatiga o'girish
     if (data.workDays && Array.isArray(data.workDays) && data.workDays.length > 0) {
       // Agar backend formatida bo'lsa (object array)
@@ -462,17 +466,19 @@ function StoreSettings() {
     if (!originalStoreData) return;
 
     const subscription = basicForm.watch((values) => {
+      const originalIsShowReview = originalStoreData.isShowReview !== undefined ? originalStoreData.isShowReview : true;
       const hasBasicChanges =
         values.name !== (originalStoreData.name || '') ||
         values.phoneNumber !== (originalStoreData.phoneNumber || '') ||
         values.email !== (originalStoreData.email || '') ||
-        values.website !== (originalStoreData.website || '');
+        values.website !== (originalStoreData.website || '') ||
+        isShowReview !== originalIsShowReview;
 
       setHasChanges(prev => ({ ...prev, basic: hasBasicChanges }));
     });
 
     return () => subscription.unsubscribe();
-  }, [basicForm, originalStoreData]);
+  }, [basicForm, originalStoreData, isShowReview]);
 
   // Check if location form has changes
   useEffect(() => {
@@ -523,6 +529,7 @@ function StoreSettings() {
       email: originalStoreData.email || '',
       website: originalStoreData.website || '',
     });
+    setIsShowReview(originalStoreData.isShowReview !== undefined ? originalStoreData.isShowReview : true);
     setHasChanges(prev => ({ ...prev, basic: false }));
   };
 
@@ -588,8 +595,6 @@ function StoreSettings() {
   // Update forms when storeData changes (after save)
   useEffect(() => {
     if (storeData && originalStoreData) {
-      // Only update if data has actually changed (to avoid infinite loops)
-      // Compare only relevant fields that affect forms
       const storeDataStr = JSON.stringify({
         name: storeData.name,
         phoneNumber: storeData.phoneNumber,
@@ -605,6 +610,7 @@ function StoreSettings() {
         itemPrepTimeTo: storeData.itemPrepTimeTo,
         logoId: storeData.logoId,
         bannerId: storeData.bannerId,
+        isShowReview: storeData.isShowReview,
       });
       const originalDataStr = JSON.stringify({
         name: originalStoreData.name,
@@ -621,6 +627,7 @@ function StoreSettings() {
         itemPrepTimeTo: originalStoreData.itemPrepTimeTo,
         logoId: originalStoreData.logoId,
         bannerId: originalStoreData.bannerId,
+        isShowReview: originalStoreData.isShowReview,
       });
       
       if (storeDataStr !== originalDataStr) {
@@ -823,14 +830,18 @@ function StoreSettings() {
         email: data.email || undefined,
         website: data.website || undefined,
         workTime: storeData?.workTime || '08:00-20:00', // Majburiy maydon
+        isShowReview: isShowReview !== undefined ? isShowReview : true,
         ...(finalLogoId && { logoId: finalLogoId }),
         ...(finalBannerId && { bannerId: finalBannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
 
-      // Response'dan kelgan ma'lumotlarni ishlatish (agar backend yangilangan ma'lumotlarni qaytarsa)
       const updatedStoreData = response?.data || response || updateData;
+      
+      if (updatedStoreData.isShowReview !== undefined) {
+        setIsShowReview(updatedStoreData.isShowReview);
+      }
 
       // Update logo and banner in storeData
       let updatedWithImages = { ...updatedStoreData };
@@ -925,19 +936,21 @@ function StoreSettings() {
         } : undefined,
         workTime: workTime,
         workDays: convertedWorkDays,
+        isShowReview: isShowReview !== undefined ? isShowReview : true,
         ...(logoId && { logoId }),
         ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
 
-      // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
+      
+      if (updatedStoreData.isShowReview !== undefined) {
+        setIsShowReview(updatedStoreData.isShowReview);
+      }
 
-      // Preserve logo and banner in the response
       const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
 
-      // Update original data and local state (this also updates localStorage and triggers event)
       updateOriginalData(updatedWithImages);
 
       // Map address'ni ham yangilash
@@ -999,19 +1012,21 @@ function StoreSettings() {
           ru: description.ru || '',
           en: description.en || '',
         },
+        isShowReview: isShowReview !== undefined ? isShowReview : true,
         ...(logoId && { logoId }),
         ...(bannerId && { bannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
 
-      // Response'dan kelgan ma'lumotlarni ishlatish
       const updatedStoreData = response?.data || response || updateData;
+      
+      if (updatedStoreData.isShowReview !== undefined) {
+        setIsShowReview(updatedStoreData.isShowReview);
+      }
 
-      // Preserve logo and banner in the response
       const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
 
-      // Update original data and local state
       updateOriginalData(updatedWithImages);
 
       // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
@@ -1171,14 +1186,18 @@ function StoreSettings() {
           ru: description.ru || '',
           en: description.en || '',
         },
+        isShowReview: isShowReview !== undefined ? isShowReview : true,
         ...(finalLogoId && { logoId: finalLogoId }),
         ...(finalBannerId && { bannerId: finalBannerId }),
       };
 
       const response = await api.put('/store/update', updateData);
       const updatedStoreData = response?.data || response || updateData;
+      
+      if (updatedStoreData.isShowReview !== undefined) {
+        setIsShowReview(updatedStoreData.isShowReview);
+      }
 
-      // Update logo and banner in storeData
       let updatedWithImages = { ...updatedStoreData };
 
       if (finalLogoId && uploadedLogoData) {
@@ -1743,6 +1762,30 @@ function StoreSettings() {
               </div>
             </div>
           </div>
+      </div>
+
+      <div className="space-y-4 pt-6 border-t">
+        <div className="flex items-center gap-2 pb-2 border-b">
+          <Star className="w-5 h-5" />
+          <h2 className="text-lg sm:text-xl font-semibold">Sharh va reyting</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Sharh va reytingni ko'rsatish</Label>
+              <p className="text-xs text-muted-foreground">
+                Mijoz dasturida sharh va reyting ko'rsatilsin yoki faqat ish vaqti ko'rsatilsin
+              </p>
+            </div>
+            <Switch
+              checked={isShowReview}
+              onCheckedChange={(checked) => {
+                setIsShowReview(checked);
+                setHasChanges(prev => ({ ...prev, basic: true }));
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Description Section */}
