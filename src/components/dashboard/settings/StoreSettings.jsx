@@ -205,7 +205,7 @@ function StoreSettings() {
   });
 
   // Work days state
-  const [workDays, setWorkDays] = useState([]);
+  const [workDays, setWorkDays] = useState(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 
   // Ref to track if fetch is in progress
   const fetchInProgressRef = useRef(false);
@@ -450,8 +450,9 @@ function StoreSettings() {
         locationForm.setValue('workDays', data.workDays);
       }
     } else {
-      setWorkDays([]);
-      locationForm.setValue('workDays', []);
+      const defaultWorkDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      setWorkDays(defaultWorkDays);
+      locationForm.setValue('workDays', defaultWorkDays);
     }
   };
 
@@ -537,7 +538,7 @@ function StoreSettings() {
     if (!originalStoreData) return;
 
     // workDays ni backend formatidan frontend formatiga o'girish
-    let convertedWorkDays = [];
+    let convertedWorkDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     if (originalStoreData.workDays && Array.isArray(originalStoreData.workDays) && originalStoreData.workDays.length > 0) {
       if (typeof originalStoreData.workDays[0] === 'object' && originalStoreData.workDays[0].day !== undefined) {
         convertedWorkDays = convertWorkDaysFromBackendFormat(originalStoreData.workDays);
@@ -920,7 +921,7 @@ function StoreSettings() {
         : storeData?.workTime || '08:00-20:00');
 
       // workDays ni backend formatiga o'girish
-      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays);
 
       // Get current logo and banner IDs to preserve them
       const { logoId, bannerId } = getCurrentImageIds();
@@ -1164,7 +1165,7 @@ function StoreSettings() {
       const workTime = locationData.workTime || (workTimeRange.start && workTimeRange.end
         ? `${workTimeRange.start}-${workTimeRange.end}`
         : storeData?.workTime || '08:00-20:00');
-      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays);
 
       // Barcha ma'lumotlarni bitta obyektga yig'ish
       const updateData = {
@@ -1312,40 +1313,36 @@ function StoreSettings() {
 
   // Kun nomlarini raqamga o'girish
   const dayNameToNumber = {
-    'sunday': 0,
     'monday': 1,
     'tuesday': 2,
     'wednesday': 3,
     'thursday': 4,
     'friday': 5,
     'saturday': 6,
+    'sunday': 7,
   };
 
   // Raqamdan kun nomiga o'girish
   const numberToDayName = {
-    0: 'sunday',
     1: 'monday',
     2: 'tuesday',
     3: 'wednesday',
     4: 'thursday',
     5: 'friday',
     6: 'saturday',
+    7: 'sunday',
   };
 
   // workDays ni backend formatiga o'girish (string array -> WorkDayDto array)
-  const convertWorkDaysToBackendFormat = (workDaysArray, workTime) => {
-    if (!workDaysArray || workDaysArray.length === 0) return undefined;
-
-    const [startTime, endTime] = workTime ? workTime.split('-').map(t => t.trim()) : ['09:00', '18:00'];
-
-    return workDaysArray
-      .filter(dayName => dayNameToNumber[dayName] !== undefined)
-      .map(dayName => ({
-        day: dayNameToNumber[dayName],
-        startTime: startTime,
-        endTime: endTime,
-        isWorking: true,
-      }));
+  const convertWorkDaysToBackendFormat = (workDaysArray) => {
+    const allDays = [1, 2, 3, 4, 5, 6, 7];
+    return allDays.map(day => {
+      const dayName = numberToDayName[day];
+      return {
+        day: day,
+        isWorking: workDaysArray && workDaysArray.includes(dayName),
+      };
+    });
   };
 
   // Backend formatidan frontend formatiga o'girish (WorkDayDto array -> string array)
@@ -1353,7 +1350,7 @@ function StoreSettings() {
     if (!workDaysArray || !Array.isArray(workDaysArray)) return [];
 
     return workDaysArray
-      .filter(day => day.isWorking !== false && numberToDayName[day.day])
+      .filter(day => day.isWorking === true && numberToDayName[day.day])
       .map(day => numberToDayName[day.day])
       .filter(Boolean);
   };
@@ -1745,14 +1742,16 @@ function StoreSettings() {
                     {DAYS.map((day) => (
                       <div
                         key={day.value}
-                        className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-accent"
-                        onClick={() => toggleWorkDay(day.value)}
+                        className="flex items-center gap-2 p-2 border rounded-lg"
                       >
                         <Switch
                           checked={workDays.includes(day.value)}
                           onCheckedChange={() => toggleWorkDay(day.value)}
                         />
-                        <Label className="text-xs sm:text-sm cursor-pointer">
+                        <Label 
+                          className="text-xs sm:text-sm cursor-pointer flex-1"
+                          onClick={() => toggleWorkDay(day.value)}
+                        >
                           {day.label}
                         </Label>
                       </div>
