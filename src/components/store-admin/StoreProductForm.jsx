@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -17,6 +17,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,10 +30,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
+import { Plus, X } from 'lucide-react';
 const DiscountAmountTypeEnum = {
   AMOUNT: 'amount',
   PERCENT: 'percent',
 };
+
+const compoundSchema = z.object({
+  name: z.string().min(1, 'Nomi majburiy'),
+  value: z.string().min(1, 'Qiymati majburiy'),
+});
 
 const productSchema = z.object({
   nameUz: z.string().min(1, "O'zbekcha nom majburiy"),
@@ -53,6 +62,14 @@ const productSchema = z.object({
   yellowLine: z.coerce.number().min(0).optional(),
   redLine: z.coerce.number().min(0).optional(),
   url: z.string().optional(),
+  locationBlock: z.string().optional(),
+  locationShelf: z.string().optional(),
+  locationRow: z.string().optional(),
+  isMyExpire: z.boolean().default(false),
+  expiryDate: z.date().optional().nullable(),
+  compounds: z.array(compoundSchema).default([]),
+  hasAttributes: z.boolean().default(false),
+  attributes: z.array(z.any()).default([]),
 });
 
 const defaultValues = {
@@ -72,6 +89,14 @@ const defaultValues = {
   yellowLine: '',
   redLine: '',
   url: '',
+  locationBlock: '',
+  locationShelf: '',
+  locationRow: '',
+  isMyExpire: false,
+  expiryDate: null,
+  compounds: [],
+  hasAttributes: false,
+  attributes: [],
 };
 
 const StoreProductForm = ({
@@ -87,8 +112,24 @@ const StoreProductForm = ({
     defaultValues,
   });
 
+  const { fields: compoundFields, append: appendCompound, remove: removeCompound } = useFieldArray({
+    control: form.control,
+    name: 'compounds',
+  });
+
+  const [hasCompoundsEnabled, setHasCompoundsEnabled] = useState(false);
+  const [hasAttributesEnabled, setHasAttributesEnabled] = useState(false);
+
   useEffect(() => {
     if (initialData && open) {
+      const expiryDate = initialData?.expiryDate 
+        ? new Date(initialData.expiryDate) 
+        : null;
+      
+      const compounds = initialData?.compounds ?? [];
+      const hasCompounds = compounds.length > 0;
+      const hasAttributes = !!(initialData?.attributes && initialData.attributes.length > 0);
+      
       form.reset({
         nameUz: initialData?.nameTranslate?.uz ?? initialData?.name ?? '',
         nameRu: initialData?.nameTranslate?.ru ?? initialData?.name ?? '',
@@ -110,9 +151,22 @@ const StoreProductForm = ({
         yellowLine: initialData?.yellowLine ?? '',
         redLine: initialData?.redLine ?? '',
         url: initialData?.url ?? '',
+        locationBlock: initialData?.locationBlock ?? '',
+        locationShelf: initialData?.locationShelf ?? '',
+        locationRow: initialData?.locationRow ?? '',
+        isMyExpire: !!initialData?.expiryDate,
+        expiryDate: expiryDate,
+        compounds: compounds,
+        hasAttributes: hasAttributes,
+        attributes: initialData?.attributes ?? [],
       });
+      
+      setHasCompoundsEnabled(hasCompounds);
+      setHasAttributesEnabled(hasAttributes);
     } else if (!initialData && open) {
       form.reset(defaultValues);
+      setHasCompoundsEnabled(false);
+      setHasAttributesEnabled(false);
     }
   }, [initialData, open, form]);
 
@@ -136,6 +190,12 @@ const StoreProductForm = ({
       yellowLine: values.yellowLine === '' ? undefined : values.yellowLine,
       redLine: values.redLine === '' ? undefined : values.redLine,
       url: values.url || undefined,
+      locationBlock: values.locationBlock?.trim() || undefined,
+      locationShelf: values.locationShelf?.trim() || undefined,
+      locationRow: values.locationRow?.trim() || undefined,
+      expiryDate: values.isMyExpire && values.expiryDate ? values.expiryDate : undefined,
+      compounds: values.compounds && values.compounds.length > 0 ? values.compounds : undefined,
+      attributes: values.hasAttributes && values.attributes && values.attributes.length > 0 ? values.attributes : undefined,
     };
 
     if (initialData?._id) {
@@ -339,6 +399,180 @@ const StoreProductForm = ({
                 </FormItem>
               )}
             />
+
+            <div className="space-y-4 border rounded-lg p-4">
+              <Label className="text-base font-semibold">Mahsulot joylashuvi</Label>
+              <FormDescription className="text-sm text-muted-foreground mb-4">
+                Kuryer mahsulotni topishi uchun joylashuv ma'lumotlarini kiriting
+              </FormDescription>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="locationBlock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel optional>Blok</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masalan: A blok" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="locationShelf"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel optional>Javon</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masalan: 2 javon" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="locationRow"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel optional>Qator</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masalan: 3 qator" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <FormLabel optional>Muddatli mahsulot</FormLabel>
+                <FormField
+                  control={form.control}
+                  name="isMyExpire"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
+              {form.watch('isMyExpire') && (
+                <FormField
+                  control={form.control}
+                  name="expiryDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Yaroqlilik muddati</FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          value={field.value}
+                          onChange={(date) => {
+                            field.onChange(date);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+            </div>
+
+            <div className="space-y-2 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <FormLabel optional>Tarkibli tovar</FormLabel>
+                <Switch
+                  checked={hasCompoundsEnabled}
+                  onCheckedChange={(checked) => {
+                    setHasCompoundsEnabled(checked);
+                    if (!checked) {
+                      form.setValue('compounds', []);
+                    } else if (compoundFields.length === 0) {
+                      appendCompound({ name: '', value: '' });
+                    }
+                  }}
+                />
+              </div>
+              {hasCompoundsEnabled && compoundFields.map((field, index) => (
+                <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                  <div className="md:col-span-5">
+                    <FormField
+                      control={form.control}
+                      name={`compounds.${index}.name`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nomi</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Masalan: Suv" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="md:col-span-5">
+                    <FormField
+                      control={form.control}
+                      name={`compounds.${index}.value`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Miqdori</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Masalan: 100ml" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => removeCompound(index)}
+                      className="w-full"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {hasCompoundsEnabled && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => appendCompound({ name: '', value: '' })}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Qo'shish
+                </Button>
+              )}
+            </div>
+
+            <div className="space-y-2 border rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <FormLabel optional>Mahsulot variantlari</FormLabel>
+                <Switch
+                  checked={hasAttributesEnabled}
+                  onCheckedChange={(checked) => {
+                    setHasAttributesEnabled(checked);
+                    if (!checked) {
+                      form.setValue('attributes', []);
+                    }
+                  }}
+                />
+              </div>
+              {hasAttributesEnabled && (
+                <div className="text-sm text-muted-foreground">
+                  Variantlar funksiyasi tez orada qo'shiladi
+                </div>
+              )}
+            </div>
 
             <div className="space-y-2 border rounded-lg p-4">
               <div className="flex items-center justify-between">

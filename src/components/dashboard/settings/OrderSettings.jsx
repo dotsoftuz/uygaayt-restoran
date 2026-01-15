@@ -786,18 +786,41 @@ function OrderSettings() {
           try {
             let updatedPackageItems;
             if (editingPackageItem) {
-              updatedPackageItems = packageItems.map(item => 
-                (item._id === editingPackageItem._id || item._id === editingPackageItem.id) 
-                  ? { ...data, _id: editingPackageItem._id || editingPackageItem.id }
-                  : item
-              );
+              const normalizeId = (id) => {
+                if (!id) return null;
+                if (typeof id === 'object' && id.$oid) return id.$oid;
+                return String(id);
+              };
+              updatedPackageItems = packageItems.map(item => {
+                const itemId = normalizeId(item._id);
+                const editingId = normalizeId(editingPackageItem._id) || normalizeId(editingPackageItem.id);
+                return itemId === editingId ? { ...data, _id: editingPackageItem._id || editingPackageItem.id } : item;
+              });
             } else {
-              updatedPackageItems = [...packageItems, { ...data, _id: `temp_${Date.now()}` }];
+              const generateMongoObjectId = () => {
+                const timestamp = Math.floor(new Date().getTime() / 1000).toString(16);
+                const randomPart = 'xxxxxxxxxxxxxxxx'.replace(/[x]/g, function() {
+                  return (Math.random() * 16 | 0).toString(16);
+                }).toLowerCase();
+                const objectId = (timestamp + randomPart).substring(0, 24);
+                return { $oid: objectId };
+              };
+              updatedPackageItems = [...packageItems, { ...data, _id: generateMongoObjectId() }];
             }
             
             const deliveryData = deliveryForm.getValues();
             const { logoId, bannerId } = getCurrentImageIds();
             
+            const transformPackageItemsForBackend = (items) => {
+              return items.map(item => {
+                const transformedItem = { ...item };
+                if (transformedItem._id && typeof transformedItem._id === 'object' && transformedItem._id.$oid) {
+                  transformedItem._id = transformedItem._id.$oid;
+                }
+                return transformedItem;
+              });
+            };
+
             const updateData = {
               _id: storeData?._id,
               name: storeData?.name || '',
@@ -813,7 +836,7 @@ function OrderSettings() {
               isActive: statusFlags.isActive,
               isVerified: statusFlags.isVerified,
               isPremium: statusFlags.isPremium,
-              packageItems: updatedPackageItems,
+              packageItems: transformPackageItemsForBackend(updatedPackageItems),
               ...(logoId && { logoId }),
               ...(bannerId && { bannerId }),
             };
