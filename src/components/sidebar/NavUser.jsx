@@ -38,6 +38,17 @@ import { useTheme } from '@/provider/ThemeProvider';
 import { logout } from '@/middleware/authMiddleware';
 import api from '@/services/api';
 
+const formatImageUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  let url = imageUrl;
+  if (url.startsWith('uploads/')) {
+    url = url.replace('uploads/', '');
+  }
+  return `${cleanBaseUrl}/uploads/${url}`;
+};
+
 export function NavUser() {
   const { isMobile, state } = useSidebar();
   const { userData, user } = useAppContext();
@@ -122,7 +133,7 @@ export function NavUser() {
             >
               <Avatar className={`rounded-full h-8 w-8 lg:h-8 lg:w-8 object-cover`}>
                 <AvatarImage
-                  src="/assets/logos/uygaayt-shape.svg"
+                  src={storeData?.logo?.url ? formatImageUrl(storeData.logo.url) : "/assets/logos/uygaayt-shape.svg"}
                   alt={userData?.displayName || 'Anonymous'}
                 />
                 <AvatarFallback className="rounded-full text-xs font-medium">
@@ -141,7 +152,7 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src="/assets/logos/uygaayt-shape.svg"
+                    src={storeData?.logo?.url ? formatImageUrl(storeData.logo.url) : "/assets/logos/uygaayt-shape.svg"}
                     alt={
                       userData?.displayName
                         ? userData?.displayName
