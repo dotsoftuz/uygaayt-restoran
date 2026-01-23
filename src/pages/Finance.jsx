@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import api from '@/services/api';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -8,17 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  Wallet,
-  TrendingUp,
-  Search,
-  Loader2,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-} from 'lucide-react';
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -35,30 +38,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from '@/components/ui/chart';
-import {
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-} from 'recharts';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { formatNumber, formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatDateTime, formatNumber } from '@/lib/utils';
+import api from '@/services/api';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Loader2,
+  Search,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { toast } from 'sonner';
 
 const chartConfig = {
@@ -68,11 +63,18 @@ const chartConfig = {
   },
 };
 
-
 const TransactionTypeBadge = ({ type }) => {
   const config = {
-    income: { label: 'Kirim', variant: 'default', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
-    expense: { label: 'Chiqim', variant: 'destructive', className: 'bg-red-500/10 text-red-500 border-red-500/20' },
+    income: {
+      label: 'Kirim',
+      variant: 'default',
+      className: 'bg-green-500/10 text-green-500 border-green-500/20',
+    },
+    expense: {
+      label: 'Chiqim',
+      variant: 'destructive',
+      className: 'bg-red-500/10 text-red-500 border-red-500/20',
+    },
   };
   const item = config[type] || config.income;
   return (
@@ -89,7 +91,7 @@ const CategoryBadge = ({ category }) => {
     withdraw_balance: 'Balans yechib olish',
     buy_premium: 'Premium sotib olish',
     cashback: 'Cashback',
-    fill_balance: 'Balans to\'ldirish',
+    fill_balance: "Balans to'ldirish",
   };
   const label = categoryLabels[category] || category;
   return (
@@ -116,9 +118,13 @@ const TransactionCard = ({ transaction, onView }) => {
             )}
           </div>
           <div className="text-right">
-            <p className={`font-semibold text-lg ${
-              transaction.type === 'income' ? 'text-green-500' : 'text-red-500'
-            }`}>
+            <p
+              className={`font-semibold text-lg ${
+                transaction.type === 'income'
+                  ? 'text-green-500'
+                  : 'text-red-500'
+              }`}
+            >
               {transaction.type === 'income' ? '+' : '-'}
               {formatNumber(transaction.amount)} so'm
             </p>
@@ -165,16 +171,20 @@ const TransactionTableRow = ({ transaction, isMobile, onView }) => {
         </div>
       </TableCell>
       <TableCell>
-        <p className={`font-semibold ${
-          transaction.type === 'income' ? 'text-green-500' : 'text-red-500'
-        }`}>
+        <p
+          className={`font-semibold ${
+            transaction.type === 'income' ? 'text-green-500' : 'text-red-500'
+          }`}
+        >
           {transaction.type === 'income' ? '+' : '-'}
           {formatNumber(transaction.amount)} so'm
         </p>
       </TableCell>
       <TableCell className="hidden md:table-cell">
         {transaction.comment ? (
-          <p className="text-sm truncate max-w-[200px]">{transaction.comment}</p>
+          <p className="text-sm truncate max-w-[200px]">
+            {transaction.comment}
+          </p>
         ) : (
           <span className="text-muted-foreground text-sm">-</span>
         )}
@@ -238,21 +248,31 @@ function Finance() {
         params.dateTo = dateRange.to.toISOString();
       }
       const response = await api.post('/store/balance/total', params);
-      console.log('[FINANCE] Full response:', JSON.stringify(response, null, 2));
+      console.log(
+        '[FINANCE] Full response:',
+        JSON.stringify(response, null, 2)
+      );
       console.log('[FINANCE] response type:', typeof response);
       console.log('[FINANCE] response keys:', Object.keys(response || {}));
       console.log('[FINANCE] response.storeBalance:', response?.storeBalance);
-      console.log('[FINANCE] response.data?.storeBalance:', response?.data?.storeBalance);
+      console.log(
+        '[FINANCE] response.data?.storeBalance:',
+        response?.data?.storeBalance
+      );
       console.log('[FINANCE] response.data:', response?.data);
-      
-      const storeBalance = response?.storeBalance ?? response?.data?.storeBalance ?? 0;
+
+      const storeBalance =
+        response?.storeBalance ?? response?.data?.storeBalance ?? 0;
       console.log('[FINANCE] Final storeBalance value:', storeBalance);
-      console.log('[FINANCE] Setting statistics with storeBalance:', storeBalance);
-      
+      console.log(
+        '[FINANCE] Setting statistics with storeBalance:',
+        storeBalance
+      );
+
       setStatistics({
         storeBalance: storeBalance,
       });
-      
+
       console.log('[FINANCE] Statistics state updated');
     } catch (error) {
       console.error('Error fetching statistics:', error);
@@ -277,7 +297,7 @@ function Finance() {
       const responseData = response?.data || {};
       const data = responseData?.data || [];
       const total = responseData?.total || 0;
-      
+
       const mappedTransactions = Array.isArray(data)
         ? data.map((tr) => ({
             _id: tr._id,
@@ -292,7 +312,7 @@ function Finance() {
             createdAt: tr.createdAt ? new Date(tr.createdAt) : new Date(),
           }))
         : [];
-      
+
       setTransactions(mappedTransactions);
       setTotalTransactions(total || 0);
     } catch (error) {
@@ -348,7 +368,9 @@ function Finance() {
     if (debouncedSearchTerm) {
       filtered = filtered.filter(
         (tr) =>
-          tr.comment?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          tr.comment
+            ?.toLowerCase()
+            .includes(debouncedSearchTerm.toLowerCase()) ||
           tr.orderId?.toString().includes(debouncedSearchTerm) ||
           tr.amount?.toString().includes(debouncedSearchTerm)
       );
@@ -374,7 +396,6 @@ function Finance() {
       }));
   }, [transactions]);
 
-
   const handleExportCSV = () => {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
@@ -394,7 +415,10 @@ function Finance() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `transactions_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute(
+      'download',
+      `transactions_${new Date().toISOString().split('T')[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -416,10 +440,7 @@ function Finance() {
             Moliyaviy ma'lumotlar va tranzaksiyalarni ko'rib chiqing
           </p>
         </div>
-        <DateRangePicker
-          date={dateRange}
-          onDateChange={setDateRange}
-        />
+        <DateRangePicker date={dateRange} onDateChange={setDateRange} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -444,7 +465,9 @@ function Finance() {
         {transactions.length > 0 && (
           <Card className="border-green-500/20 bg-green-500/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Oxirgi tranzaksiya</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Oxirgi tranzaksiya
+              </CardTitle>
               <div className="bg-green-500/10 rounded-full p-2 border border-green-500/20">
                 <TrendingUp className="h-4 w-4 text-green-500" />
               </div>
@@ -456,9 +479,13 @@ function Finance() {
                     <TransactionTypeBadge type={transactions[0].type} />
                     <CategoryBadge category={transactions[0].customType} />
                   </div>
-                  <p className={`font-semibold text-lg ${
-                    transactions[0].type === 'income' ? 'text-green-500' : 'text-red-500'
-                  }`}>
+                  <p
+                    className={`font-semibold text-lg ${
+                      transactions[0].type === 'income'
+                        ? 'text-green-500'
+                        : 'text-red-500'
+                    }`}
+                  >
                     {transactions[0].type === 'income' ? '+' : '-'}
                     {formatNumber(transactions[0].amount)} so'm
                   </p>
@@ -473,7 +500,9 @@ function Finance() {
                   {transactions[0].orderId && (
                     <div className="flex items-center justify-between mt-1">
                       <span>Buyurtma:</span>
-                      <span className="font-medium">#{transactions[0].orderId}</span>
+                      <span className="font-medium">
+                        #{transactions[0].orderId}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -527,8 +556,12 @@ function Finance() {
                     <TableRow>
                       <TableHead>Turi</TableHead>
                       <TableHead>Summa</TableHead>
-                      <TableHead className="hidden md:table-cell">Izoh</TableHead>
-                      <TableHead className="hidden lg:table-cell">Sana</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Izoh
+                      </TableHead>
+                      <TableHead className="hidden lg:table-cell">
+                        Sana
+                      </TableHead>
                       <TableHead className="text-right">Amal</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -576,8 +609,12 @@ function Finance() {
                     <TableRow>
                       <TableHead>Turi</TableHead>
                       <TableHead>Summa</TableHead>
-                      <TableHead className="hidden md:table-cell">Izoh</TableHead>
-                      <TableHead className="hidden lg:table-cell">Sana</TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        Izoh
+                      </TableHead>
+                      <TableHead className="hidden lg:table-cell">
+                        Sana
+                      </TableHead>
                       <TableHead className="text-right">Amal</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -592,8 +629,8 @@ function Finance() {
                     ))}
                   </TableBody>
                 </Table>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
           )
         ) : (
           <Empty>
@@ -604,7 +641,7 @@ function Finance() {
               <EmptyTitle>
                 {searchTerm || hasActiveFilters
                   ? 'Tranzaksiya topilmadi'
-                  : 'Hech qanday tranzaksiya yo\'q'}
+                  : "Hech qanday tranzaksiya yo'q"}
               </EmptyTitle>
               <EmptyDescription>
                 {searchTerm || hasActiveFilters
@@ -640,7 +677,7 @@ function Finance() {
                 </SelectContent>
               </Select>
               <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-                {((currentPage - 1) * itemsPerPage) + 1}-
+                {(currentPage - 1) * itemsPerPage + 1}-
                 {Math.min(currentPage * itemsPerPage, totalTransactions)} dan{' '}
                 {totalTransactions} ta
               </span>
@@ -662,11 +699,17 @@ function Finance() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(Math.min(
-                  Math.ceil(totalTransactions / itemsPerPage),
-                  currentPage + 1
-                ))}
-                disabled={currentPage >= Math.ceil(totalTransactions / itemsPerPage)}
+                onClick={() =>
+                  setCurrentPage(
+                    Math.min(
+                      Math.ceil(totalTransactions / itemsPerPage),
+                      currentPage + 1
+                    )
+                  )
+                }
+                disabled={
+                  currentPage >= Math.ceil(totalTransactions / itemsPerPage)
+                }
                 className="flex-1 sm:flex-initial"
               >
                 <span className="text-xs sm:text-sm">Keyingi</span>
@@ -687,20 +730,15 @@ function Finance() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full">
+          <ChartContainer
+            config={chartConfig}
+            className="h-[300px] sm:h-[400px] w-full"
+          >
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="fillAmount" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.6}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.05}
-                  />
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />

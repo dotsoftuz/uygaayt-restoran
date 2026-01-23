@@ -42,7 +42,6 @@ const parseNumber = (value) => {
 
 // Validation schema
 const deliverySchema = z.object({
-  deliveryPrice: z.number().min(0, 'Yetkazib berish narxi 0 dan kichik bo\'lmasligi kerak'),
   orderMinimumPrice: z.number().min(0, 'Minimal buyurtma narxi 0 dan kichik bo\'lmasligi kerak'),
   itemPrepTimeFrom: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
   itemPrepTimeTo: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
@@ -63,7 +62,6 @@ function OrderSettings() {
   const deliveryForm = useForm({
     resolver: zodResolver(deliverySchema),
     defaultValues: {
-      deliveryPrice: 0,
       orderMinimumPrice: 0,
       itemPrepTimeFrom: 10,
       itemPrepTimeTo: 15,
@@ -141,7 +139,6 @@ function OrderSettings() {
   const populateForms = (data) => {
     // Delivery
     deliveryForm.reset({
-      deliveryPrice: data.deliveryPrice || 0,
       orderMinimumPrice: data.orderMinimumPrice || 0,
       itemPrepTimeFrom: data.itemPrepTimeFrom || 10,
       itemPrepTimeTo: data.itemPrepTimeTo || 15,
@@ -168,7 +165,6 @@ function OrderSettings() {
 
     const deliveryValues = deliveryForm.watch();
     const hasDeliveryChanges =
-      deliveryValues.deliveryPrice !== (originalStoreData.deliveryPrice || 0) ||
       deliveryValues.orderMinimumPrice !== (originalStoreData.orderMinimumPrice || 0) ||
       deliveryValues.itemPrepTimeFrom !== (originalStoreData.itemPrepTimeFrom || 10) ||
       deliveryValues.itemPrepTimeTo !== (originalStoreData.itemPrepTimeTo || 15);
@@ -231,7 +227,6 @@ function OrderSettings() {
         name: storeData?.name || '',
         phoneNumber: storeData?.phoneNumber || '',
         workTime: storeData?.workTime || '08:00-20:00',
-        deliveryPrice: deliveryData.deliveryPrice || 0,
         orderMinimumPrice: deliveryData.orderMinimumPrice || 0,
         itemPrepTimeFrom: deliveryData.itemPrepTimeFrom || 10,
         itemPrepTimeTo: deliveryData.itemPrepTimeTo || 15,
@@ -253,7 +248,6 @@ function OrderSettings() {
 
       // Form'larni yangilash
       deliveryForm.reset({
-        deliveryPrice: updatedStoreData.deliveryPrice ?? deliveryData.deliveryPrice,
         orderMinimumPrice: updatedStoreData.orderMinimumPrice ?? deliveryData.orderMinimumPrice,
         itemPrepTimeFrom: updatedStoreData.itemPrepTimeFrom ?? deliveryData.itemPrepTimeFrom,
         itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? deliveryData.itemPrepTimeTo,
@@ -290,7 +284,6 @@ function OrderSettings() {
     if (!originalStoreData) return;
     
     deliveryForm.reset({
-      deliveryPrice: originalStoreData.deliveryPrice || 0,
       orderMinimumPrice: originalStoreData.orderMinimumPrice || 0,
       itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom || 10,
       itemPrepTimeTo: originalStoreData.itemPrepTimeTo || 15,
@@ -323,35 +316,6 @@ function OrderSettings() {
         </div>
         <div className="space-y-6">
         <div className="space-y-4">
-            <div className="space-y-2">
-              <Label required className="text-xs sm:text-sm">
-                Yetkazib berish narxi
-              </Label>
-          <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  value={formatNumber(deliveryForm.watch('deliveryPrice') || 0)}
-                  onChange={(e) => {
-                    const parsed = parseNumber(e.target.value);
-                    deliveryForm.setValue('deliveryPrice', parsed, { shouldValidate: true });
-                  }}
-                  onBlur={(e) => {
-                    const parsed = parseNumber(e.target.value);
-                    deliveryForm.setValue('deliveryPrice', parsed, { shouldValidate: true });
-                  }}
-                  className="text-sm sm:text-base"
-                  disabled
-                  placeholder="0"
-                />
-                <span className="text-xs sm:text-sm text-muted-foreground">so'm</span>
-              </div>
-              {deliveryForm.formState.errors.deliveryPrice && (
-                <p className="text-xs text-destructive">
-                  {deliveryForm.formState.errors.deliveryPrice.message}
-                </p>
-              )}
-            </div>
-
             <div className="space-y-2">
               <Label required className="text-xs sm:text-sm">
                 Minimal buyurtma narxi
@@ -826,7 +790,6 @@ function OrderSettings() {
               name: storeData?.name || '',
               phoneNumber: storeData?.phoneNumber || '',
               workTime: storeData?.workTime || '08:00-20:00',
-              deliveryPrice: deliveryData.deliveryPrice || 0,
               orderMinimumPrice: deliveryData.orderMinimumPrice || 0,
               itemPrepTimeFrom: deliveryData.itemPrepTimeFrom || 10,
               itemPrepTimeTo: deliveryData.itemPrepTimeTo || 15,

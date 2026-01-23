@@ -605,7 +605,6 @@ function StoreSettings() {
         addressLocation: storeData.addressLocation,
         workTime: storeData.workTime,
         workDays: storeData.workDays,
-        deliveryPrice: storeData.deliveryPrice,
         orderMinimumPrice: storeData.orderMinimumPrice,
         itemPrepTimeFrom: storeData.itemPrepTimeFrom,
         itemPrepTimeTo: storeData.itemPrepTimeTo,
@@ -622,7 +621,6 @@ function StoreSettings() {
         addressLocation: originalStoreData.addressLocation,
         workTime: originalStoreData.workTime,
         workDays: originalStoreData.workDays,
-        deliveryPrice: originalStoreData.deliveryPrice,
         orderMinimumPrice: originalStoreData.orderMinimumPrice,
         itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom,
         itemPrepTimeTo: originalStoreData.itemPrepTimeTo,
@@ -921,7 +919,7 @@ function StoreSettings() {
         : storeData?.workTime || '08:00-20:00');
 
       // workDays ni backend formatiga o'girish
-      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays);
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
 
       // Get current logo and banner IDs to preserve them
       const { logoId, bannerId } = getCurrentImageIds();
@@ -1165,7 +1163,7 @@ function StoreSettings() {
       const workTime = locationData.workTime || (workTimeRange.start && workTimeRange.end
         ? `${workTimeRange.start}-${workTimeRange.end}`
         : storeData?.workTime || '08:00-20:00');
-      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays);
+      const convertedWorkDays = convertWorkDaysToBackendFormat(workDays, workTime);
 
       // Barcha ma'lumotlarni bitta obyektga yig'ish
       const updateData = {
@@ -1334,12 +1332,15 @@ function StoreSettings() {
   };
 
   // workDays ni backend formatiga o'girish (string array -> WorkDayDto array)
-  const convertWorkDaysToBackendFormat = (workDaysArray) => {
+  const convertWorkDaysToBackendFormat = (workDaysArray, workTimeString) => {
     const allDays = [1, 2, 3, 4, 5, 6, 7];
+    const { start, end } = parseWorkTime(workTimeString);
     return allDays.map(day => {
       const dayName = numberToDayName[day];
       return {
         day: day,
+        startTime: start,
+        endTime: end,
         isWorking: workDaysArray && workDaysArray.includes(dayName),
       };
     });
