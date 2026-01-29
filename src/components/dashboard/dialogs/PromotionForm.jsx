@@ -1,15 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Form,
   FormControl,
@@ -20,30 +10,32 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Loader2, CalendarIcon, Upload, X } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { toast } from 'sonner';
-import { format } from 'date-fns';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { NumericFormat } from 'react-number-format';
-import api from '@/services/api';
 import { uploadImage } from '@/services/storeCategories';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { format } from 'date-fns';
+import { CalendarIcon, Loader2, Upload, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { NumericFormat } from 'react-number-format';
+import { toast } from 'sonner';
+import * as z from 'zod';
 
 // Helper function to resize image
 function resizeImage(file, maxWidth, maxHeight) {
@@ -92,7 +84,8 @@ function resizeImage(file, maxWidth, maxHeight) {
 // Helper function to format image URL
 const formatImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   let url = imageUrl;
   if (url.startsWith('uploads/')) {
@@ -101,32 +94,57 @@ const formatImageUrl = (imageUrl) => {
   return `${cleanBaseUrl}/uploads/${url}`;
 };
 
-const promotionSchema = z.object({
-  name: z.string().min(1, 'Promokod nomi majburiy').max(100, 'Promokod nomi juda uzun'),
-  code: z.string().min(1, 'Promo kod majburiy').max(50, 'Promo kod juda uzun'),
-  discountValue: z.number({ required_error: 'Chegirma qiymati majburiy', invalid_type_error: 'Chegirma qiymati raqam bo\'lishi kerak' }).min(0.01, 'Chegirma qiymati 0 dan katta bo\'lishi kerak'),
-  minOrderValue: z.number({ required_error: 'Minimal buyurtma summasi majburiy', invalid_type_error: 'Minimal buyurtma summasi raqam bo\'lishi kerak' }).min(0, 'Minimal buyurtma summasi 0 dan katta yoki teng bo\'lishi kerak'),
-  validFrom: z.date({
-    required_error: 'Boshlanish sanasi majburiy',
-  }),
-  validUntil: z.date({
-    required_error: 'Tugash sanasi majburiy',
-  }),
-  usageLimitPerUser: z.number({ required_error: 'Foydalanuvchi uchun maksimal foydalanish majburiy', invalid_type_error: 'Foydalanuvchi uchun maksimal foydalanish raqam bo\'lishi kerak' }).min(1, 'Foydalanuvchi uchun maksimal foydalanish 1 dan katta bo\'lishi kerak'),
-  usageLimitTotal: z.number({ required_error: 'Qancha ishlatilishi majburiy', invalid_type_error: 'Qancha ishlatilishi raqam bo\'lishi kerak' }).min(1, 'Qancha ishlatilishi 1 dan katta bo\'lishi kerak'),
-  description: z.string().optional(),
-  productIds: z.array(z.string()).optional().default([]),
-  bannerImageId: z.string().optional().nullable(),
-  isShow: z.boolean().optional().default(false),
-}).refine((data) => {
-  if (data.validUntil <= data.validFrom) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Tugash sanasi boshlanish sanasidan keyin bo\'lishi kerak',
-  path: ['validUntil'],
-});
+const promotionSchema = z
+  .object({
+    name: z.string().min(1, 'promoNameRequired').max(100, 'promoNameTooLong'),
+    code: z.string().min(1, 'promoCodeRequired').max(50, 'promoCodeTooLong'),
+    discountValue: z
+      .number({
+        required_error: 'discountValueRequired',
+        invalid_type_error: 'discountValueMustBeNumber',
+      })
+      .min(0.01, 'discountValueMin'),
+    minOrderValue: z
+      .number({
+        required_error: 'minOrderValueRequired',
+        invalid_type_error: 'minOrderValueMustBeNumber',
+      })
+      .min(0, 'minOrderValueMin'),
+    validFrom: z.date({
+      required_error: 'startDateRequired',
+    }),
+    validUntil: z.date({
+      required_error: 'endDateRequired',
+    }),
+    usageLimitPerUser: z
+      .number({
+        required_error: 'usageLimitPerUserRequired',
+        invalid_type_error: 'usageLimitPerUserMustBeNumber',
+      })
+      .min(1, 'usageLimitPerUserMin'),
+    usageLimitTotal: z
+      .number({
+        required_error: 'usageLimitTotalRequired',
+        invalid_type_error: 'usageLimitTotalMustBeNumber',
+      })
+      .min(1, 'usageLimitTotalMin'),
+    description: z.string().optional(),
+    productIds: z.array(z.string()).optional().default([]),
+    bannerImageId: z.string().optional().nullable(),
+    isShow: z.boolean().optional().default(false),
+  })
+  .refine(
+    (data) => {
+      if (data.validUntil <= data.validFrom) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'endDateMustBeAfterStart',
+      path: ['validUntil'],
+    }
+  );
 
 // Helper function to generate random promo code
 const generatePromoCode = () => {
@@ -139,6 +157,7 @@ const generatePromoCode = () => {
 };
 
 function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bannerPreview, setBannerPreview] = useState(null);
   const [bannerFile, setBannerFile] = useState(null);
@@ -169,15 +188,20 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     if (!file) return;
 
     const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-    const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const ALLOWED_IMAGE_TYPES = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    ];
 
     if (file.size > MAX_IMAGE_SIZE) {
-      toast.error('Fayl hajmi 5MB dan katta');
+      toast.error(t('fileSizeExceeded'));
       return;
     }
 
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      toast.error('Noto\'g\'ri fayl formati. Faqat JPEG, PNG yoki WebP ruxsat etiladi');
+      toast.error(t('invalidFileFormat'));
       return;
     }
 
@@ -226,14 +250,19 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     // Sheet ochilganda
     if (promotion && open) {
       // Edit mode - promotion ma'lumotlarini yuklash
-      const bannerId = promotion.bannerImageId || promotion.bannerImage?._id || null;
+      const bannerId =
+        promotion.bannerImageId || promotion.bannerImage?._id || null;
       form.reset({
         name: promotion.name || '',
         code: promotion.code || '',
         discountValue: promotion.discountValue ?? undefined,
         minOrderValue: promotion.minOrderValue ?? 0,
-        validFrom: promotion.validFrom ? new Date(promotion.validFrom) : new Date(),
-        validUntil: promotion.validUntil ? new Date(promotion.validUntil) : new Date(),
+        validFrom: promotion.validFrom
+          ? new Date(promotion.validFrom)
+          : new Date(),
+        validUntil: promotion.validUntil
+          ? new Date(promotion.validUntil)
+          : new Date(),
         usageLimitPerUser: promotion.usageLimitPerUser ?? 1,
         usageLimitTotal: promotion.usageLimitTotal ?? 1,
         description: promotion.description || '',
@@ -306,12 +335,12 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
               }
             }
           } else {
-            throw new Error('Banner rasm yuklashda xatolik - image ID olinmadi');
+            throw new Error(t('bannerUploadError'));
           }
           setIsBannerUploading(false);
         } catch (error) {
           console.error('Error uploading banner:', error);
-          toast.error('Banner rasm yuklashda xatolik yuz berdi');
+          toast.error(t('bannerUploadFailed'));
           setIsSubmitting(false);
           setIsBannerUploading(false);
           return;
@@ -359,18 +388,22 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
 
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-2xl overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>
-            {promotion ? 'Promo kodni tahrirlash' : 'Yangi promo kod'}
+            {promotion ? t('editPromoCode') : t('newPromoCode')}
           </SheetTitle>
-          <SheetDescription>
-            Promo kod yarating
-          </SheetDescription>
+          <SheetDescription>{t('createPromoCodeDescription')}</SheetDescription>
         </SheetHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-6">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-6 mt-6"
+          >
             <div className="space-y-4">
               {/* 1. Promokod nomi (Required) */}
               <FormField
@@ -378,16 +411,16 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Promokod nomi</FormLabel>
+                    <FormLabel required>{t('promoName')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Masalan: Yangi yil chegirmasi"
+                        placeholder={t('promoNamePlaceholder')}
                         {...field}
                         maxLength={100}
                       />
                     </FormControl>
                     <FormDescription>
-                      Promokodning nomi yoki sarlavhasi
+                      {t('promoNameDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -400,7 +433,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Promo kod</FormLabel>
+                    <FormLabel required>{t('promoCode')}</FormLabel>
                     <FormControl>
                       <div className="flex gap-2">
                         <Input
@@ -415,12 +448,12 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                           onClick={handleGenerateCode}
                           className="flex-shrink-0"
                         >
-                          Tasodifiy
+                          {t('random')}
                         </Button>
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Mijozlar buyurtma berishda ishlatadigan kod
+                      {t('promoCodeDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -433,17 +466,24 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="discountValue"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Chegirma summasi</FormLabel>
+                    <FormLabel required>{t('discountAmount')}</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <NumericFormat
                           customInput={Input}
                           thousandSeparator=" "
-                          placeholder="Masalan: 5 000"
-                          value={field.value === undefined || field.value === null ? '' : field.value}
+                          placeholder={t('amountPlaceholder')}
+                          value={
+                            field.value === undefined || field.value === null
+                              ? ''
+                              : field.value
+                          }
                           onValueChange={(values) => {
                             const { floatValue } = values;
-                            if (floatValue === undefined || floatValue === null) {
+                            if (
+                              floatValue === undefined ||
+                              floatValue === null
+                            ) {
                               field.onChange(undefined);
                             } else {
                               field.onChange(floatValue);
@@ -454,12 +494,12 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                           className="pr-8"
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                          so'm
+                          {t('currency')}
                         </span>
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Belgilangan summa miqdori
+                      {t('discountAmountDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -472,9 +512,9 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="bannerImageId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel optional>Banner rasm</FormLabel>
+                    <FormLabel optional>{t('bannerImage')}</FormLabel>
                     <FormDescription className="mb-2">
-                      Kutilgan o'lcham: 1600x400 px (Aspect ratio: 4:1). Mijoz dasturda banner 90pt balandlikda ko'rsatiladi. Boshqa o'lchamdagi rasmlar avtomatik ravishda moslashtiriladi va kesiladi.
+                      {t('bannerImageDescription')}
                     </FormDescription>
                     <FormControl>
                       <div className="space-y-2">
@@ -486,19 +526,22 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                             <>
                               <img
                                 src={bannerPreview}
-                                alt="Banner preview"
+                                alt={t('bannerPreview')}
                                 className="w-full h-full object-cover"
                               />
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); handleRemoveBanner(); }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveBanner();
+                                }}
                                 className="absolute top-2 right-2 p-2 bg-background/95 border border-border rounded-full text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors shadow-sm z-10"
                               >
                                 <X className="w-4 h-4" />
                               </button>
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                                 <span className="opacity-0 group-hover:opacity-100 text-white text-sm font-medium bg-black/50 px-3 py-1 rounded">
-                                  O'zgartirish uchun bosing
+                                  {t('clickToChange')}
                                 </span>
                               </div>
                             </>
@@ -509,7 +552,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                                   <Upload className="w-6 h-6 text-muted-foreground" />
                                 </div>
                                 <p className="text-sm text-muted-foreground">
-                                  Banner rasm yuklash uchun bosing
+                                  {t('clickToUploadBanner')}
                                 </p>
                               </div>
                             </div>
@@ -527,13 +570,14 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                         </div>
                         {isBannerUploading && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Yuklanmoqda...
+                            <Loader2 className="h-3 w-3 animate-spin" />{' '}
+                            {t('uploading')}...
                           </p>
                         )}
                       </div>
                     </FormControl>
                     <FormDescription>
-                      Promokod uchun banner rasm (ixtiyoriy). Rasm yuklash uchun banner ustiga bosing.
+                      {t('bannerImageOptionalDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -545,16 +589,16 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel optional>Tavsif</FormLabel>
+                    <FormLabel optional>{t('description')}</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Promo kod haqida qisqa ma'lumot"
+                        placeholder={t('promoDescriptionPlaceholder')}
                         className="min-h-[80px]"
                         {...field}
                       />
                     </FormControl>
                     <FormDescription>
-                      Promokod haqida qisqa ma'lumot (ixtiyoriy)
+                      {t('promoDescriptionOptional')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -565,13 +609,17 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="minOrderValue"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Minimal buyurtma summasi</FormLabel>
+                    <FormLabel required>{t('minOrderAmount')}</FormLabel>
                     <FormControl>
                       <NumericFormat
                         customInput={Input}
                         thousandSeparator=" "
-                        placeholder="Masalan: 50 000"
-                        value={field.value === undefined || field.value === null ? '' : field.value}
+                        placeholder={t('minOrderPlaceholder')}
+                        value={
+                          field.value === undefined || field.value === null
+                            ? ''
+                            : field.value
+                        }
                         onValueChange={(values) => {
                           const { floatValue } = values;
                           if (floatValue === undefined || floatValue === null) {
@@ -585,7 +633,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                       />
                     </FormControl>
                     <FormDescription>
-                      Faqat shu summadan yuqori buyurtmalar uchun ishlaydi
+                      {t('minOrderDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -598,7 +646,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                   name="validFrom"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel required>Boshlanish sanasi</FormLabel>
+                      <FormLabel required>{t('startDate')}</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -612,7 +660,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                               {field.value ? (
                                 format(field.value, 'PPP')
                               ) : (
-                                <span>Sana tanlang</span>
+                                <span>{t('selectDate')}</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -637,7 +685,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                   name="validUntil"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel required>Tugash sanasi</FormLabel>
+                      <FormLabel required>{t('endDate')}</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -651,7 +699,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                               {field.value ? (
                                 format(field.value, 'PPP')
                               ) : (
-                                <span>Sana tanlang</span>
+                                <span>{t('selectDate')}</span>
                               )}
                               <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                             </Button>
@@ -678,13 +726,17 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="usageLimitTotal"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Qancha ishlatilishi (Umumiy cheklov)</FormLabel>
+                    <FormLabel required>{t('totalUsageLimit')}</FormLabel>
                     <FormControl>
                       <NumericFormat
                         customInput={Input}
                         thousandSeparator=" "
-                        placeholder="Masalan: 100"
-                        value={field.value === undefined || field.value === null ? '' : field.value}
+                        placeholder={t('usageLimitPlaceholder')}
+                        value={
+                          field.value === undefined || field.value === null
+                            ? ''
+                            : field.value
+                        }
                         onValueChange={(values) => {
                           const { floatValue } = values;
                           if (floatValue === undefined || floatValue === null) {
@@ -699,7 +751,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                       />
                     </FormControl>
                     <FormDescription>
-                      Promokodning barcha foydalanuvchilar bo'yicha umumiy ishlatilish limiti
+                      {t('totalUsageLimitDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -712,13 +764,17 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 name="usageLimitPerUser"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel required>Foydalanuvchi uchun maksimal foydalanish</FormLabel>
+                    <FormLabel required>{t('usageLimitPerUser')}</FormLabel>
                     <FormControl>
                       <NumericFormat
                         customInput={Input}
                         thousandSeparator=" "
-                        placeholder="Masalan: 5"
-                        value={field.value === undefined || field.value === null ? '' : field.value}
+                        placeholder={t('usageLimitUserPlaceholder')}
+                        value={
+                          field.value === undefined || field.value === null
+                            ? ''
+                            : field.value
+                        }
                         onValueChange={(values) => {
                           const { floatValue } = values;
                           if (floatValue === undefined || floatValue === null) {
@@ -733,7 +789,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                       />
                     </FormControl>
                     <FormDescription>
-                      Bitta foydalanuvchi bu promokodni necha marta ishlatishi mumkinligi
+                      {t('usageLimitPerUserDescription')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -747,9 +803,11 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">Banner ko'rsatish</FormLabel>
+                      <FormLabel className="text-base">
+                        {t('showBanner')}
+                      </FormLabel>
                       <FormDescription>
-                        Mijoz ilovasida banner ko'rinishini boshqarish
+                        {t('showBannerDescription')}
                       </FormDescription>
                     </div>
                     <FormControl>
@@ -761,16 +819,24 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
                   </FormItem>
                 )}
               />
-
             </div>
 
             <SheetFooter>
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-                Bekor qilish
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+              >
+                {t('cancel')}
               </Button>
-              <Button type="submit" disabled={isSubmitting || isBannerUploading}>
-                {(isSubmitting || isBannerUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {promotion ? 'Yangilash' : 'Yaratish'}
+              <Button
+                type="submit"
+                disabled={isSubmitting || isBannerUploading}
+              >
+                {(isSubmitting || isBannerUploading) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {promotion ? t('update') : t('create')}
               </Button>
             </SheetFooter>
           </form>

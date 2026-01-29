@@ -1,33 +1,3 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  Package,
-  CreditCard,
-  AlertCircle,
-  TrendingUp,
-  Plus,
-  Eye,
-  DollarSign,
-  ArrowRight,
-  Clock,
-  XCircle,
-  CheckCircle,
-  ShoppingCart,
-  Ticket,
-} from 'lucide-react';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
-} from '@/components/ui/chart';
-import {
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-} from 'recharts';
 import {
   Card,
   CardContent,
@@ -35,35 +5,53 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { formatNumber } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { formatNumber } from '@/lib/utils';
 import api from '@/services/api';
+import {
+  ArrowRight,
+  CheckCircle,
+  DollarSign,
+  Eye,
+  Package,
+  ShoppingCart,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { toast } from 'sonner';
 import DashboardMap from './DashboardMap';
-
-const chartConfig = {
-  completed: {
-    label: 'Bajarilgan',
-    color: '#22c55e',
-  },
-  cancelled: {
-    label: 'Bekor qilingan',
-    color: '#ef4444',
-  },
-  total: {
-    label: 'Umumiy',
-    color: '#3b82f6',
-  },
-};
 
 function AdminDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [storeName, setStoreName] = useState('');
+
+  const chartConfig = {
+    completed: {
+      label: t('completedOrdersLabel'),
+      color: '#22c55e',
+    },
+    cancelled: {
+      label: t('cancelledOrdersLabel'),
+      color: '#ef4444',
+    },
+    total: {
+      label: t('totalOrdersLabel'),
+      color: '#3b82f6',
+    },
+  };
 
   useEffect(() => {
     const fetchStoreName = () => {
@@ -201,7 +189,7 @@ function AdminDashboard() {
         .map((order) => ({
           _id: order._id,
           addressLocation: order.addressLocation,
-          addressName: order.addressName || 'Noma\'lum',
+          addressName: order.addressName || "Noma'lum",
         }));
 
       setStatistics({
@@ -216,7 +204,7 @@ function AdminDashboard() {
       });
     } catch (error) {
       console.error('Error fetching statistics:', error);
-      toast.error('Statistikani yuklashda xatolik yuz berdi');
+      toast.error(t('errorLoadingStats'));
     } finally {
       setLoading(false);
     }
@@ -247,7 +235,9 @@ function AdminDashboard() {
   return (
     <div className="space-y-4 py-2 sm:py-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Welcome back, {storeName || 'Dashboard'}</h1>
+        <h1 className="text-xl font-semibold">
+          {t('welcomeBack')}, {storeName || t('dashboard')}
+        </h1>
         <DateRangePicker
           date={dateRange}
           onDateChange={handleDateRangeChange}
@@ -264,7 +254,7 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Umumiy Buyurtmalar
+              {t('totalOrdersLabel')}
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
               {loading ? '...' : statistics.totalOrders}
@@ -282,7 +272,7 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Bekor qilingan
+              {t('cancelledOrdersLabel')}
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-destructive">
               {loading ? '...' : statistics.cancelledOrders}
@@ -300,7 +290,7 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Bajarilgan
+              {t('completedOrdersLabel')}
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-green-500">
               {loading ? '...' : statistics.completedOrders}
@@ -318,10 +308,11 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Umumiy kirim
+              {t('totalRevenueLabel')}
             </p>
             <h3 className="text-xl font-semibold mb-1 text-primary">
-              {loading ? '...' : formatNumber(statistics.totalRevenue)} so'm
+              {loading ? '...' : formatNumber(statistics.totalRevenue)}{' '}
+              {t('currency')}
             </h3>
           </div>
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
@@ -336,7 +327,7 @@ function AdminDashboard() {
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Sotilgan mahsulotlar
+              {t('productsSoldLabel')}
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
               {loading ? '...' : statistics.productsSold}
@@ -345,15 +336,13 @@ function AdminDashboard() {
           <ArrowRight className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 h-6 w-6 -rotate-45 text-primary" />
         </div>
 
-        <div
-          className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer"
-        >
+        <div className="relative flex items-center gap-4 group p-4 lg:p-5 border-b border-border/30 hover:bg-muted/40 transition-all duration-300 cursor-pointer">
           <div className="bg-primary/10 rounded-full p-2 border border-primary/20">
             <Eye className="h-6 w-6 text-primary" />
           </div>
           <div>
             <p className="font-medium tracking-widest text-xs uppercase text-muted-foreground/60">
-              Sahifa ko'rildi
+              {t('pageViewsLabel')}
             </p>
             <h3 className="text-2xl font-semibold mb-1 text-primary">
               {loading ? '...' : statistics.storeViewsCount}
@@ -367,51 +356,42 @@ function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">
-              Buyurtmalar statistikasi
+              {t('orderStatistics')}
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Holat bo'yicha buyurtmalar
+              {t('orderStatisticsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px] sm:h-[400px] w-full">
+            <ChartContainer
+              config={chartConfig}
+              className="h-[300px] sm:h-[400px] w-full"
+            >
               <AreaChart data={statistics.areaChartData}>
                 <defs>
-                  <linearGradient id="fillCompleted" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="#22c55e"
-                      stopOpacity={0.6}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#22c55e"
-                      stopOpacity={0.05}
-                    />
+                  <linearGradient
+                    id="fillCompleted"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.05} />
                   </linearGradient>
-                  <linearGradient id="fillCancelled" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="#ef4444"
-                      stopOpacity={0.6}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#ef4444"
-                      stopOpacity={0.05}
-                    />
+                  <linearGradient
+                    id="fillCancelled"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.05} />
                   </linearGradient>
                   <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop
-                      offset="5%"
-                      stopColor="#3b82f6"
-                      stopOpacity={0.6}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#3b82f6"
-                      stopOpacity={0.05}
-                    />
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} />
@@ -423,7 +403,7 @@ function AdminDashboard() {
                   minTickGap={32}
                   tickFormatter={(value) => {
                     const date = new Date(value);
-                    return date.toLocaleDateString('uz-UZ', {
+                    return date.toLocaleDateString(i18n.language, {
                       month: 'short',
                       day: 'numeric',
                     });
@@ -434,11 +414,14 @@ function AdminDashboard() {
                   content={
                     <ChartTooltipContent
                       labelFormatter={(value) => {
-                        return new Date(value).toLocaleDateString('uz-UZ', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        });
+                        return new Date(value).toLocaleDateString(
+                          i18n.language,
+                          {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          }
+                        );
                       }}
                       indicator="dot"
                     />
@@ -477,10 +460,10 @@ function AdminDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base sm:text-lg">
-              Zakazlar bo'yicha hududlar statistikasi
+              {t('orderLocationStatistics')}
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Xaritada buyurtmalar
+              {t('orderLocationStatisticsDesc')}
             </CardDescription>
           </CardHeader>
           <CardContent>

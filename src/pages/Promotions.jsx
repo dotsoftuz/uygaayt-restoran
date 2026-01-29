@@ -1,32 +1,7 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import PromotionForm from '@/components/dashboard/dialogs/PromotionForm';
 import { Badge } from '@/components/ui/badge';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Tag,
-  Search,
-  MoreVertical,
-  Copy,
-  CheckCircle2,
-  XCircle,
-  Calendar,
-  TrendingUp,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -42,20 +17,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
-import { useDebounce } from '@/hooks/use-debounce';
-import PromotionForm from '@/components/dashboard/dialogs/PromotionForm';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { formatDate } from '@/lib/utils';
-import api from '@/services/api';
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { formatDate } from '@/lib/utils';
+import api from '@/services/api';
+import {
+  Calendar,
+  CheckCircle2,
+  Copy,
+  Edit,
+  MoreVertical,
+  Plus,
+  Search,
+  Tag,
+  Trash2,
+  TrendingUp,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 // Mock promotions data generator
 const generateFakePromotions = () => {
@@ -88,7 +86,8 @@ const generateFakePromotions = () => {
       usageLimitTotal: 500,
       usageCount: 234,
       isActive: true,
-      description: '100,000 so\'mdan yuqori buyurtmalar uchun 5,000 so\'m chegirma',
+      description:
+        "100,000 so'mdan yuqori buyurtmalar uchun 5,000 so'm chegirma",
     },
     {
       id: 'promo-3',
@@ -110,6 +109,7 @@ const generateFakePromotions = () => {
 
 // Status Badge Component
 const StatusBadge = ({ promotion }) => {
+  const { t } = useTranslation();
   const now = new Date();
   const isExpired = promotion.validUntil < now;
   const isLimitReached =
@@ -120,7 +120,7 @@ const StatusBadge = ({ promotion }) => {
     return (
       <Badge variant="secondary" className="text-xs">
         <XCircle className="h-3 w-3 mr-1" />
-        Yopilgan
+        {t('closed')}
       </Badge>
     );
   }
@@ -129,7 +129,7 @@ const StatusBadge = ({ promotion }) => {
     return (
       <Badge variant="destructive" className="text-xs">
         <XCircle className="h-3 w-3 mr-1" />
-        Muddati o'tgan
+        {t('expired')}
       </Badge>
     );
   }
@@ -138,7 +138,7 @@ const StatusBadge = ({ promotion }) => {
     return (
       <Badge variant="destructive" className="text-xs">
         <XCircle className="h-3 w-3 mr-1" />
-        Cheklovga yetgan
+        {t('limitReached')}
       </Badge>
     );
   }
@@ -146,18 +146,26 @@ const StatusBadge = ({ promotion }) => {
   return (
     <Badge variant="default" className="text-xs">
       <CheckCircle2 className="h-3 w-3 mr-1" />
-      Faol
+      {t('active')}
     </Badge>
   );
 };
 
 // Promotion Row Component (Mobile Card View)
-const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, onToggleIsShow }) => {
+const PromotionCard = ({
+  promotion,
+  onEdit,
+  onDelete,
+  onCopyCode,
+  onViewDetail,
+  onToggleIsShow,
+}) => {
+  const { t } = useTranslation();
   const formatDiscount = (promo) => {
     if (promo.type === 'percentage') {
       return `${promo.discountValue}%`;
     }
-    return `${promo.discountValue.toLocaleString()} so'm`;
+    return `${promo.discountValue.toLocaleString()} ${t('currency')}`;
   };
 
   return (
@@ -192,7 +200,10 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 flex-shrink-0"
-                onClick={(e) => { e.stopPropagation(); onCopyCode(promotion.code); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyCode(promotion.code);
+                }}
                 title="Nusxalash"
               >
                 <Copy className="h-3 w-3" />
@@ -210,16 +221,16 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
         {/* Discount Info */}
         <div className="flex items-center justify-between py-2 border-t">
           <div>
-            <p className="text-xs text-muted-foreground">Chegirma</p>
+            <p className="text-xs text-muted-foreground">{t('discount')}</p>
             <p className="font-semibold text-primary text-sm">
               {formatDiscount(promotion)}
             </p>
           </div>
           {promotion.minOrderValue && (
             <div className="text-right">
-              <p className="text-xs text-muted-foreground">Minimal buyurtma</p>
+              <p className="text-xs text-muted-foreground">{t('minOrder')}</p>
               <p className="text-xs font-medium">
-                {promotion.minOrderValue.toLocaleString()} so'm
+                {promotion.minOrderValue.toLocaleString()} {t('currency')}
               </p>
             </div>
           )}
@@ -229,7 +240,7 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
         <div className="space-y-1 text-xs">
           {promotion.usageLimitPerUser && (
             <p className="text-muted-foreground">
-              {promotion.usageLimitPerUser} marta/foydalanuvchi
+              {promotion.usageLimitPerUser} {t('timesPerUser')}
             </p>
           )}
         </div>
@@ -250,7 +261,7 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
         <div className="flex items-center justify-between py-2 border-t">
           <div className="flex items-center gap-1">
             <TrendingUp className="h-3 w-3 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Ishlatilgan:</span>
+            <span className="text-xs text-muted-foreground">{t('used')}:</span>
             <span className="text-sm font-medium">
               {promotion.usageCount || 0}
             </span>
@@ -263,15 +274,18 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-2 pt-2 border-t"
+          onClick={(e) => e.stopPropagation()}
+        >
           <Button
             variant="outline"
             size="sm"
             onClick={() => onToggleIsShow(promotion)}
             className="flex-1 text-xs"
-            title={promotion.isShow ? "Banner yashirish" : "Banner ko'rsatish"}
+            title={promotion.isShow ? t('hideBanner') : t('showBanner')}
           >
-            {promotion.isShow ? "Yashirish" : "Ko'rsatish"}
+            {promotion.isShow ? t('hide') : t('show')}
           </Button>
           <Button
             variant="outline"
@@ -280,7 +294,7 @@ const PromotionCard = ({ promotion, onEdit, onDelete, onCopyCode, onViewDetail, 
             className="flex-1 text-xs"
           >
             <Edit className="h-3 w-3 mr-1" />
-            Tahrirlash
+            {t('edit')}
           </Button>
           <Button
             variant="outline"
@@ -306,11 +320,12 @@ const PromotionTableRow = ({
   onToggleIsShow,
   onViewDetail,
 }) => {
+  const { t } = useTranslation();
   const formatDiscount = (promo) => {
     if (promo.type === 'percentage') {
       return `${promo.discountValue}%`;
     }
-    return `${promo.discountValue.toLocaleString()} so'm`;
+    return `${promo.discountValue.toLocaleString()} ${t('currency')}`;
   };
 
   return (
@@ -321,7 +336,10 @@ const PromotionTableRow = ({
       <TableCell className="max-w-[200px]">
         <div className="flex items-center gap-2 min-w-0">
           {promotion.bannerImage?.formattedUrl && (
-            <div className="w-16 h-10 flex-shrink-0 rounded overflow-hidden cursor-pointer" onClick={() => onViewDetail(promotion)}>
+            <div
+              className="w-16 h-10 flex-shrink-0 rounded overflow-hidden cursor-pointer"
+              onClick={() => onViewDetail(promotion)}
+            >
               <img
                 src={promotion.bannerImage.formattedUrl}
                 alt={promotion.code}
@@ -342,7 +360,10 @@ const PromotionTableRow = ({
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 flex-shrink-0"
-                onClick={(e) => { e.stopPropagation(); onCopyCode(promotion.code); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyCode(promotion.code);
+                }}
                 title="Nusxalash"
               >
                 <Copy className="h-3 w-3" />
@@ -363,7 +384,7 @@ const PromotionTableRow = ({
           </span>
           {promotion.minOrderValue && (
             <p className="text-xs text-muted-foreground truncate">
-              Min: {promotion.minOrderValue.toLocaleString()} so'm
+              Min: {promotion.minOrderValue.toLocaleString()} {t('currency')}
             </p>
           )}
         </div>
@@ -372,7 +393,7 @@ const PromotionTableRow = ({
         <div className="space-y-1 text-xs">
           {promotion.usageLimitPerUser && (
             <p className="text-muted-foreground truncate">
-              {promotion.usageLimitPerUser} marta/foydalanuvchi
+              {promotion.usageLimitPerUser} {t('timesPerUser')}
             </p>
           )}
         </div>
@@ -423,34 +444,51 @@ const PromotionTableRow = ({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(promotion); }}>
-                <Edit className="h-4 w-4" />
-                Tahrirlash
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={(e) => { e.stopPropagation(); onToggleIsShow(promotion); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(promotion);
+                }}
               >
-                {promotion.isShow ? "Banner yashirish" : "Banner ko'rsatish"}
+                <Edit className="h-4 w-4" />
+                {t('edit')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleIsShow(promotion);
+                }}
+              >
+                {promotion.isShow ? t('hideBanner') : t('showBanner')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(promotion);
+                }}
                 className="text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
-                O'chirish
+                {t('delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
-          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="flex items-center justify-end gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
-              onClick={(e) => { e.stopPropagation(); onEdit(promotion); }}
-              title="Tahrirlash"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(promotion);
+              }}
+              title={t('edit')}
             >
               <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -459,8 +497,11 @@ const PromotionTableRow = ({
               variant="ghost"
               size="icon"
               className="h-7 w-7 sm:h-8 sm:w-8"
-              onClick={(e) => { e.stopPropagation(); onDelete(promotion); }}
-              title="O'chirish"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(promotion);
+              }}
+              title={t('delete')}
             >
               <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -472,6 +513,7 @@ const PromotionTableRow = ({
 };
 
 function Promotions() {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -491,7 +533,9 @@ function Promotions() {
     return promotions.filter(
       (promo) =>
         promo.code.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        promo.description?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+        promo.description
+          ?.toLowerCase()
+          .includes(debouncedSearchTerm.toLowerCase())
     );
   }, [promotions, debouncedSearchTerm]);
 
@@ -508,7 +552,9 @@ function Promotions() {
   const handleEdit = async (promotion) => {
     // Fetch full promotion data with banner image
     try {
-      const response = await api.get(`/store/promocode/get-by-id/${promotion.id}`);
+      const response = await api.get(
+        `/store/promocode/get-by-id/${promotion.id}`
+      );
       const fullPromotion = response?.data || response;
 
       // Map to form format
@@ -517,18 +563,28 @@ function Promotions() {
         name: fullPromotion.name || promotion.name || '',
         code: fullPromotion.code || promotion.code || '',
         discountValue: fullPromotion.amount || promotion.discountValue,
-        minOrderValue: fullPromotion.minOrderPrice ?? promotion.minOrderValue ?? 0,
-        validFrom: fullPromotion.fromDate ? new Date(fullPromotion.fromDate) : promotion.validFrom,
-        validUntil: fullPromotion.toDate ? new Date(fullPromotion.toDate) : promotion.validUntil,
-        usageLimitPerUser: fullPromotion.maxUsageForUser ?? promotion.usageLimitPerUser ?? 1,
-        usageLimitTotal: fullPromotion.maxUsage ?? promotion.usageLimitTotal ?? 1,
+        minOrderValue:
+          fullPromotion.minOrderPrice ?? promotion.minOrderValue ?? 0,
+        validFrom: fullPromotion.fromDate
+          ? new Date(fullPromotion.fromDate)
+          : promotion.validFrom,
+        validUntil: fullPromotion.toDate
+          ? new Date(fullPromotion.toDate)
+          : promotion.validUntil,
+        usageLimitPerUser:
+          fullPromotion.maxUsageForUser ?? promotion.usageLimitPerUser ?? 1,
+        usageLimitTotal:
+          fullPromotion.maxUsage ?? promotion.usageLimitTotal ?? 1,
         description: fullPromotion.description || promotion.description || '',
-        bannerImageId: fullPromotion.bannerImageId || promotion.bannerImageId || null,
-        bannerImage: fullPromotion.bannerImage ? {
-          _id: fullPromotion.bannerImage._id,
-          url: fullPromotion.bannerImage.url,
-          formattedUrl: formatImageUrl(fullPromotion.bannerImage.url),
-        } : promotion.bannerImage || null,
+        bannerImageId:
+          fullPromotion.bannerImageId || promotion.bannerImageId || null,
+        bannerImage: fullPromotion.bannerImage
+          ? {
+              _id: fullPromotion.bannerImage._id,
+              url: fullPromotion.bannerImage.url,
+              formattedUrl: formatImageUrl(fullPromotion.bannerImage.url),
+            }
+          : promotion.bannerImage || null,
         isShow: fullPromotion.isShow ?? promotion.isShow ?? false,
       };
 
@@ -579,16 +635,24 @@ function Promotions() {
       }
       // Case 4: Try nested structure one more time
       else if (response?.data?.data) {
-        promotionsList = Array.isArray(response.data.data) ? response.data.data : [];
+        promotionsList = Array.isArray(response.data.data)
+          ? response.data.data
+          : [];
         console.log('Using response.data.data (fallback)');
       }
 
-      console.log('Promotions List:', promotionsList, 'Count:', promotionsList.length);
+      console.log(
+        'Promotions List:',
+        promotionsList,
+        'Count:',
+        promotionsList.length
+      );
 
       // Helper function to format image URL
       const formatImageUrl = (imageUrl) => {
         if (!imageUrl) return null;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+        const baseUrl =
+          import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
         const cleanBaseUrl = baseUrl.replace(/\/$/, '');
         let url = imageUrl;
         if (url.startsWith('uploads/')) {
@@ -598,7 +662,9 @@ function Promotions() {
       };
 
       // Map backend data to frontend format
-      const mappedPromotions = (Array.isArray(promotionsList) ? promotionsList : []).map((promo) => ({
+      const mappedPromotions = (
+        Array.isArray(promotionsList) ? promotionsList : []
+      ).map((promo) => ({
         id: promo._id,
         code: promo.code,
         name: promo.name,
@@ -612,11 +678,13 @@ function Promotions() {
         isActive: promo.state === 'active',
         description: promo.description || '',
         bannerImageId: promo.bannerImageId || null,
-        bannerImage: promo.bannerImage ? {
-          _id: promo.bannerImage._id,
-          url: promo.bannerImage.url,
-          formattedUrl: formatImageUrl(promo.bannerImage.url),
-        } : null,
+        bannerImage: promo.bannerImage
+          ? {
+              _id: promo.bannerImage._id,
+              url: promo.bannerImage.url,
+              formattedUrl: formatImageUrl(promo.bannerImage.url),
+            }
+          : null,
         isShow: promo.isShow ?? false,
         // Map for form compatibility
         discountValue: promo.amount,
@@ -630,7 +698,7 @@ function Promotions() {
       setPromotions(mappedPromotions);
     } catch (error) {
       console.error('Error fetching promotions:', error);
-      toast.error('Promokodlarni yuklashda xatolik yuz berdi');
+      toast.error(t('promotionsLoadError'));
     } finally {
       setLoading(false);
     }
@@ -652,19 +720,22 @@ function Promotions() {
       };
 
       // Only include minOrderPrice if it's a positive number
-      const minOrderValue = promotionData.minOrderValue ?? promotionData.minOrderPrice;
+      const minOrderValue =
+        promotionData.minOrderValue ?? promotionData.minOrderPrice;
       if (minOrderValue != null && minOrderValue > 0) {
         backendData.minOrderPrice = minOrderValue;
       }
 
       // Only include maxUsage if it's a positive number
-      const usageLimitTotal = promotionData.usageLimitTotal ?? promotionData.maxUsage;
+      const usageLimitTotal =
+        promotionData.usageLimitTotal ?? promotionData.maxUsage;
       if (usageLimitTotal != null && usageLimitTotal > 0) {
         backendData.maxUsage = usageLimitTotal;
       }
 
       // Only include maxUsageForUser if it's a positive number
-      const usageLimitPerUser = promotionData.usageLimitPerUser ?? promotionData.maxUsageForUser;
+      const usageLimitPerUser =
+        promotionData.usageLimitPerUser ?? promotionData.maxUsageForUser;
       if (usageLimitPerUser != null && usageLimitPerUser > 0) {
         backendData.maxUsageForUser = usageLimitPerUser;
       }
@@ -689,10 +760,10 @@ function Promotions() {
           _id: editingPromotion.id,
           ...backendData,
         });
-        toast.success('Promo kod yangilandi');
+        toast.success(t('promoCodeUpdated'));
       } else {
         await api.post('/store/promocode/create', backendData);
-        toast.success('Promo kod yaratildi');
+        toast.success(t('promoCodeCreated'));
       }
 
       // Close form and reset editing promotion FIRST
@@ -719,12 +790,14 @@ function Promotions() {
 
       // Handle validation errors
       if (error?.data && Array.isArray(error.data)) {
-        const validationMessages = error.data.map(err => err.message || `${err.property}: ${err.message}`).join(', ');
-        toast.error(`Validatsiya xatosi: ${validationMessages}`);
+        const validationMessages = error.data
+          .map((err) => err.message || `${err.property}: ${err.message}`)
+          .join(', ');
+        toast.error(t('validationError') + `: ${validationMessages}`);
       } else if (error?.message) {
         toast.error(error.message);
       } else {
-        toast.error('Promo kodni saqlashda xatolik yuz berdi');
+        toast.error(t('promoCodeSaveError'));
       }
     }
   };
@@ -734,7 +807,9 @@ function Promotions() {
       const newIsShow = !promotion.isShow;
 
       // Fetch current promotion data first to ensure we have all fields
-      const response = await api.get(`/store/promocode/get-by-id/${promotion.id}`);
+      const response = await api.get(
+        `/store/promocode/get-by-id/${promotion.id}`
+      );
       const currentPromo = response?.data || response;
 
       // Update only the isShow field
@@ -742,22 +817,43 @@ function Promotions() {
         _id: promotion.id,
         name: currentPromo.name || promotion.name,
         code: currentPromo.code || promotion.code,
-        amount: currentPromo.amount || promotion.amount || promotion.discountValue,
-        minOrderPrice: currentPromo.minOrderPrice ?? promotion.minOrderPrice ?? promotion.minOrderValue ?? 0,
-        fromDate: currentPromo.fromDate || promotion.fromDate || promotion.validFrom,
+        amount:
+          currentPromo.amount || promotion.amount || promotion.discountValue,
+        minOrderPrice:
+          currentPromo.minOrderPrice ??
+          promotion.minOrderPrice ??
+          promotion.minOrderValue ??
+          0,
+        fromDate:
+          currentPromo.fromDate || promotion.fromDate || promotion.validFrom,
         toDate: currentPromo.toDate || promotion.toDate || promotion.validUntil,
-        maxUsage: currentPromo.maxUsage || promotion.maxUsage || promotion.usageLimitTotal,
-        maxUsageForUser: currentPromo.maxUsageForUser ?? promotion.maxUsageForUser ?? promotion.usageLimitPerUser ?? 1,
+        maxUsage:
+          currentPromo.maxUsage ||
+          promotion.maxUsage ||
+          promotion.usageLimitTotal,
+        maxUsageForUser:
+          currentPromo.maxUsageForUser ??
+          promotion.maxUsageForUser ??
+          promotion.usageLimitPerUser ??
+          1,
         description: currentPromo.description || promotion.description || '',
-        bannerImageId: currentPromo.bannerImageId || promotion.bannerImageId || null,
-        state: currentPromo.state || (promotion.isActive ? 'active' : 'inactive'),
+        bannerImageId:
+          currentPromo.bannerImageId || promotion.bannerImageId || null,
+        state:
+          currentPromo.state || (promotion.isActive ? 'active' : 'inactive'),
         isShow: newIsShow,
       });
-      toast.success(`Banner ko'rsatish ${newIsShow ? 'yoqildi' : 'o\'chirildi'}`);
+      toast.success(
+        `${t('bannerDisplay')} ${newIsShow ? t('enabled') : t('disabled')}`
+      );
       await fetchPromotions();
     } catch (error) {
       console.error('Error toggling isShow:', error);
-      toast.error(error?.response?.data?.message || error?.message || 'Banner ko\'rsatishni o\'zgartirishda xatolik yuz berdi');
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          t('bannerToggleError')
+      );
     }
   };
 
@@ -770,11 +866,11 @@ function Promotions() {
     if (promotionToDelete) {
       try {
         await api.delete(`/store/promocode/delete/${promotionToDelete.id}`);
-        toast.success('Promo kod o\'chirildi');
+        toast.success(t('promoCodeDeleted'));
         await fetchPromotions();
       } catch (error) {
         console.error('Error deleting promotion:', error);
-        toast.error(error?.message || 'Promo kodni o\'chirishda xatolik yuz berdi');
+        toast.error(error?.message || t('promoCodeDeleteError'));
       }
     }
     setDeleteDialogOpen(false);
@@ -783,7 +879,7 @@ function Promotions() {
 
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code);
-    toast.success('Promo kod nusxalandi');
+    toast.success(t('promoCodeCopied'));
   };
 
   const handleViewDetail = (promotion) => {
@@ -808,7 +904,7 @@ function Promotions() {
     }
 
     if (dialog === 'delete-promotion' && promotionId) {
-      const promotion = promotions.find(p => p.id === promotionId);
+      const promotion = promotions.find((p) => p.id === promotionId);
       if (promotion) {
         setPromotionToDelete(promotion);
         setDeleteDialogOpen(true);
@@ -847,14 +943,16 @@ function Promotions() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="title">Promo kodlar / Chegirmalar</h2>
-          <p className="paragraph">
-            Promo kodlar va chegirmalarni boshqaring
-          </p>
+          <h2 className="title">{t('promoCodesAndDiscounts')}</h2>
+          <p className="paragraph">{t('promoCodesAndDiscountsDescription')}</p>
         </div>
-        <Button onClick={handleCreateNew} size="sm" className="h-10 sm:h-9 w-full sm:w-auto">
+        <Button
+          onClick={handleCreateNew}
+          size="sm"
+          className="h-10 sm:h-9 w-full sm:w-auto"
+        >
           <Plus className="h-4 w-4" />
-          <span className="text-xs sm:text-sm">Yangi promo kod</span>
+          <span className="text-xs sm:text-sm">{t('newPromoCode')}</span>
         </Button>
       </div>
 
@@ -863,7 +961,7 @@ function Promotions() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Promo kod yoki tavsif bo'yicha qidirish..."
+          placeholder={t('searchByCodeOrDescription')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 text-sm sm:text-base"
@@ -894,15 +992,27 @@ function Promotions() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[200px] min-w-[180px]">Promo kod</TableHead>
-                    <TableHead className="hidden sm:table-cell w-[150px] min-w-[120px]">Chegirma</TableHead>
-                    <TableHead className="hidden md:table-cell w-[180px] min-w-[150px]">Shartlar</TableHead>
-                    <TableHead className="hidden lg:table-cell w-[200px] min-w-[180px]">Muddati</TableHead>
-                    <TableHead className="hidden md:table-cell text-center w-[120px] min-w-[100px]">
-                      Ishlatilgan
+                    <TableHead className="w-[200px] min-w-[180px]">
+                      {t('promoCode')}
                     </TableHead>
-                    <TableHead className="text-right w-[120px] min-w-[100px]">Holat</TableHead>
-                    <TableHead className="text-right w-[140px] min-w-[120px]">Amal</TableHead>
+                    <TableHead className="hidden sm:table-cell w-[150px] min-w-[120px]">
+                      {t('discount')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell w-[180px] min-w-[150px]">
+                      {t('conditions')}
+                    </TableHead>
+                    <TableHead className="hidden lg:table-cell w-[200px] min-w-[180px]">
+                      {t('validity')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell text-center w-[120px] min-w-[100px]">
+                      {t('used')}
+                    </TableHead>
+                    <TableHead className="text-right w-[120px] min-w-[100px]">
+                      {t('status')}
+                    </TableHead>
+                    <TableHead className="text-right w-[140px] min-w-[120px]">
+                      {t('actions')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -929,14 +1039,12 @@ function Promotions() {
               <Tag className="h-6 w-6" />
             </EmptyMedia>
             <EmptyTitle>
-              {searchTerm
-                ? 'Promo kod topilmadi'
-                : 'Hech qanday promo kod yo\'q'}
+              {searchTerm ? t('promoCodeNotFound') : t('noPromoCodesYet')}
             </EmptyTitle>
             <EmptyDescription>
               {searchTerm
-                ? 'Qidiruv natijasiga mos promo kod topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
-                : 'Hali hech qanday promo kod yaratilmagan. "Yangi promo kod" tugmasini bosing va birinchi promo kodingizni yarating.'}
+                ? t('noPromoCodesMatchSearch')
+                : t('noPromoCodesDescription')}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -984,21 +1092,25 @@ function Promotions() {
       >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Promo kodni o'chirish</DialogTitle>
+            <DialogTitle>{t('deletePromoCode')}</DialogTitle>
             <DialogDescription>
-              Bu promo kodni o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.
+              {t('deletePromoCodeConfirmation')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {promotionToDelete && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  <strong className="font-mono">{promotionToDelete.code}</strong> promo kodi
-                  butunlay o'chiriladi.
+                  <strong className="font-mono">
+                    {promotionToDelete.code}
+                  </strong>{' '}
+                  {t('promoCodeWillBeDeleted')}
                 </p>
                 {promotionToDelete.usageCount > 0 && (
                   <p className="text-sm text-yellow-600">
-                    Ushbu promo kod {promotionToDelete.usageCount} marta ishlatilgan.
+                    {t('promoCodeUsedTimes', {
+                      count: promotionToDelete.usageCount,
+                    })}
                   </p>
                 )}
               </div>
@@ -1010,7 +1122,7 @@ function Promotions() {
               onClick={() => setDeleteDialogOpen(false)}
               className="w-full sm:w-auto"
             >
-              Bekor qilish
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -1018,7 +1130,7 @@ function Promotions() {
               className="w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
-              O'chirish
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

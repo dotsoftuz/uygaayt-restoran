@@ -1,18 +1,19 @@
 'use client';
 
-import * as React from 'react';
 import {
-  LayoutDashboard,
   ClipboardList,
-  FolderTree,
-  Package,
   DollarSign,
-  Tag,
-  Settings,
-  History,
+  FolderTree,
   HelpCircle,
+  History,
+  LayoutDashboard,
+  Package,
   Search,
+  Settings,
+  Tag,
 } from 'lucide-react';
+import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -30,67 +31,71 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-const navigationItems = [
-  {
-    title: 'Dashboard',
-    url: '/dashboard',
-    icon: LayoutDashboard,
-    keywords: ['dashboard', 'home', 'main'],
-  },
-  {
-    title: 'Orders',
-    url: '/dashboard/orders',
-    icon: ClipboardList,
-    keywords: ['orders', 'order', 'buyurtmalar'],
-  },
-  {
-    title: 'Categories',
-    url: '/dashboard/catalog',
-    icon: FolderTree,
-    keywords: ['categories', 'category', 'katalog', 'catalog'],
-  },
-  {
-    title: 'Products',
-    url: '/dashboard/products',
-    icon: Package,
-    keywords: ['products', 'product', 'mahsulotlar', 'mahsulot'],
-  },
-  {
-    title: 'Finance',
-    url: '/dashboard/finance',
-    icon: DollarSign,
-    keywords: ['finance', 'financial', 'moliya', 'money'],
-  },
-  {
-    title: 'Promotions',
-    url: '/dashboard/promotions',
-    icon: Tag,
-    keywords: ['promotions', 'promotion', 'aktsiya', 'discount'],
-  },
-  {
-    title: 'Settings',
-    url: '/dashboard/settings',
-    icon: Settings,
-    keywords: ['settings', 'setting', 'sozlamalar', 'config'],
-  },
-  {
-    title: 'Activity Log',
-    url: '/dashboard/activity-log',
-    icon: History,
-    keywords: ['activity', 'log', 'history', 'tarix'],
-  },
-  {
-    title: 'Help',
-    url: '/dashboard/help',
-    icon: HelpCircle,
-    keywords: ['help', 'yordam', 'support'],
-  },
-];
-
 export function SearchCommandDialog() {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const navigationItems = React.useMemo(
+    () => [
+      {
+        title: t('Dashboard'),
+        url: '/dashboard',
+        icon: LayoutDashboard,
+        keywords: ['dashboard', 'home', 'main'],
+      },
+      {
+        title: t('Buyurtmalar'),
+        url: '/dashboard/orders',
+        icon: ClipboardList,
+        keywords: ['orders', 'order', 'buyurtmalar'],
+      },
+      {
+        title: t('Katalog'),
+        url: '/dashboard/catalog',
+        icon: FolderTree,
+        keywords: ['categories', 'category', 'katalog', 'catalog'],
+      },
+      {
+        title: t('Mahsulotlar'),
+        url: '/dashboard/products',
+        icon: Package,
+        keywords: ['products', 'product', 'mahsulotlar', 'mahsulot'],
+      },
+      {
+        title: t('Moliya'),
+        url: '/dashboard/finance',
+        icon: DollarSign,
+        keywords: ['finance', 'financial', 'moliya', 'money'],
+      },
+      {
+        title: t('Aksiyalar'),
+        url: '/dashboard/promotions',
+        icon: Tag,
+        keywords: ['promotions', 'promotion', 'aktsiya', 'discount'],
+      },
+      {
+        title: t('Sozlamalar'),
+        url: '/dashboard/settings',
+        icon: Settings,
+        keywords: ['settings', 'setting', 'sozlamalar', 'config'],
+      },
+      {
+        title: t('activityLog'),
+        url: '/dashboard/activity-log',
+        icon: History,
+        keywords: ['activity', 'log', 'history', 'tarix'],
+      },
+      {
+        title: t('help'),
+        url: '/dashboard/help',
+        icon: HelpCircle,
+        keywords: ['help', 'yordam', 'support'],
+      },
+    ],
+    [t]
+  );
 
   React.useEffect(() => {
     const down = (e) => {
@@ -140,11 +145,11 @@ export function SearchCommandDialog() {
           <div
             onClick={() => setOpen(true)}
             className="my-3 relative cursor-pointer rounded-lg border border-border hover:bg-muted/50 px-3 py-2 transition-colors flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-2"
-            title="Click or press Ctrl+K"
+            title={t('searchHint')}
           >
             <Search className="w-4 h-4 text-muted-foreground group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
             <span className="text-muted-foreground text-sm group-data-[collapsible=icon]:hidden">
-              Search...
+              {t('search')}
             </span>
             <div className="ml-auto flex items-center gap-0.5 group-data-[collapsible=icon]:hidden">
               <Kbd>⌘</Kbd>
@@ -156,20 +161,20 @@ export function SearchCommandDialog() {
           side="right"
           className="group-data-[collapsible=icon]:block hidden"
         >
-          <p>Search (⌘K)</p>
+          <p>{t('searchHint')}</p>
         </TooltipContent>
       </Tooltip>
 
       {/* Command Dialog */}
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
-          placeholder="Sahifalarni qidiring..."
+          placeholder={t('searchPagesPlaceholder')}
           value={searchQuery}
           onValueChange={setSearchQuery}
         />
         <CommandList>
           {filteredNavItems.length > 0 ? (
-            <CommandGroup heading="Sahifalar">
+            <CommandGroup heading={t('pages')}>
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 return (
@@ -184,7 +189,7 @@ export function SearchCommandDialog() {
               })}
             </CommandGroup>
           ) : (
-            <CommandEmpty>Hech nima topilmadi.</CommandEmpty>
+            <CommandEmpty>{t('nothingFound')}</CommandEmpty>
           )}
         </CommandList>
       </CommandDialog>

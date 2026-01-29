@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import api from '@/services/api';
+import { Eye, EyeOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 
 function Password() {
   const { t } = useTranslation();
@@ -41,34 +41,34 @@ function Password() {
 
   const onSubmit = async (data) => {
     setError('');
-    
+
     // Validate current password is provided
     if (!data.currentPassword || data.currentPassword.trim() === '') {
-      toast.error('Joriy parolni kiriting');
+      toast.error(t('enterCurrentPassword'));
       return;
     }
 
     // Validate new password is provided
     if (!data.newPassword || data.newPassword.trim() === '') {
-      toast.error('Yangi parolni kiriting');
+      toast.error(t('enterNewPassword'));
       return;
     }
 
     // Validate password length
     if (data.newPassword.length < 4) {
-      toast.error('Yangi parol kamida 4 ta belgi bo\'lishi kerak');
+      toast.error(t('passwordMinLengthError'));
       return;
     }
 
     // Validate passwords match
     if (data.newPassword !== data.confirmPassword) {
-      toast.error('Yangi parol va tasdiqlash paroli mos kelmaydi');
+      toast.error(t('passwordsDoNotMatch'));
       return;
     }
 
     // Validate new password is different from current password
     if (data.currentPassword === data.newPassword) {
-      toast.error('Yangi parol joriy paroldan farq qilishi kerak');
+      toast.error(t('newPasswordMustBeDifferent'));
       return;
     }
 
@@ -80,7 +80,7 @@ function Password() {
       });
 
       if (response) {
-        toast.success('Parol muvaffaqiyatli yangilandi');
+        toast.success(t('passwordUpdatedSuccessfully'));
         reset();
         setError('');
         setShowCurrentPassword(false);
@@ -89,23 +89,30 @@ function Password() {
       }
     } catch (error) {
       console.error('Error updating password:', error);
-      
+
       // Handle different error cases
-      const errorMessage = error?.response?.data?.message || error?.message || '';
+      const errorMessage =
+        error?.response?.data?.message || error?.message || '';
       const statusCode = error?.response?.status || error?.statusCode;
-      
-      if (statusCode === 401 || statusCode === 403 || errorMessage.toLowerCase().includes('wrong') || errorMessage.toLowerCase().includes('noto\'g\'ri') || errorMessage.toLowerCase().includes('xato')) {
-        toast.error('Joriy parol noto\'g\'ri');
-        setError('Joriy parol noto\'g\'ri');
+
+      if (
+        statusCode === 401 ||
+        statusCode === 403 ||
+        errorMessage.toLowerCase().includes('wrong') ||
+        errorMessage.toLowerCase().includes("noto'g'ri") ||
+        errorMessage.toLowerCase().includes('xato')
+      ) {
+        toast.error(t('currentPasswordIncorrect'));
+        setError(t('currentPasswordIncorrect'));
       } else if (statusCode === 404) {
-        toast.error('Parol topilmadi. Iltimos, qayta urinib ko\'ring');
-        setError('Parol topilmadi');
+        toast.error(t('passwordNotFound'));
+        setError(t('passwordNotFound'));
       } else if (statusCode === 400) {
-        toast.error(errorMessage || 'Noto\'g\'ri ma\'lumot kiritildi');
-        setError(errorMessage || 'Noto\'g\'ri ma\'lumot');
+        toast.error(errorMessage || t('invalidDataEntered'));
+        setError(errorMessage || t('invalidData'));
       } else {
-        toast.error(errorMessage || 'Parolni yangilashda xatolik yuz berdi');
-        setError(errorMessage || 'Parolni yangilashda xatolik yuz berdi');
+        toast.error(errorMessage || t('passwordUpdateError'));
+        setError(errorMessage || t('passwordUpdateError'));
       }
     } finally {
       setIsSubmitting(false);
@@ -127,30 +134,30 @@ function Password() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <Label required htmlFor="phoneNumber">
-            Telefon raqami
+            {t('phoneNumber')}
           </Label>
           <Input
             id="phoneNumber"
             type="tel"
             disabled
             value={phoneNumber}
-            placeholder="+998901234567"
+            placeholder={t('enterPhoneNumber')}
             {...register('phoneNumber')}
           />
         </div>
 
         <div>
           <Label required htmlFor="currentPassword">
-            Joriy parol
+            {t('currentPassword')}
           </Label>
           <div className="relative">
             <Input
               id="currentPassword"
               type={showCurrentPassword ? 'text' : 'password'}
-              placeholder="Joriy parolni kiriting"
+              placeholder={t('enterCurrentPassword')}
               className="pr-10"
               {...register('currentPassword', {
-                required: 'Joriy parol majburiy',
+                required: t('currentPasswordRequired'),
               })}
             />
             <button
@@ -173,18 +180,20 @@ function Password() {
         </div>
 
         <div>
-          <Label required htmlFor="newPassword">Yangi parol</Label>
+          <Label required htmlFor="newPassword">
+            {t('newPassword')}
+          </Label>
           <div className="relative">
             <Input
               id="newPassword"
               type={showNewPassword ? 'text' : 'password'}
-              placeholder="Yangi parolni kiriting"
+              placeholder={t('enterNewPassword')}
               className="pr-10"
               {...register('newPassword', {
-                required: 'Yangi parol majburiy',
+                required: t('newPasswordRequired'),
                 minLength: {
                   value: 4,
-                  message: 'Parol kamida 4 ta belgi bo\'lishi kerak',
+                  message: t('passwordMinLengthError'),
                 },
               })}
             />
@@ -208,18 +217,20 @@ function Password() {
         </div>
 
         <div>
-          <Label required htmlFor="confirmPassword">Yangi parolni tasdiqlash</Label>
+          <Label required htmlFor="confirmPassword">
+            {t('confirmNewPassword')}
+          </Label>
           <div className="relative">
             <Input
               id="confirmPassword"
               type={showConfirmPassword ? 'text' : 'password'}
-              placeholder="Yangi parolni qayta kiriting"
+              placeholder={t('confirmNewPassword')}
               className="pr-10"
               {...register('confirmPassword', {
-                required: 'Parolni tasdiqlash majburiy',
+                required: t('confirmPasswordRequired'),
                 validate: (value) => {
                   if (value !== newPassword) {
-                    return 'Parollar mos kelmaydi';
+                    return t('passwordsDoNotMatch');
                   }
                 },
               })}
@@ -250,13 +261,18 @@ function Password() {
             variant="secondary"
             onClick={handleCancel}
           >
-            Bekor qilish
+            {t('cancel')}
           </Button>
-          <Button 
-            type="submit" 
-            disabled={isSubmitting || !newPassword || !confirmPassword || newPassword !== confirmPassword}
+          <Button
+            type="submit"
+            disabled={
+              isSubmitting ||
+              !newPassword ||
+              !confirmPassword ||
+              newPassword !== confirmPassword
+            }
           >
-            {isSubmitting ? 'Yangilanmoqda...' : 'Yangilash'}
+            {isSubmitting ? t('updating') + '...' : t('update')}
           </Button>
         </div>
       </form>

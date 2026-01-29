@@ -52,26 +52,28 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { toast } from 'sonner';
 
 const chartConfig = {
   amount: {
-    label: 'Summa',
+    label: 'amount',
     color: '#3b82f6',
   },
 };
 
 const TransactionTypeBadge = ({ type }) => {
+  const { t } = useTranslation();
   const config = {
     income: {
-      label: 'Kirim',
+      label: t('income'),
       variant: 'default',
       className: 'bg-green-500/10 text-green-500 border-green-500/20',
     },
     expense: {
-      label: 'Chiqim',
+      label: t('expense'),
       variant: 'destructive',
       className: 'bg-red-500/10 text-red-500 border-red-500/20',
     },
@@ -85,13 +87,14 @@ const TransactionTypeBadge = ({ type }) => {
 };
 
 const CategoryBadge = ({ category }) => {
+  const { t } = useTranslation();
   const categoryLabels = {
-    order: 'Buyurtma',
-    user_bonus: 'Mijoz bonus',
-    withdraw_balance: 'Balans yechib olish',
-    buy_premium: 'Premium sotib olish',
-    cashback: 'Cashback',
-    fill_balance: "Balans to'ldirish",
+    order: t('order'),
+    user_bonus: t('customerBonus'),
+    withdraw_balance: t('withdrawBalance'),
+    buy_premium: t('buyPremium'),
+    cashback: t('cashback'),
+    fill_balance: t('fillBalance'),
   };
   const label = categoryLabels[category] || category;
   return (
@@ -102,6 +105,7 @@ const CategoryBadge = ({ category }) => {
 };
 
 const TransactionCard = ({ transaction, onView }) => {
+  const { t } = useTranslation();
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4 space-y-3">
@@ -126,20 +130,20 @@ const TransactionCard = ({ transaction, onView }) => {
               }`}
             >
               {transaction.type === 'income' ? '+' : '-'}
-              {formatNumber(transaction.amount)} so'm
+              {formatNumber(transaction.amount)} {t('currency')}
             </p>
           </div>
         </div>
         <div className="space-y-1 py-2 border-t text-xs text-muted-foreground">
           <div className="flex items-center justify-between">
-            <span>Sana:</span>
+            <span>{t('date')}:</span>
             <span className="font-medium">
               {formatDateTime(transaction.createdAt)}
             </span>
           </div>
           {transaction.orderId && (
             <div className="flex items-center justify-between">
-              <span>Buyurtma:</span>
+              <span>{t('order')}:</span>
               <span className="font-medium">#{transaction.orderId}</span>
             </div>
           )}
@@ -151,7 +155,7 @@ const TransactionCard = ({ transaction, onView }) => {
           className="w-full text-xs"
         >
           <Eye className="h-3 w-3 mr-1" />
-          Batafsil
+          {t('details')}
         </Button>
       </CardContent>
     </Card>
@@ -159,6 +163,7 @@ const TransactionCard = ({ transaction, onView }) => {
 };
 
 const TransactionTableRow = ({ transaction, isMobile, onView }) => {
+  const { t } = useTranslation();
   return (
     <TableRow
       className="hover:bg-muted/50 cursor-pointer"
@@ -177,7 +182,7 @@ const TransactionTableRow = ({ transaction, isMobile, onView }) => {
           }`}
         >
           {transaction.type === 'income' ? '+' : '-'}
-          {formatNumber(transaction.amount)} so'm
+          {formatNumber(transaction.amount)} {t('currency')}
         </p>
       </TableCell>
       <TableCell className="hidden md:table-cell">
@@ -209,6 +214,7 @@ const TransactionTableRow = ({ transaction, isMobile, onView }) => {
 };
 
 function Finance() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState('table');
@@ -276,7 +282,7 @@ function Finance() {
       console.log('[FINANCE] Statistics state updated');
     } catch (error) {
       console.error('Error fetching statistics:', error);
-      toast.error('Statistikani yuklashda xatolik yuz berdi');
+      toast.error(t('statisticsLoadError'));
     } finally {
       setStatisticsLoading(false);
     }
@@ -317,7 +323,7 @@ function Finance() {
       setTotalTransactions(total || 0);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      toast.error('Tranzaksiyalarni yuklashda xatolik yuz berdi');
+      toast.error(t('transactionsLoadError'));
       setTransactions([]);
       setTotalTransactions(0);
     } finally {
@@ -400,10 +406,10 @@ function Finance() {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
       [
-        ['Turi', 'Kategoriya', 'Summa', 'Izoh', 'Sana'].join(','),
+        [t('type'), t('category'), t('amount'), t('note'), t('date')].join(','),
         ...filteredTransactions.map((tr) =>
           [
-            tr.type === 'income' ? 'Kirim' : 'Chiqim',
+            tr.type === 'income' ? t('income') : t('expense'),
             tr.customType,
             tr.amount,
             tr.comment || '',
@@ -422,7 +428,7 @@ function Finance() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('CSV fayl yuklab olindi');
+    toast.success(t('csvDownloaded'));
   };
 
   const handleView = (transaction) => {
@@ -435,10 +441,8 @@ function Finance() {
     <div className="space-y-4 py-2 sm:py-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="title">Moliya</h2>
-          <p className="paragraph">
-            Moliyaviy ma'lumotlar va tranzaksiyalarni ko'rib chiqing
-          </p>
+          <h2 className="title">{t('finance')}</h2>
+          <p className="paragraph">{t('financeDescription')}</p>
         </div>
         <DateRangePicker date={dateRange} onDateChange={setDateRange} />
       </div>
@@ -446,7 +450,9 @@ function Finance() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border-blue-500/20 bg-blue-500/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Umumiy balans</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {t('totalBalance')}
+            </CardTitle>
             <div className="bg-blue-500/10 rounded-full p-2 border border-blue-500/20">
               <Wallet className="h-4 w-4 text-blue-500" />
             </div>
@@ -456,7 +462,7 @@ function Finance() {
               {statisticsLoading ? (
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
-                `${formatNumber(statistics.storeBalance)} so'm`
+                `${formatNumber(statistics.storeBalance)} ${t('currency')}`
               )}
             </div>
           </CardContent>
@@ -466,7 +472,7 @@ function Finance() {
           <Card className="border-green-500/20 bg-green-500/5">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Oxirgi tranzaksiya
+                {t('lastTransaction')}
               </CardTitle>
               <div className="bg-green-500/10 rounded-full p-2 border border-green-500/20">
                 <TrendingUp className="h-4 w-4 text-green-500" />
@@ -487,19 +493,19 @@ function Finance() {
                     }`}
                   >
                     {transactions[0].type === 'income' ? '+' : '-'}
-                    {formatNumber(transactions[0].amount)} so'm
+                    {formatNumber(transactions[0].amount)} {t('currency')}
                   </p>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   <div className="flex items-center justify-between">
-                    <span>Sana:</span>
+                    <span>{t('date')}:</span>
                     <span className="font-medium">
                       {formatDateTime(transactions[0].createdAt)}
                     </span>
                   </div>
                   {transactions[0].orderId && (
                     <div className="flex items-center justify-between mt-1">
-                      <span>Buyurtma:</span>
+                      <span>{t('order')}:</span>
                       <span className="font-medium">
                         #{transactions[0].orderId}
                       </span>
@@ -518,7 +524,7 @@ function Finance() {
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Tranzaksiyalarni qidirish..."
+              placeholder={t('searchTransactionsPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 text-sm sm:text-base"
@@ -554,15 +560,17 @@ function Finance() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Turi</TableHead>
-                      <TableHead>Summa</TableHead>
+                      <TableHead>{t('type')}</TableHead>
+                      <TableHead>{t('amount')}</TableHead>
                       <TableHead className="hidden md:table-cell">
-                        Izoh
+                        {t('note')}
                       </TableHead>
                       <TableHead className="hidden lg:table-cell">
-                        Sana
+                        {t('date')}
                       </TableHead>
-                      <TableHead className="text-right">Amal</TableHead>
+                      <TableHead className="text-right">
+                        {t('actions')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -607,15 +615,17 @@ function Finance() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Turi</TableHead>
-                      <TableHead>Summa</TableHead>
+                      <TableHead>{t('type')}</TableHead>
+                      <TableHead>{t('amount')}</TableHead>
                       <TableHead className="hidden md:table-cell">
-                        Izoh
+                        {t('note')}
                       </TableHead>
                       <TableHead className="hidden lg:table-cell">
-                        Sana
+                        {t('date')}
                       </TableHead>
-                      <TableHead className="text-right">Amal</TableHead>
+                      <TableHead className="text-right">
+                        {t('actions')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -640,13 +650,13 @@ function Finance() {
               </EmptyMedia>
               <EmptyTitle>
                 {searchTerm || hasActiveFilters
-                  ? 'Tranzaksiya topilmadi'
-                  : "Hech qanday tranzaksiya yo'q"}
+                  ? t('transactionNotFound')
+                  : t('noTransactionsYet')}
               </EmptyTitle>
               <EmptyDescription>
                 {searchTerm || hasActiveFilters
-                  ? 'Qidiruv yoki filtrlash natijasiga mos tranzaksiya topilmadi.'
-                  : 'Hali hech qanday tranzaksiya mavjud emas.'}
+                  ? t('noTransactionsMatchSearch')
+                  : t('noTransactionsDescription')}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -656,7 +666,7 @@ function Finance() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
               <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-                Sahifada ko'rsatish:
+                {t('showPerPage')}:
               </span>
               <Select
                 value={itemsPerPage.toString()}
@@ -678,8 +688,8 @@ function Finance() {
               </Select>
               <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                 {(currentPage - 1) * itemsPerPage + 1}-
-                {Math.min(currentPage * itemsPerPage, totalTransactions)} dan{' '}
-                {totalTransactions} ta
+                {Math.min(currentPage * itemsPerPage, totalTransactions)}{' '}
+                {t('of')} {totalTransactions} {t('unit')}
               </span>
             </div>
             <div className="flex items-center justify-center gap-2">
@@ -691,7 +701,7 @@ function Finance() {
                 className="flex-1 sm:flex-initial"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                <span className="text-xs sm:text-sm">Oldingi</span>
+                <span className="text-xs sm:text-sm">{t('previous')}</span>
               </Button>
               <span className="text-xs sm:text-sm text-muted-foreground px-2">
                 {currentPage} / {Math.ceil(totalTransactions / itemsPerPage)}
@@ -712,7 +722,7 @@ function Finance() {
                 }
                 className="flex-1 sm:flex-initial"
               >
-                <span className="text-xs sm:text-sm">Keyingi</span>
+                <span className="text-xs sm:text-sm">{t('next')}</span>
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
@@ -723,10 +733,10 @@ function Finance() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base sm:text-lg">
-            Tranzaksiyalar statistikasi
+            {t('transactionStatistics')}
           </CardTitle>
           <CardDescription className="text-xs sm:text-sm">
-            Vaqt bo'yicha tranzaksiyalar grafigi
+            {t('transactionStatisticsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -750,7 +760,7 @@ function Finance() {
                 minTickGap={32}
                 tickFormatter={(value) => {
                   const date = new Date(value);
-                  return date.toLocaleDateString('uz-UZ', {
+                  return date.toLocaleDateString(t('localeCode'), {
                     month: 'short',
                     day: 'numeric',
                   });
@@ -761,11 +771,14 @@ function Finance() {
                 content={
                   <ChartTooltipContent
                     labelFormatter={(value) => {
-                      return new Date(value).toLocaleDateString('uz-UZ', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      });
+                      return new Date(value).toLocaleDateString(
+                        t('localeCode'),
+                        {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        }
+                      );
                     }}
                     indicator="dot"
                   />

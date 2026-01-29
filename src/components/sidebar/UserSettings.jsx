@@ -1,9 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { useTheme } from '@/provider/ThemeProvider';
-import { cn } from '@/lib/utils';
-import { Settings, Sun, Moon, Monitor, SunMoon, LogOut } from 'lucide-react';
-import { logout } from '@/middleware/authMiddleware';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,12 +12,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarMenuButton, useSidebar } from '@/components/ui/sidebar';
+import { logout } from '@/middleware/authMiddleware';
+import { useTheme } from '@/provider/ThemeProvider';
+import { LogOut, Monitor, Moon, Settings, Sun, SunMoon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 
 export function UserSettings() {
   const [openAlert, setOpenAlert] = useState(false);
   const { setTheme } = useTheme();
   const location = useLocation();
   const { state } = useSidebar();
+  const { t } = useTranslation();
 
   const handleLogout = () => {
     logout();
@@ -65,12 +66,12 @@ export function UserSettings() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
-            tooltip={state === 'collapsed' ? 'Sozlamalar' : undefined}
+            tooltip={state === 'collapsed' ? t('Sozlamalar') : undefined}
             className="w-full h-10 mt-5 justify-start hover:bg-muted group-data-[collapsible=icon]:justify-center border-2 border-border"
           >
             <Settings className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
-              Sozlamalar
+              {t('Sozlamalar')}
             </span>
           </SidebarMenuButton>
         </DropdownMenuTrigger>
@@ -79,23 +80,23 @@ export function UserSettings() {
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <SunMoon className="mr-2 h-4 w-4" />
-                <span>Mavzu</span>
+                <span>{t('theme')}</span>
               </DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent className="w-40">
                   <DropdownMenuItem onClick={() => setTheme('light')}>
                     <Sun className="mr-2 h-4 w-4" />
-                    <span>Kunduzgi</span>
+                    <span>{t('lightTheme')}</span>
                     <DropdownMenuShortcut>⌘F</DropdownMenuShortcut>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme('dark')}>
                     <Moon className="mr-2 h-4 w-4" />
-                    <span>Tungi</span>
+                    <span>{t('darkTheme')}</span>
                     <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setTheme('system')}>
                     <Monitor className="mr-2 h-4 w-4" />
-                    <span>Sistema</span>
+                    <span>{t('systemTheme')}</span>
                     <DropdownMenuShortcut>⌘G</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 </DropdownMenuSubContent>
@@ -105,7 +106,7 @@ export function UserSettings() {
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
-            <span>Chiqish</span>
+            <span>{t('logout')}</span>
             <DropdownMenuShortcut>⌘Q</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuContent>

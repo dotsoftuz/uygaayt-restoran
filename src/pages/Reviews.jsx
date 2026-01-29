@@ -1,27 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import api from '@/services/api';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Star,
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Calendar,
-  User,
-  Package,
-  MessageSquare,
-  Image as ImageIcon,
-} from 'lucide-react';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -38,26 +31,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatDate, formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
+import { formatDateTime } from '@/lib/utils';
+import api from '@/services/api';
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Filter,
+  Image as ImageIcon,
+  Package,
+  Search,
+  Star,
+  User,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 function Reviews() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [reviews, setReviews] = useState([]);
@@ -100,9 +94,7 @@ function Reviews() {
       }
     } catch (error) {
       console.error('Error loading reviews:', error);
-      toast.error(
-        error?.message || 'Sharhlarni yuklashda xatolik yuz berdi'
-      );
+      toast.error(error?.message || t('reviewsLoadError'));
     } finally {
       setLoading(false);
     }
@@ -156,10 +148,11 @@ function Reviews() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`w-4 h-4 ${star <= rating
-              ? 'fill-yellow-400 text-yellow-400'
-              : 'text-gray-300'
-              }`}
+            className={`w-4 h-4 ${
+              star <= rating
+                ? 'fill-yellow-400 text-yellow-400'
+                : 'text-gray-300'
+            }`}
           />
         ))}
         <span className="ml-1 text-sm font-medium">{rating}</span>
@@ -177,7 +170,8 @@ function Reviews() {
   // Format image URL
   const formatImageUrl = (imageUrl) => {
     if (!imageUrl) return null;
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
     const cleanBaseUrl = baseUrl.replace(/\/$/, '');
     let url = imageUrl;
     if (url.startsWith('uploads/')) {
@@ -198,10 +192,8 @@ function Reviews() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="title">Sharhlar</h2>
-          <p className="paragraph">
-            Mijozlaringizning sharhlari va baholari
-          </p>
+          <h2 className="title">{t('reviews')}</h2>
+          <p className="paragraph">{t('reviewsDescription')}</p>
         </div>
       </div>
 
@@ -211,7 +203,7 @@ function Reviews() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                O'rtacha Baho
+                {t('averageRating')}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -222,7 +214,7 @@ function Reviews() {
                 <Star className="w-6 h-6 fill-yellow-400 text-yellow-400" />
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {stats.totalCount || 0} ta sharh
+                {stats.totalCount || 0} {t('reviewsCount')}
               </p>
             </CardContent>
           </Card>
@@ -230,38 +222,46 @@ function Reviews() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                5 Yulduz
+                5 {t('stars')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{stats.rating5 || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">Jami sharhlar</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('totalReviews')}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                4 Yulduz
+                4 {t('stars')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{stats.rating4 || 0}</div>
-              <p className="text-xs text-muted-foreground mt-1">Jami sharhlar</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('totalReviews')}
+              </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                1-3 Yulduz
+                1-3 {t('stars')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {(stats.rating1 || 0) + (stats.rating2 || 0) + (stats.rating3 || 0)}
+                {(stats.rating1 || 0) +
+                  (stats.rating2 || 0) +
+                  (stats.rating3 || 0)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Jami sharhlar</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('totalReviews')}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -274,7 +274,7 @@ function Reviews() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Mijoz nomi yoki sharh bo'yicha qidirish..."
+                placeholder={t('searchByCustomerOrReview')}
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -293,15 +293,15 @@ function Reviews() {
           >
             <SelectTrigger className="w-full sm:w-[200px]">
               <Filter className="w-4 h-4 mr-2" />
-              <SelectValue placeholder="Baho bo'yicha" />
+              <SelectValue placeholder={t('filterByRating')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Barcha baholar</SelectItem>
-              <SelectItem value="5">5 yulduz</SelectItem>
-              <SelectItem value="4">4 yulduz</SelectItem>
-              <SelectItem value="3">3 yulduz</SelectItem>
-              <SelectItem value="2">2 yulduz</SelectItem>
-              <SelectItem value="1">1 yulduz</SelectItem>
+              <SelectItem value="all">{t('allRatings')}</SelectItem>
+              <SelectItem value="5">5 {t('stars')}</SelectItem>
+              <SelectItem value="4">4 {t('stars')}</SelectItem>
+              <SelectItem value="3">3 {t('stars')}</SelectItem>
+              <SelectItem value="2">2 {t('stars')}</SelectItem>
+              <SelectItem value="1">1 {t('star')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -314,12 +314,12 @@ function Reviews() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Mijoz</TableHead>
-                  <TableHead>Baho</TableHead>
-                  <TableHead>Sharh</TableHead>
-                  <TableHead>Buyurtma</TableHead>
-                  <TableHead>Sana</TableHead>
-                  <TableHead className="text-right">Harakatlar</TableHead>
+                  <TableHead>{t('customer')}</TableHead>
+                  <TableHead>{t('rating')}</TableHead>
+                  <TableHead>{t('review')}</TableHead>
+                  <TableHead>{t('order')}</TableHead>
+                  <TableHead>{t('date')}</TableHead>
+                  <TableHead className="text-right">{t('actions')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -355,10 +355,8 @@ function Reviews() {
             <Star className="w-12 h-12 text-muted-foreground" />
           </EmptyMedia>
           <EmptyHeader>
-            <EmptyTitle>Sharhlar topilmadi</EmptyTitle>
-            <EmptyDescription>
-              Hozircha hech qanday sharh yo'q
-            </EmptyDescription>
+            <EmptyTitle>{t('noReviewsFound')}</EmptyTitle>
+            <EmptyDescription>{t('noReviewsDescription')}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
@@ -368,12 +366,12 @@ function Reviews() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Mijoz</TableHead>
-                    <TableHead>Baho</TableHead>
-                    <TableHead>Sharh</TableHead>
-                    <TableHead>Buyurtma</TableHead>
-                    <TableHead>Sana</TableHead>
-                    <TableHead className="text-right">Harakatlar</TableHead>
+                    <TableHead>{t('customer')}</TableHead>
+                    <TableHead>{t('rating')}</TableHead>
+                    <TableHead>{t('review')}</TableHead>
+                    <TableHead>{t('order')}</TableHead>
+                    <TableHead>{t('date')}</TableHead>
+                    <TableHead className="text-right">{t('actions')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -383,12 +381,14 @@ function Reviews() {
                         <div className="flex items-center gap-2">
                           <Avatar className="w-8 h-8">
                             <AvatarFallback>
-                              {review.customer?.firstName?.[0] || 'M'}
+                              {review.customer?.firstName?.[0] ||
+                                t('customer')[0] ||
+                                'C'}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <div className="font-medium">
-                              {review.customer?.firstName || 'Mijoz'}{' '}
+                              {review.customer?.firstName || t('customer')}{' '}
                               {review.customer?.lastName || ''}
                             </div>
                             <div className="text-sm text-muted-foreground">
@@ -397,9 +397,7 @@ function Reviews() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        {renderStars(review.rating)}
-                      </TableCell>
+                      <TableCell>{renderStars(review.rating)}</TableCell>
                       <TableCell>
                         <div className="max-w-[300px]">
                           {review.comment ? (
@@ -408,18 +406,23 @@ function Reviews() {
                             </p>
                           ) : (
                             <span className="text-muted-foreground text-sm">
-                              Sharh yo'q
+                              {t('noReview')}
                             </span>
                           )}
-                          {review.rateComments && review.rateComments.length > 0 && (
-                            <div className="flex gap-1 mt-1">
-                              {review.rateComments.map((rc, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {rc.title?.uz || rc.title}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
+                          {review.rateComments &&
+                            review.rateComments.length > 0 && (
+                              <div className="flex gap-1 mt-1">
+                                {review.rateComments.map((rc, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="text-xs"
+                                  >
+                                    {rc.title?.uz || rc.title}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -449,7 +452,7 @@ function Reviews() {
                           onClick={() => handleReviewClick(review)}
                         >
                           <Eye className="w-4 h-4 mr-1" />
-                          Ko'rish
+                          {t('view')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -463,7 +466,7 @@ function Reviews() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between">
               <div className="text-sm text-muted-foreground">
-                Sahifa {page} / {totalPages}
+                {t('pageOf', { current: page, total: totalPages })}
               </div>
               <div className="flex gap-2">
                 <Button
@@ -473,7 +476,7 @@ function Reviews() {
                   disabled={page === 1}
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Oldingi
+                  {t('previous')}
                 </Button>
                 <Button
                   variant="outline"
@@ -481,7 +484,7 @@ function Reviews() {
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >
-                  Keyingi
+                  {t('next')}
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -492,87 +495,92 @@ function Reviews() {
 
       {/* Review Detail Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-xl">Sharh Tafsilotlari</DialogTitle>
+        <DialogContent className="max-w-3xl max-h-[90vh]">
+          <DialogHeader className="border-b pb-6">
+            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
+              <Star className="w-5 h-5" />
+              {t('reviewDetails')}
+            </DialogTitle>
           </DialogHeader>
+
           {selectedReview && (
-            <div className="space-y-5 pt-2">
-              {/* Order & Date Info - Top */}
-              <div className="flex items-center justify-between gap-4 pb-4 border-b">
+            <div className="flex-1 overflow-y-auto py-6">
+              {/* Customer Info Header */}
+              <div className="flex items-start justify-between mb-6 pb-6 border-b">
+                <div className="flex items-start gap-4">
+                  <Avatar className="w-16 h-16 border">
+                    <AvatarFallback className="text-lg font-medium bg-muted">
+                      {selectedReview.customer?.firstName?.[0] ||
+                        t('customer')[0] ||
+                        'C'}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-semibold">
+                      {selectedReview.customer?.firstName || t('customer')}{' '}
+                      {selectedReview.customer?.lastName || ''}
+                    </h2>
+                    <p className="text-sm text-muted-foreground flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      {selectedReview.customer?.phoneNumber || ''}
+                    </p>
+
+                    <div className="flex items-center gap-4 mt-2">
+                      {renderStars(selectedReview.rating)}
+                      <span className="text-sm text-muted-foreground">
+                        {selectedReview.createdAt
+                          ? formatDateTime(new Date(selectedReview.createdAt))
+                          : '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {selectedReview.order && (
-                  <div>
-                    <div className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <Package className="w-3.5 h-3.5" />
-                      Buyurtma
+                  <div className="text-right space-y-1">
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">
+                      {t('order')}
                     </div>
                     <Badge
                       variant="outline"
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors"
+                      className="cursor-pointer hover:bg-muted transition-colors"
                       onClick={() => handleOrderClick(selectedReview.order._id)}
                     >
                       #{selectedReview.order.number}
                     </Badge>
                   </div>
                 )}
-                <div className="ml-auto">
-                  <div className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Sana
-                  </div>
-                  <div className="font-medium text-sm">
-                    {selectedReview.createdAt
-                      ? formatDateTime(new Date(selectedReview.createdAt))
-                      : '-'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Customer Info */}
-              <div className="flex items-center gap-3 pb-4 border-b">
-                <Avatar className="w-12 h-12">
-                  <AvatarFallback className="text-base bg-primary/10 text-primary">
-                    {selectedReview.customer?.firstName?.[0] || 'M'}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="font-semibold">
-                    {selectedReview.customer?.firstName || 'Mijoz'}{' '}
-                    {selectedReview.customer?.lastName || ''}
-                  </div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
-                    <User className="w-3.5 h-3.5" />
-                    {selectedReview.customer?.phoneNumber || ''}
-                  </div>
-                </div>
-                <div className="text-right">
-                  {renderStars(selectedReview.rating)}
-                </div>
               </div>
 
               {/* Comment */}
               {selectedReview.comment && (
-                <div>
-                  <div className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    Sharh
+                <div className="mb-6">
+                  <h3 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">
+                    {t('comment')}
+                  </h3>
+                  <div className="bg-muted/30 rounded-lg p-4 border-l-4 border-primary/20">
+                    <p className="text-sm leading-relaxed">
+                      {selectedReview.comment}
+                    </p>
                   </div>
-                  <p className="text-sm leading-relaxed bg-muted/30 p-3 rounded-md">
-                    {selectedReview.comment}
-                  </p>
                 </div>
               )}
 
               {/* Rate Comments */}
               {selectedReview.rateComments &&
                 selectedReview.rateComments.length > 0 && (
-                  <div>
-                    <div className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wide">
-                      Tanlangan Xususiyatlar
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
+                  <div className="mb-6">
+                    <h3 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">
+                      {t('selectedFeatures')}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
                       {selectedReview.rateComments.map((rc, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                        <Badge
+                          key={idx}
+                          variant="secondary"
+                          className="px-3 py-1 text-xs font-normal"
+                        >
                           {rc.title?.uz || rc.title}
                         </Badge>
                       ))}
@@ -582,18 +590,17 @@ function Reviews() {
 
               {/* Images */}
               {selectedReview.images && selectedReview.images.length > 0 && (
-                <div>
-                  <div className="text-xs font-medium mb-2 text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5" />
-                    Rasmlar ({selectedReview.images.length})
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="mb-6">
+                  <h3 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">
+                    {t('images', { count: selectedReview.images.length })}
+                  </h3>
+                  <div className="grid grid-cols-4 gap-3">
                     {selectedReview.images.map((img, idx) => {
                       const imageUrl = formatImageUrl(img.url || img.webpUrl);
                       return (
                         <div
                           key={idx}
-                          className="relative aspect-square rounded-md overflow-hidden border hover:border-primary transition-colors group cursor-pointer bg-muted/20"
+                          className="group relative aspect-square rounded-lg overflow-hidden border bg-muted/20 cursor-pointer hover:border-primary/50 transition-all"
                           onClick={() => {
                             if (imageUrl) {
                               window.open(imageUrl, '_blank');
@@ -601,22 +608,24 @@ function Reviews() {
                           }}
                         >
                           {imageUrl ? (
-                            <img
-                              src={imageUrl}
-                              alt={`Review image ${idx + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => {
-                                console.error('Image load error:', imageUrl);
-                                e.target.style.display = 'none';
-                                if (e.target.nextSibling) {
-                                  e.target.nextSibling.style.display = 'flex';
-                                }
-                              }}
-                            />
-                          ) : null}
-                          <div className="absolute inset-0 bg-muted/50 flex items-center justify-center hidden">
-                            <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                          </div>
+                            <>
+                              <img
+                                src={imageUrl}
+                                alt={`${t('reviewImage')} ${idx + 1}`}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="bg-black/70 text-white rounded-full p-2 backdrop-blur-sm">
+                                  <Eye className="w-4 h-4" />
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -626,12 +635,18 @@ function Reviews() {
 
               {/* Product Info */}
               {selectedReview.product && (
-                <div className="pt-2 border-t">
-                  <div className="text-xs font-medium mb-1 text-muted-foreground uppercase tracking-wide">
-                    Mahsulot
-                  </div>
-                  <div className="font-medium text-sm">
-                    {selectedReview.product.name?.uz || selectedReview.product.name}
+                <div className="pt-6 border-t">
+                  <h3 className="font-medium mb-3 text-sm uppercase tracking-wide text-muted-foreground">
+                    {t('product')}
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <Package className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">
+                      {selectedReview.product.name?.uz ||
+                        selectedReview.product.name}
+                    </p>
                   </div>
                 </div>
               )}

@@ -1,60 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
 import { Badge } from '@/components/ui/badge';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  FolderTree,
-  Image as ImageIcon,
-  Search,
-  MoreVertical,
-  ArrowLeft,
-  Loader2,
-  GripVertical,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  X,
-  ArrowUp,
-  ArrowDown,
-  ChevronUp,
-  ChevronDown,
-} from 'lucide-react';
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Dialog,
   DialogContent,
@@ -70,30 +17,83 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
-import { useDebounce } from '@/hooks/use-debounce';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
+import { Input } from '@/components/ui/input';
 import {
-  fetchStoreCategories,
-  deleteStoreCategory,
-  updateCategoryPositions,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useIsMobile } from '@/hooks/use-mobile';
+import {
   createStoreCategory,
-  updateStoreCategory,
+  deleteStoreCategory,
+  fetchStoreCategories,
   getStoreCategoryById,
+  updateCategoryPositions,
+  updateStoreCategory,
 } from '@/services/storeCategories';
-import CategoryForm from '@/components/dashboard/dialogs/CategoryForm';
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Edit,
+  Filter,
+  FolderTree,
+  GripVertical,
+  Image as ImageIcon,
+  Loader2,
+  MoreVertical,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 function Catalog() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [categories, setCategories] = useState([]);
   const [totalCategories, setTotalCategories] = useState(0);
@@ -105,7 +105,8 @@ function Catalog() {
   const [sortBy, setSortBy] = useState(() => {
     const sortParam = searchParams.get('sort');
     if (sortParam === 'name_asc' || sortParam === 'name_desc') return 'name';
-    if (sortParam === 'productCount_asc' || sortParam === 'productCount_desc') return 'productCount';
+    if (sortParam === 'productCount_asc' || sortParam === 'productCount_desc')
+      return 'productCount';
     return 'name';
   });
   const [sortOrder, setSortOrder] = useState(() => {
@@ -149,8 +150,13 @@ function Catalog() {
 
   // Get category name in current language
   const getCategoryName = (category) => {
-    if (!category) return 'Nomsiz';
-    return category.name?.[currentLang] || category.name?.uz || category.name || 'Nomsiz';
+    if (!category) return t('untitled');
+    return (
+      category.name?.[currentLang] ||
+      category.name?.uz ||
+      category.name ||
+      t('untitled')
+    );
   };
 
   // Initialize search term from URL params
@@ -210,7 +216,7 @@ function Catalog() {
       });
       // Response structure: { statusCode, code, data: { data: [], total }, message, time }
       if (response?.data?.data) {
-        const newCategories = response.data.data.map(cat => ({ ...cat }));
+        const newCategories = response.data.data.map((cat) => ({ ...cat }));
         setCategories(newCategories);
         // Set total count if available
         if (response?.data?.total !== undefined) {
@@ -219,15 +225,15 @@ function Catalog() {
           setTotalCategories(newCategories.length);
         }
       } else if (response?.data && Array.isArray(response.data)) {
-        setCategories(response.data.map(cat => ({ ...cat })));
+        setCategories(response.data.map((cat) => ({ ...cat })));
         setTotalCategories(response.data.length);
       } else if (Array.isArray(response)) {
-        setCategories(response.map(cat => ({ ...cat })));
+        setCategories(response.map((cat) => ({ ...cat })));
         setTotalCategories(response.length);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast.error('Kategoriyalarni yuklashda xatolik yuz berdi');
+      toast.error(t('categoriesLoadError'));
     } finally {
       setLoading(false);
     }
@@ -237,7 +243,14 @@ function Catalog() {
   // Note: filterBy is handled client-side, so we don't reload on filter change
   useEffect(() => {
     loadCategories();
-  }, [parentId, currentPage, itemsPerPage, debouncedSearchTerm, sortBy, sortOrder]);
+  }, [
+    parentId,
+    currentPage,
+    itemsPerPage,
+    debouncedSearchTerm,
+    sortBy,
+    sortOrder,
+  ]);
 
   // Reset to page 1 when parentId, filter, or sort changes
   useEffect(() => {
@@ -278,7 +291,15 @@ function Catalog() {
     }
 
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, filterBy, sortBy, sortOrder, parentId, currentPage, itemsPerPage]);
+  }, [
+    debouncedSearchTerm,
+    filterBy,
+    sortBy,
+    sortOrder,
+    parentId,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   // Filter categories (client-side for product count filter)
   const filteredCategories = useMemo(() => {
@@ -317,7 +338,6 @@ function Catalog() {
     }
   };
 
-
   // Get current sort value for Select
   const getCurrentSortValue = () => {
     return `${sortBy}_${sortOrder}`;
@@ -346,15 +366,23 @@ function Catalog() {
     }
 
     // Find indices in the paginated view (what user sees)
-    const oldPaginatedIndex = paginatedCategories.findIndex((cat) => cat._id === active.id);
-    const newPaginatedIndex = paginatedCategories.findIndex((cat) => cat._id === over.id);
+    const oldPaginatedIndex = paginatedCategories.findIndex(
+      (cat) => cat._id === active.id
+    );
+    const newPaginatedIndex = paginatedCategories.findIndex(
+      (cat) => cat._id === over.id
+    );
 
     if (oldPaginatedIndex === -1 || newPaginatedIndex === -1) {
       return;
     }
 
     // Reorder the categories array
-    const reordered = arrayMove(paginatedCategories, oldPaginatedIndex, newPaginatedIndex);
+    const reordered = arrayMove(
+      paginatedCategories,
+      oldPaginatedIndex,
+      newPaginatedIndex
+    );
 
     // Update local state immediately for better UX
     setCategories(reordered);
@@ -364,12 +392,12 @@ function Catalog() {
       setIsUpdatingPositions(true);
       const categoryIds = reordered.map((cat) => cat._id);
       await updateCategoryPositions(categoryIds);
-      toast.success('Kategoriyalar tartibi yangilandi');
+      toast.success(t('categoriesReordered'));
       // Reload to get updated positions
       await loadCategories();
     } catch (error) {
       console.error('Error updating positions:', error);
-      toast.error('Kategoriyalar tartibini yangilashda xatolik yuz berdi');
+      toast.error(t('categoriesReorderError'));
       // Revert on error
       await loadCategories();
     } finally {
@@ -447,30 +475,39 @@ function Catalog() {
         <TableCell className="hidden md:table-cell text-center w-32">
           <div className="flex flex-col gap-1 items-center">
             <Badge variant="outline" className="text-xs">
-              {category.productCount || 0} mahsulot
+              {t('productsCount', { count: category.productCount || 0 })}
             </Badge>
             {category.childrenCount > 0 && (
               <Badge variant="secondary" className="text-xs">
-                {category.childrenCount} subkategoriya
+                {t('subcategoriesCount', {
+                  count: category.childrenCount,
+                })}
               </Badge>
             )}
           </div>
         </TableCell>
 
         {/* Actions Column */}
-        <TableCell className="text-right w-24" onClick={(e) => e.stopPropagation()}>
+        <TableCell
+          className="text-right w-24"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="flex items-center justify-end gap-1 sm:gap-2">
             {isMobile ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 sm:h-8 sm:w-8"
+                  >
                     <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => handleEdit(category)}>
                     <Edit className="h-4 w-4" />
-                    Tahrirlash
+                    {t('edit')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -478,7 +515,7 @@ function Catalog() {
                     className="text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
-                    O'chirish
+                    {t('delete')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -547,13 +584,13 @@ function Catalog() {
         delete updateData.parentId;
 
         await updateStoreCategory(updateData);
-        toast.success('Kategoriya yangilandi');
+        toast.success(t('categoryUpdated'));
       } else {
         await createStoreCategory({
           ...categoryData,
           parentId: parentId || undefined,
         });
-        toast.success('Kategoriya yaratildi');
+        toast.success(t('categoryCreated'));
       }
       setCategoryFormOpen(false);
       setEditingCategory(null);
@@ -561,9 +598,7 @@ function Catalog() {
       await loadCategories();
     } catch (error) {
       console.error('Error saving category:', error);
-      toast.error(
-        error?.message || 'Kategoriyani saqlashda xatolik yuz berdi'
-      );
+      toast.error(error?.message || t('categorySaveError'));
     }
   };
 
@@ -581,7 +616,7 @@ function Catalog() {
       const response = await deleteStoreCategory(categoryToDelete._id);
       console.log('Delete response:', response);
 
-      toast.success('Kategoriya o\'chirildi');
+      toast.success(t('categoryDeleted'));
       setDeleteDialogOpen(false);
       setCategoryToDelete(null);
 
@@ -597,16 +632,15 @@ function Catalog() {
         code: error?.code,
         data: error?.data,
       });
-      toast.error(
-        error?.message || 'Kategoriyani o\'chirishda xatolik yuz berdi'
-      );
+      toast.error(error?.message || t('categoryDeleteError'));
     }
   };
 
   // Get image URL
   const getImageUrl = (category) => {
     if (category.image?.url) {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+      const baseUrl =
+        import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
       // Base URL'ni tozalash - trailing slash'ni olib tashlash
       const cleanBaseUrl = baseUrl.replace(/\/$/, '');
 
@@ -640,19 +674,19 @@ function Catalog() {
             <h2 className="title">
               {parentCategory
                 ? getCategoryName(parentCategory)
-                : 'Kategoriyalar / Katalog'}
+                : t('catalogTitle')}
             </h2>
             <p className="paragraph">
               {parentId
-                ? 'Ichki kategoriyalarni boshqaring'
-                : 'Kategoriyalar va subkategoriyalarni boshqaring'}
+                ? t('subcategoriesDescription')
+                : t('catalogDescription')}
             </p>
           </div>
         </div>
         <Button onClick={handleCreateNew} size="sm">
           <Plus className="h-4 w-4" />
           <span className="text-xs sm:text-sm">
-            {parentId ? 'Yangi subkategoriya' : 'Yangi kategoriya'}
+            {parentId ? t('newSubcategory') : t('newCategory')}
           </span>
         </Button>
       </div>
@@ -664,7 +698,7 @@ function Catalog() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Kategoriya nomi bo'yicha qidirish..."
+            placeholder={t('searchCategoryPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-10 text-sm sm:text-base"
@@ -692,7 +726,7 @@ function Catalog() {
               className="w-full sm:w-auto"
             >
               <Filter className="h-4 w-4" />
-              Filtrlar
+              {t('filters')}
             </Button>
           ) : null}
 
@@ -701,12 +735,16 @@ function Catalog() {
               <div className="relative w-full sm:w-[160px]">
                 <Select value={filterBy} onValueChange={setFilterBy}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Mahsulotlar" />
+                    <SelectValue placeholder={t('products')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Barcha kategoriyalar</SelectItem>
-                    <SelectItem value="withProducts">Mahsulotlari bor</SelectItem>
-                    <SelectItem value="withoutProducts">Mahsulotlari yo'q</SelectItem>
+                    <SelectItem value="all">{t('allCategories')}</SelectItem>
+                    <SelectItem value="withProducts">
+                      {t('withProducts')}
+                    </SelectItem>
+                    <SelectItem value="withoutProducts">
+                      {t('withoutProducts')}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
                 {filterBy !== 'all' && (
@@ -725,15 +763,22 @@ function Catalog() {
                 )}
               </div>
 
-              <Select value={getCurrentSortValue()} onValueChange={handleSortChange}>
+              <Select
+                value={getCurrentSortValue()}
+                onValueChange={handleSortChange}
+              >
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name_asc">Nom (A-Z)</SelectItem>
-                  <SelectItem value="name_desc">Nom (Z-A)</SelectItem>
-                  <SelectItem value="productCount_asc">Mahsulotlar soni (kamdan ko'pga)</SelectItem>
-                  <SelectItem value="productCount_desc">Mahsulotlar soni (ko'pdan kamga)</SelectItem>
+                  <SelectItem value="name_asc">{t('sortNameAsc')}</SelectItem>
+                  <SelectItem value="name_desc">{t('sortNameDesc')}</SelectItem>
+                  <SelectItem value="productCount_asc">
+                    {t('sortProductCountAsc')}
+                  </SelectItem>
+                  <SelectItem value="productCount_desc">
+                    {t('sortProductCountDesc')}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -770,14 +815,16 @@ function Catalog() {
                       <TableHead className="w-6 px-2"></TableHead>
                       <TableHead className="w-[10rem]">
                         <div className="flex items-center gap-2">
-                          Kategoriya
+                          {t('category')}
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-5 w-5"
                             onClick={() => {
                               if (sortBy === 'name') {
-                                handleSortChange(sortOrder === 'asc' ? 'name_desc' : 'name_asc');
+                                handleSortChange(
+                                  sortOrder === 'asc' ? 'name_desc' : 'name_asc'
+                                );
                               } else {
                                 handleSortChange('name_asc');
                               }
@@ -797,14 +844,18 @@ function Catalog() {
                       </TableHead>
                       <TableHead className="hidden md:table-cell text-center w-32">
                         <div className="flex items-center justify-center gap-2">
-                          Mahsulotlar
+                          {t('products')}
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-5 w-5"
                             onClick={() => {
                               if (sortBy === 'productCount') {
-                                handleSortChange(sortOrder === 'asc' ? 'productCount_desc' : 'productCount_asc');
+                                handleSortChange(
+                                  sortOrder === 'asc'
+                                    ? 'productCount_desc'
+                                    : 'productCount_asc'
+                                );
                               } else {
                                 handleSortChange('productCount_asc');
                               }
@@ -822,7 +873,9 @@ function Catalog() {
                           </Button>
                         </div>
                       </TableHead>
-                      <TableHead className="text-right w-24">Amal</TableHead>
+                      <TableHead className="text-right w-24">
+                        {t('actions')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -831,7 +884,11 @@ function Catalog() {
                       strategy={verticalListSortingStrategy}
                     >
                       {paginatedCategories.map((category, index) => (
-                        <SortableRow key={category._id} category={category} index={index} />
+                        <SortableRow
+                          key={category._id}
+                          category={category}
+                          index={index}
+                        />
                       ))}
                     </SortableContext>
                   </TableBody>
@@ -841,7 +898,9 @@ function Catalog() {
                 <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Tartib yangilanmoqda...</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t('updating')}
+                    </p>
                   </div>
                 </div>
               )}
@@ -853,16 +912,14 @@ function Catalog() {
                   <FolderTree className="h-6 w-6" />
                 </EmptyMedia>
                 <EmptyTitle>
-                  {searchTerm
-                    ? 'Kategoriya topilmadi'
-                    : 'Hech qanday kategoriya yo\'q'}
+                  {searchTerm ? t('noCategoriesFound') : t('noCategoriesYet')}
                 </EmptyTitle>
                 <EmptyDescription>
                   {searchTerm
-                    ? 'Qidiruv natijasiga mos kategoriya topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
+                    ? t('noCategoriesMatchSearch')
                     : parentId
-                      ? 'Hali hech qanday subkategoriya yaratilmagan. "Yangi subkategoriya" tugmasini bosing.'
-                      : 'Hali hech qanday kategoriya yaratilmagan. "Yangi kategoriya" tugmasini bosing va birinchi kategoriyangizni yarating.'}
+                      ? t('noSubcategoriesDescription')
+                      : t('noCategoriesDescription')}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -875,7 +932,7 @@ function Catalog() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              Sahifada ko'rsatish:
+              {t('showPerPage')}:
             </span>
             <Select
               value={itemsPerPage.toString()}
@@ -892,8 +949,12 @@ function Catalog() {
               </SelectContent>
             </Select>
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              {startIndex + 1}-{Math.min(endIndex, totalCategories)} dan{' '}
-              {totalCategories} ta
+              {t('paginationInfo', {
+                start: startIndex + 1,
+                end: Math.min(endIndex, totalCategories),
+                total: totalCategories,
+                unit: t('unit'),
+              })}
             </span>
           </div>
 
@@ -906,7 +967,7 @@ function Catalog() {
               className="flex-1 sm:flex-initial"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              <span className="text-xs sm:text-sm">Oldingi</span>
+              <span className="text-xs sm:text-sm">{t('previous')}</span>
             </Button>
             <span className="text-xs sm:text-sm text-muted-foreground px-2">
               {currentPage} / {totalPages || 1}
@@ -918,7 +979,7 @@ function Catalog() {
               disabled={currentPage === totalPages || totalPages === 0}
               className="flex-1 sm:flex-initial"
             >
-              <span className="text-xs sm:text-sm">Keyingi</span>
+              <span className="text-xs sm:text-sm">{t('next')}</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -944,20 +1005,24 @@ function Catalog() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Kategoriyani o'chirish</DialogTitle>
+            <DialogTitle>{t('deleteCategoryTitle')}</DialogTitle>
             <DialogDescription>
-              Bu kategoriyani o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.
+              {t('deleteCategoryDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {categoryToDelete && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  <strong>{getCategoryName(categoryToDelete)}</strong> kategoriyasi butunlay o'chiriladi.
+                  <strong>{getCategoryName(categoryToDelete)}</strong>{' '}
+                  {t('categoryWillBeDeleted')}
                 </p>
                 {categoryToDelete.productCount > 0 && (
                   <p className="text-sm text-yellow-600">
-                    Ushbu kategoriyada {categoryToDelete.productCount} ta mahsulot bor.
+                    {t('categoryHasProducts', {
+                      count: categoryToDelete.productCount,
+                      unit: t('unit'),
+                    })}
                   </p>
                 )}
               </div>
@@ -969,7 +1034,7 @@ function Catalog() {
               onClick={() => setDeleteDialogOpen(false)}
               className="w-full sm:w-auto"
             >
-              Bekor qilish
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -977,7 +1042,7 @@ function Catalog() {
               className="w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
-              O'chirish
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

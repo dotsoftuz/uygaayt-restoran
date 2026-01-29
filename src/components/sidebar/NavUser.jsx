@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
 import {
-  ChevronsUpDown,
+  Languages,
   LogOut,
+  Monitor,
+  Moon,
   Settings,
   Sun,
-  Moon,
-  Monitor,
   SunMoon,
-  Languages,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -32,15 +31,16 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 import { useAppContext } from '@/context/AppContext';
+import { logout } from '@/middleware/authMiddleware';
+import { useTheme } from '@/provider/ThemeProvider';
+import api from '@/services/api';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { useTheme } from '@/provider/ThemeProvider';
-import { logout } from '@/middleware/authMiddleware';
-import api from '@/services/api';
 
 const formatImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   let url = imageUrl;
   if (url.startsWith('uploads/')) {
@@ -76,12 +76,12 @@ export function NavUser() {
       }
 
       // Kichik kechikish - login qilgandan keyin token to'g'ri ishlashini kutish
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       try {
         const response = await api.get('/store/get');
         const data = response?.data || response;
-        
+
         if (data) {
           setStoreData(data);
           // localStorage'ga ham saqlash (cache uchun)
@@ -89,7 +89,7 @@ export function NavUser() {
         }
       } catch (error) {
         console.error('Error fetching store data:', error);
-        
+
         // Agar API xato bersa, localStorage'dan olish
         try {
           const storeDataStr = localStorage.getItem('storeData');
@@ -123,7 +123,7 @@ export function NavUser() {
               size="lg"
               tooltip={
                 state === 'collapsed'
-                  ? storeData?.name || userData?.displayName || 'Do\'kon'
+                  ? storeData?.name || userData?.displayName || "Do'kon"
                   : undefined
               }
               className={`data-[state=open]:text-sidebar-accent-foreground 
@@ -131,9 +131,15 @@ export function NavUser() {
     group-data-[collapsible=icon]:!size-12 group-data-[collapsible=icon]:!mx-auto 
     ${state === 'collapsed' ? 'justify-center' : ''}`}
             >
-              <Avatar className={`rounded-full h-8 w-8 lg:h-8 lg:w-8 object-cover`}>
+              <Avatar
+                className={`rounded-full h-8 w-8 lg:h-8 lg:w-8 object-cover`}
+              >
                 <AvatarImage
-                  src={storeData?.logo?.url ? formatImageUrl(storeData.logo.url) : "/assets/logos/uygaayt-shape.svg"}
+                  src={
+                    storeData?.logo?.url
+                      ? formatImageUrl(storeData.logo.url)
+                      : '/assets/logos/uygaayt-shape.svg'
+                  }
                   alt={userData?.displayName || 'Anonymous'}
                 />
                 <AvatarFallback className="rounded-full text-xs font-medium">
@@ -152,18 +158,22 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage
-                    src={storeData?.logo?.url ? formatImageUrl(storeData.logo.url) : "/assets/logos/uygaayt-shape.svg"}
+                    src={
+                      storeData?.logo?.url
+                        ? formatImageUrl(storeData.logo.url)
+                        : '/assets/logos/uygaayt-shape.svg'
+                    }
                     alt={
                       userData?.displayName
                         ? userData?.displayName
-                        : 'Anonymous'
+                        : t('anonymous')
                     }
                   />
                   <AvatarFallback className="rounded-lg">CN</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
-                    {storeData?.name || userData?.displayName || 'Do\'kon'}
+                    {storeData?.name || userData?.displayName || t('store')}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
                     {storeData?.email || user?.email || 'email@example.com'}
@@ -183,23 +193,23 @@ export function NavUser() {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>
                   <SunMoon className="mr-2 h-4 w-4" />
-                  <span>Mavzu</span>
+                  <span>{t('theme')}</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="w-40">
                     <DropdownMenuItem onClick={() => setTheme('light')}>
                       <Sun className="mr-2 h-4 w-4" />
-                      <span>Kunduzgi</span>
+                      <span>{t('lightTheme')}</span>
                       <DropdownMenuShortcut>⌘F</DropdownMenuShortcut>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setTheme('dark')}>
                       <Moon className="mr-2 h-4 w-4" />
-                      <span>Tungi</span>
+                      <span>{t('darkTheme')}</span>
                       <DropdownMenuShortcut>⌘D</DropdownMenuShortcut>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setTheme('system')}>
                       <Monitor className="mr-2 h-4 w-4" />
-                      <span>Sistema</span>
+                      <span>{t('systemTheme')}</span>
                       <DropdownMenuShortcut>⌘G</DropdownMenuShortcut>
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
@@ -213,19 +223,19 @@ export function NavUser() {
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent className="w-40">
                     <DropdownMenuItem onClick={() => changeLanguage('uz')}>
-                      <span>O'zbek</span>
+                      <span>{t('uzbek')}</span>
                       {i18n.language === 'uz' && (
                         <DropdownMenuShortcut>✓</DropdownMenuShortcut>
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => changeLanguage('ru')}>
-                      <span>Russkie</span>
+                      <span>{t('russian')}</span>
                       {i18n.language === 'ru' && (
                         <DropdownMenuShortcut>✓</DropdownMenuShortcut>
                       )}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => changeLanguage('en')}>
-                      <span>English</span>
+                      <span>{t('english')}</span>
                       {i18n.language === 'en' && (
                         <DropdownMenuShortcut>✓</DropdownMenuShortcut>
                       )}

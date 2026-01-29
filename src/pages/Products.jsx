@@ -1,49 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import ProductForm from '@/components/dashboard/dialogs/ProductForm';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  MoreVertical,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  X,
-  ArrowUp,
-  ArrowDown,
-  ChevronUp,
-  ChevronDown,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Package,
-  Image as ImageIcon,
-  Download,
-  Grid3x3,
-  List,
-  Eye,
-} from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -60,32 +19,68 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { toast } from 'sonner';
-import { useDebounce } from '@/hooks/use-debounce';
-import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import {
-  fetchStoreProducts,
-  deleteStoreProduct,
-  createStoreProduct,
-  updateStoreProduct,
-  getStoreProductById,
-  fetchCategories,
-} from '@/services/storeProducts';
-import ProductForm from '@/components/dashboard/dialogs/ProductForm';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { formatNumber } from '@/lib/utils';
+import {
+  createStoreProduct,
+  deleteStoreProduct,
+  fetchCategories,
+  fetchStoreProducts,
+  updateStoreProduct,
+} from '@/services/storeProducts';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Edit,
+  Eye,
+  Filter,
+  Grid3x3,
+  Image as ImageIcon,
+  List,
+  MoreVertical,
+  Package,
+  Plus,
+  Search,
+  Trash2,
+  X,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 
 function Products() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -212,7 +207,7 @@ function Products() {
       }
     } catch (error) {
       console.error('Error fetching products:', error);
-      toast.error('Mahsulotlarni yuklashda xatolik yuz berdi');
+      toast.error(t('productsLoadError'));
     } finally {
       setLoading(false);
     }
@@ -221,14 +216,30 @@ function Products() {
   // Load products when filters change
   useEffect(() => {
     loadProducts();
-  }, [currentPage, itemsPerPage, debouncedSearchTerm, sortBy, sortOrder, statusFilter, categoryFilter, stockFilter]);
+  }, [
+    currentPage,
+    itemsPerPage,
+    debouncedSearchTerm,
+    sortBy,
+    sortOrder,
+    statusFilter,
+    categoryFilter,
+    stockFilter,
+  ]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
     setSelectedProducts([]);
     setSelectAll(false);
-  }, [statusFilter, categoryFilter, stockFilter, sortBy, sortOrder, debouncedSearchTerm]);
+  }, [
+    statusFilter,
+    categoryFilter,
+    stockFilter,
+    sortBy,
+    sortOrder,
+    debouncedSearchTerm,
+  ]);
 
   // Update URL when filters and sort change
   useEffect(() => {
@@ -263,7 +274,16 @@ function Products() {
     }
 
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, statusFilter, categoryFilter, stockFilter, sortBy, sortOrder, currentPage, itemsPerPage]);
+  }, [
+    debouncedSearchTerm,
+    statusFilter,
+    categoryFilter,
+    stockFilter,
+    sortBy,
+    sortOrder,
+    currentPage,
+    itemsPerPage,
+  ]);
 
   // Handle sort change
   const handleSortChange = (value) => {
@@ -315,7 +335,12 @@ function Products() {
   // Get product name
   const getProductName = (product) => {
     const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-    return product.name?.[currentLang] || product.name?.uz || product.name || 'Mahsulot';
+    return (
+      product.name?.[currentLang] ||
+      product.name?.uz ||
+      product.name ||
+      t('product')
+    );
   };
 
   // Get category name
@@ -323,16 +348,22 @@ function Products() {
     const category = categories.find((cat) => cat._id === categoryId);
     if (category) {
       const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-      return category.name?.[currentLang] || category.name?.uz || category.name || 'Kategoriya';
+      return (
+        category.name?.[currentLang] ||
+        category.name?.uz ||
+        category.name ||
+        t('category')
+      );
     }
-    return 'Kategoriya';
+    return t('category');
   };
 
   // Get image URL
   const getImageUrl = (product) => {
     const formatImageUrl = (imageUrl) => {
       if (!imageUrl) return null;
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+      const baseUrl =
+        import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
       const cleanBaseUrl = baseUrl.replace(/\/$/, '');
       // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
       // ServeStaticModule '/v1/uploads' path'ida serve qiladi
@@ -374,10 +405,10 @@ function Products() {
     try {
       if (editingProduct) {
         await updateStoreProduct(productData);
-        toast.success('Mahsulot yangilandi');
+        toast.success(t('productUpdated'));
       } else {
         await createStoreProduct(productData);
-        toast.success('Mahsulot yaratildi');
+        toast.success(t('productCreated'));
       }
       setProductFormOpen(false);
       setEditingProduct(null);
@@ -389,18 +420,21 @@ function Products() {
       // API interceptor returns response.data, so error is already the data object
       if (error?.data && Array.isArray(error.data)) {
         const validationErrors = error.data
-          .map(err => err.message || `${err.property || ''}: ${err.message || ''}`)
-          .filter(msg => msg)
+          .map(
+            (err) =>
+              err.message || `${err.property || ''}: ${err.message || ''}`
+          )
+          .filter((msg) => msg)
           .join('\n');
         if (validationErrors) {
-          toast.error(`Validation xatolari:\n${validationErrors}`);
+          toast.error(`${t('validationErrors')}\n${validationErrors}`);
         } else {
-          toast.error(error.message || 'Mahsulotni saqlashda xatolik yuz berdi');
+          toast.error(error.message || t('productSaveError'));
         }
       } else if (error?.message) {
         toast.error(error.message);
       } else {
-        toast.error('Mahsulotni saqlashda xatolik yuz berdi');
+        toast.error(t('productSaveError'));
       }
 
       throw error;
@@ -418,15 +452,13 @@ function Products() {
 
     try {
       await deleteStoreProduct(productToDelete._id);
-      toast.success('Mahsulot o\'chirildi');
+      toast.success(t('productDeleted'));
       setDeleteDialogOpen(false);
       setProductToDelete(null);
       await loadProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
-      toast.error(
-        error?.message || 'Mahsulotni o\'chirishda xatolik yuz berdi'
-      );
+      toast.error(error?.message || t('productDeletionError'));
     }
   };
 
@@ -464,16 +496,18 @@ function Products() {
 
   const confirmBulkDelete = async () => {
     try {
-      const deletePromises = selectedProducts.map((id) => deleteStoreProduct(id));
+      const deletePromises = selectedProducts.map((id) =>
+        deleteStoreProduct(id)
+      );
       await Promise.all(deletePromises);
-      toast.success(`${selectedProducts.length} ta mahsulot o'chirildi`);
+      toast.success(`${selectedProducts.length} ${t('productsDeleted')}`);
       setBulkDeleteDialogOpen(false);
       setSelectedProducts([]);
       setSelectAll(false);
       await loadProducts();
     } catch (error) {
       console.error('Error bulk deleting products:', error);
-      toast.error('Mahsulotlarni o\'chirishda xatolik yuz berdi');
+      toast.error(t('bulkDeleteError'));
     }
   };
 
@@ -486,13 +520,13 @@ function Products() {
         updateStoreProduct({ _id: id, isActive })
       );
       await Promise.all(updatePromises);
-      toast.success(`${selectedProducts.length} ta mahsulot holati yangilandi`);
+      toast.success(`${selectedProducts.length} ${t('productsStatusUpdated')}`);
       setSelectedProducts([]);
       setSelectAll(false);
       await loadProducts();
     } catch (error) {
       console.error('Error bulk updating products:', error);
-      toast.error('Mahsulotlarni yangilashda xatolik yuz berdi');
+      toast.error(t('productsUpdateError'));
     }
   };
 
@@ -501,37 +535,48 @@ function Products() {
     return products.filter((product) => {
       if (!product.redLine && !product.yellowLine) return false;
       const stock = product.inStock || 0;
-      if (product.redLine && stock <= product.redLine) return { type: 'red', product };
-      if (product.yellowLine && stock <= product.yellowLine && stock > (product.redLine || 0)) {
+      if (product.redLine && stock <= product.redLine)
+        return { type: 'red', product };
+      if (
+        product.yellowLine &&
+        stock <= product.yellowLine &&
+        stock > (product.redLine || 0)
+      ) {
         return { type: 'yellow', product };
       }
       return false;
     });
   }, [products]);
 
-  const redStockCount = lowStockProducts.filter((p) => p?.type === 'red').length;
-  const yellowStockCount = lowStockProducts.filter((p) => p?.type === 'yellow').length;
+  const redStockCount = lowStockProducts.filter(
+    (p) => p?.type === 'red'
+  ).length;
+  const yellowStockCount = lowStockProducts.filter(
+    (p) => p?.type === 'yellow'
+  ).length;
 
   // CSV Export
   const handleExportCSV = () => {
     const headers = [
       'ID',
-      'Nomi (UZ)',
-      'Nomi (RU)',
-      'Nomi (EN)',
-      'Kategoriya',
-      'Narx',
-      'Chegirma narxi',
-      'Ombordagi miqdor',
-      'Sariq chiziq',
-      'Qizil chiziq',
-      'Holat',
-      'Yaratilgan sana',
+      t('nameUz'),
+      t('nameRu'),
+      t('nameEn'),
+      t('category'),
+      t('price'),
+      t('salePrice'),
+      t('stock'),
+      t('yellowLine'),
+      t('redLine'),
+      t('status'),
+      t('createdAt'),
     ];
 
     const rows = products.map((product) => {
       const productName = getProductName(product);
-      const categoryName = product.categoryId ? getCategoryName(product.categoryId) : '-';
+      const categoryName = product.categoryId
+        ? getCategoryName(product.categoryId)
+        : '-';
       const createdAt = product.createdAt
         ? new Date(product.createdAt).toLocaleDateString()
         : '-';
@@ -547,25 +592,29 @@ function Products() {
         product.inStock || 0,
         product.yellowLine || 0,
         product.redLine || 0,
-        product.isActive ? 'Faol' : 'Yashirilgan',
+        product.isActive ? t('active') : t('hidden'),
         createdAt,
       ];
     });
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(','))].join(
-        '\n'
-      );
+      [
+        headers.join(','),
+        ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+      ].join('\n');
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `products_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute(
+      'download',
+      `products_${new Date().toISOString().split('T')[0]}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('CSV fayl yuklab olindi');
+    toast.success(t('csvDownloaded'));
   };
 
   // Pagination calculations
@@ -578,14 +627,12 @@ function Products() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="title">Mahsulotlar</h2>
-          <p className="paragraph">
-            Mahsulotlarni boshqaring va yangilang
-          </p>
+          <h2 className="title">{t('products')}</h2>
+          <p className="paragraph">{t('productsDescription')}</p>
         </div>
         <Button onClick={handleCreateNew} size="sm">
           <Plus className="h-4 w-4" />
-          <span className="text-xs sm:text-sm">Yangi mahsulot</span>
+          <span className="text-xs sm:text-sm">{t('newProduct')}</span>
         </Button>
       </div>
 
@@ -595,10 +642,9 @@ function Products() {
           {redStockCount > 0 && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>Jiddiy ogohlantirish</AlertTitle>
+              <AlertTitle>{t('criticalWarning')}</AlertTitle>
               <AlertDescription>
-                {redStockCount} ta mahsulot ombordagi miqdor qizil chiziqdan past. Tez orada
-                to'ldirish kerak!
+                {redStockCount} {t('redStockWarning')}
               </AlertDescription>
             </Alert>
           )}
@@ -606,11 +652,10 @@ function Products() {
             <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20">
               <AlertTriangle className="h-4 w-4 text-yellow-600" />
               <AlertTitle className="text-yellow-800 dark:text-yellow-200">
-                Ogohlantirish
+                {t('warning')}
               </AlertTitle>
               <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-                {yellowStockCount} ta mahsulot ombordagi miqdor sariq chiziqdan past. E'tibor
-                bering!
+                {yellowStockCount} {t('yellowStockWarning')}
               </AlertDescription>
             </Alert>
           )}
@@ -623,7 +668,7 @@ function Products() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Mahsulot nomi bo'yicha qidirish..."
+            placeholder={t('searchByProductName')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 pr-10 text-sm sm:text-base"
@@ -651,7 +696,7 @@ function Products() {
               className="w-full sm:w-auto"
             >
               <Filter className="h-4 w-4" />
-              Filtrlar
+              {t('filters')}
             </Button>
           ) : null}
 
@@ -660,23 +705,26 @@ function Products() {
               <div className="relative w-full sm:w-[160px]">
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Holat" />
+                    <SelectValue placeholder={t('status')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Barcha holatlar</SelectItem>
-                    <SelectItem value="active">Faol</SelectItem>
-                    <SelectItem value="false">Yashirilgan</SelectItem>
+                    <SelectItem value="all">{t('allStatuses')}</SelectItem>
+                    <SelectItem value="active">{t('active')}</SelectItem>
+                    <SelectItem value="false">{t('hidden')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="relative w-full sm:w-[160px]">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <Select
+                  value={categoryFilter}
+                  onValueChange={setCategoryFilter}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Kategoriya" />
+                    <SelectValue placeholder={t('category')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Barcha kategoriyalar</SelectItem>
+                    <SelectItem value="all">{t('allCategories')}</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat._id} value={cat._id}>
                         {getCategoryName(cat._id)}
@@ -689,30 +737,41 @@ function Products() {
               <div className="relative w-full sm:w-[160px]">
                 <Select value={stockFilter} onValueChange={setStockFilter}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Ombordagi" />
+                    <SelectValue placeholder={t('inStock')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Barcha</SelectItem>
-                    <SelectItem value="in">Mavjud</SelectItem>
-                    <SelectItem value="low">Past</SelectItem>
-                    <SelectItem value="out">Tugagan</SelectItem>
+                    <SelectItem value="all">{t('all')}</SelectItem>
+                    <SelectItem value="in">{t('available')}</SelectItem>
+                    <SelectItem value="low">{t('low')}</SelectItem>
+                    <SelectItem value="out">{t('outOfStock')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <Select value={getCurrentSortValue()} onValueChange={handleSortChange}>
+              <Select
+                value={getCurrentSortValue()}
+                onValueChange={handleSortChange}
+              >
                 <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="name_asc">Nom (A-Z)</SelectItem>
-                  <SelectItem value="name_desc">Nom (Z-A)</SelectItem>
-                  <SelectItem value="price_asc">Narx (pastdan yuqoriga)</SelectItem>
-                  <SelectItem value="price_desc">Narx (yuqoridan pastga)</SelectItem>
-                  <SelectItem value="stock_asc">Ombordagi (kamdan ko'pga)</SelectItem>
-                  <SelectItem value="stock_desc">Ombordagi (ko'pdan kamga)</SelectItem>
-                  <SelectItem value="date_desc">Yangi (avval)</SelectItem>
-                  <SelectItem value="date_asc">Eski (avval)</SelectItem>
+                  <SelectItem value="name_asc">{t('nameAZ')}</SelectItem>
+                  <SelectItem value="name_desc">{t('nameZA')}</SelectItem>
+                  <SelectItem value="price_asc">
+                    {t('priceLowToHigh')}
+                  </SelectItem>
+                  <SelectItem value="price_desc">
+                    {t('priceHighToLow')}
+                  </SelectItem>
+                  <SelectItem value="stock_asc">
+                    {t('stockLowToHigh')}
+                  </SelectItem>
+                  <SelectItem value="stock_desc">
+                    {t('stockHighToLow')}
+                  </SelectItem>
+                  <SelectItem value="date_desc">{t('newestFirst')}</SelectItem>
+                  <SelectItem value="date_asc">{t('oldestFirst')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -725,7 +784,7 @@ function Products() {
                   className="flex-shrink-0"
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  <span className="hidden sm:inline">CSV Export</span>
+                  <span className="hidden sm:inline">{t('csvExport')}</span>
                 </Button>
                 <div className="flex items-center border rounded-md">
                   <Button
@@ -755,7 +814,7 @@ function Products() {
       {selectedProducts.length > 0 && (
         <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
           <span className="text-sm font-medium">
-            {selectedProducts.length} ta tanlangan
+            {selectedProducts.length} {t('selected')}
           </span>
           <Button
             variant="outline"
@@ -763,7 +822,7 @@ function Products() {
             onClick={() => handleBulkStatusChange(true)}
           >
             <CheckCircle2 className="h-4 w-4 mr-1" />
-            Faollashtirish
+            {t('activate')}
           </Button>
           <Button
             variant="outline"
@@ -771,15 +830,11 @@ function Products() {
             onClick={() => handleBulkStatusChange(false)}
           >
             <XCircle className="h-4 w-4 mr-1" />
-            Yashirish
+            {t('hide')}
           </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleBulkDelete}
-          >
+          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
             <Trash2 className="h-4 w-4 mr-1" />
-            O'chirish
+            {t('delete')}
           </Button>
           <Button
             variant="ghost"
@@ -818,14 +873,17 @@ function Products() {
               const productName = getProductName(product);
               const isSelected = selectedProducts.includes(product._id);
               const stockStatus = product.inStock > 0 ? 'in' : 'out';
-              const isLowStock = product.yellowLine && product.inStock <= product.yellowLine;
-              const isRedStock = product.redLine && product.inStock <= product.redLine;
+              const isLowStock =
+                product.yellowLine && product.inStock <= product.yellowLine;
+              const isRedStock =
+                product.redLine && product.inStock <= product.redLine;
 
               return (
                 <Card
                   key={product._id}
-                  className={`relative overflow-hidden hover:shadow-md transition-shadow ${isSelected ? 'ring-2 ring-primary' : ''
-                    }`}
+                  className={`relative overflow-hidden hover:shadow-md transition-shadow ${
+                    isSelected ? 'ring-2 ring-primary' : ''
+                  }`}
                 >
                   <CardContent className="p-0">
                     {/* Checkbox and Status Badge */}
@@ -841,14 +899,20 @@ function Products() {
                     </div>
                     <div className="absolute top-1.5 right-1.5 z-10">
                       {product.isActive ? (
-                        <Badge variant="default" className="text-[10px] px-1.5 py-0.5 h-5">
+                        <Badge
+                          variant="default"
+                          className="text-[10px] px-1.5 py-0.5 h-5"
+                        >
                           <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
-                          Faol
+                          {t('active')}
                         </Badge>
                       ) : (
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 h-5">
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1.5 py-0.5 h-5"
+                        >
                           <XCircle className="w-2.5 h-2.5 mr-0.5" />
-                          Yashirilgan
+                          {t('hidden')}
                         </Badge>
                       )}
                     </div>
@@ -869,17 +933,23 @@ function Products() {
                       {/* Stock Alert on Image */}
                       {isRedStock && (
                         <div className="absolute bottom-1.5 left-1.5">
-                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5 h-5">
+                          <Badge
+                            variant="destructive"
+                            className="text-[10px] px-1.5 py-0.5 h-5"
+                          >
                             <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
-                            Tugagan
+                            {t('outOfStock')}
                           </Badge>
                         </div>
                       )}
                       {isLowStock && !isRedStock && (
                         <div className="absolute bottom-1.5 left-1.5">
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0.5 h-5 bg-yellow-500">
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] px-1.5 py-0.5 h-5 bg-yellow-500"
+                          >
                             <AlertTriangle className="w-2.5 h-2.5 mr-0.5" />
-                            Past
+                            {t('low')}
                           </Badge>
                         </div>
                       )}
@@ -887,22 +957,26 @@ function Products() {
 
                     {/* Product Info - Compact */}
                     <div className="p-2.5 space-y-1.5">
-                      <div className='flex items-center gap-2 flex-wrap'>
-
+                      <div className="flex items-center gap-2 flex-wrap">
                         {product.categoryId && (
-                          <Badge size="sm" variant="outline" className="text-[10px] lg:text-xs">
+                          <Badge
+                            size="sm"
+                            variant="outline"
+                            className="text-[10px] lg:text-xs"
+                          >
                             {getCategoryName(product.categoryId)}
                           </Badge>
                         )}
                         <div className="flex items-center gap-1">
                           <Package className="h-3.5 w-3.5 text-muted-foreground" />
                           <span
-                            className={`text-xs font-medium ${stockStatus === 'out'
-                              ? 'text-destructive'
-                              : isLowStock
-                                ? 'text-yellow-600'
-                                : 'text-green-600'
-                              }`}
+                            className={`text-xs font-medium ${
+                              stockStatus === 'out'
+                                ? 'text-destructive'
+                                : isLowStock
+                                  ? 'text-yellow-600'
+                                  : 'text-green-600'
+                            }`}
                           >
                             {product.inStock || 0} dona
                           </span>
@@ -915,22 +989,23 @@ function Products() {
 
                       {/* Price - Compact */}
 
-
                       {/* Stock and Actions - Combined Row */}
                       <div className="flex items-center justify-between pt-1.5 border-t">
                         <div>
-                          {product.salePrice && product.salePrice < product.price ? (
+                          {product.salePrice &&
+                          product.salePrice < product.price ? (
                             <div className="flex items-baseline gap-1.5">
                               <span className="text-sm font-bold text-primary">
-                                {formatNumber(product.salePrice)} so'm
+                                {formatNumber(product.salePrice)}{' '}
+                                {t('currency')}
                               </span>
                               <span className="text-xs text-muted-foreground line-through">
-                                {formatNumber(product.price)}
+                                {formatNumber(product.price)} {t('currency')}
                               </span>
                             </div>
                           ) : (
                             <div className="text-sm font-bold">
-                              {formatNumber(product.price || 0)} so'm
+                              {formatNumber(product.price || 0)} {t('currency')}
                             </div>
                           )}
                         </div>
@@ -940,7 +1015,7 @@ function Products() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => handleView(product)}
-                            title="Ko'rish"
+                            title={t('view')}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -949,7 +1024,7 @@ function Products() {
                             size="icon"
                             className="h-7 w-7"
                             onClick={() => handleEdit(product)}
-                            title="Tahrirlash"
+                            title={t('edit')}
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
@@ -958,7 +1033,7 @@ function Products() {
                             size="icon"
                             className="h-7 w-7 text-destructive hover:text-destructive"
                             onClick={() => handleDelete(product)}
-                            title="O'chirish"
+                            title={t('delete')}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
@@ -977,14 +1052,12 @@ function Products() {
                 <Package className="h-6 w-6" />
               </EmptyMedia>
               <EmptyTitle>
-                {searchTerm
-                  ? 'Mahsulot topilmadi'
-                  : 'Hech qanday mahsulot yo\'q'}
+                {searchTerm ? t('productNotFound') : t('noProductsYet')}
               </EmptyTitle>
               <EmptyDescription>
                 {searchTerm
-                  ? 'Qidiruv natijasiga mos mahsulot topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
-                  : 'Hali hech qanday mahsulot yaratilmagan. "Yangi mahsulot" tugmasini bosing va birinchi mahsulotingizni yarating.'}
+                  ? t('noProductsMatchSearch')
+                  : t('noProductsDescription')}
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -1017,12 +1090,22 @@ function Products() {
                           onCheckedChange={handleSelectAll}
                         />
                       </TableHead>
-                      <TableHead className="w-[10rem]">Mahsulot</TableHead>
-                      <TableHead className="hidden md:table-cell">Kategoriya</TableHead>
-                      <TableHead className="text-right">Narx</TableHead>
-                      <TableHead className="text-center">Ombordagi</TableHead>
-                      <TableHead className="text-center">Holat</TableHead>
-                      <TableHead className="text-right w-24">Amal</TableHead>
+                      <TableHead className="w-[10rem]">
+                        {t('product')}
+                      </TableHead>
+                      <TableHead className="hidden md:table-cell">
+                        {t('category')}
+                      </TableHead>
+                      <TableHead className="text-right">{t('price')}</TableHead>
+                      <TableHead className="text-center">
+                        {t('inStock')}
+                      </TableHead>
+                      <TableHead className="text-center">
+                        {t('status')}
+                      </TableHead>
+                      <TableHead className="text-right w-24">
+                        {t('actions')}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1031,10 +1114,15 @@ function Products() {
                       const productName = getProductName(product);
                       const isSelected = selectedProducts.includes(product._id);
                       const stockStatus = product.inStock > 0 ? 'in' : 'out';
-                      const isLowStock = product.yellowLine && product.inStock <= product.yellowLine;
+                      const isLowStock =
+                        product.yellowLine &&
+                        product.inStock <= product.yellowLine;
 
                       return (
-                        <TableRow key={product._id} className="hover:bg-muted/50">
+                        <TableRow
+                          key={product._id}
+                          className="hover:bg-muted/50"
+                        >
                           <TableCell>
                             <Checkbox
                               checked={isSelected}
@@ -1065,17 +1153,19 @@ function Products() {
                                 >
                                   {productName}
                                 </button>
-                                {product.salePrice && product.salePrice < product.price && (
-                                  <div className="text-xs text-muted-foreground">
-                                    <span className="line-through">
-                                      {formatNumber(product.price)} so'm
-                                    </span>
-                                    {' '}
-                                    <span className="text-primary font-semibold">
-                                      {formatNumber(product.salePrice)} so'm
-                                    </span>
-                                  </div>
-                                )}
+                                {product.salePrice &&
+                                  product.salePrice < product.price && (
+                                    <div className="text-xs text-muted-foreground">
+                                      <span className="line-through">
+                                        {formatNumber(product.price)}{' '}
+                                        {t('currency')}
+                                      </span>{' '}
+                                      <span className="text-primary font-semibold">
+                                        {formatNumber(product.salePrice)}{' '}
+                                        {t('currency')}
+                                      </span>
+                                    </div>
+                                  )}
                               </div>
                             </div>
                           </TableCell>
@@ -1085,12 +1175,14 @@ function Products() {
                                 {getCategoryName(product.categoryId)}
                               </Badge>
                             ) : (
-                              <span className="text-xs text-muted-foreground">-</span>
+                              <span className="text-xs text-muted-foreground">
+                                -
+                              </span>
                             )}
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="font-semibold">
-                              {formatNumber(product.price || 0)} so'm
+                              {formatNumber(product.price || 0)} {t('currency')}
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
@@ -1105,7 +1197,7 @@ function Products() {
                                 }
                                 className="text-xs"
                               >
-                                {product.inStock || 0} dona
+                                {product.inStock || 0} {t('pieces')}
                               </Badge>
                               {!!isLowStock && (
                                 <AlertTriangle className="h-3 w-3 text-yellow-500" />
@@ -1116,32 +1208,43 @@ function Products() {
                             {product.isActive ? (
                               <Badge variant="default" className="text-xs">
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Faol
+                                {t('active')}
                               </Badge>
                             ) : (
                               <Badge variant="secondary" className="text-xs">
                                 <XCircle className="w-3 h-3 mr-1" />
-                                Yashirilgan
+                                {t('inactive')}
                               </Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <TableCell
+                            className="text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="flex items-center justify-end gap-1 sm:gap-2">
                               {isMobile ? (
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 sm:h-8 sm:w-8"
+                                    >
                                       <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleView(product)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleView(product)}
+                                    >
                                       <Eye className="h-4 w-4" />
-                                      Ko'rish
+                                      {t('view')}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleEdit(product)}>
+                                    <DropdownMenuItem
+                                      onClick={() => handleEdit(product)}
+                                    >
                                       <Edit className="h-4 w-4" />
-                                      Tahrirlash
+                                      {t('edit')}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
@@ -1149,7 +1252,7 @@ function Products() {
                                       className="text-destructive"
                                     >
                                       <Trash2 className="h-4 w-4" />
-                                      O'chirish
+                                      {t('delete')}
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1160,7 +1263,7 @@ function Products() {
                                     size="icon"
                                     className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleView(product)}
-                                    title="Ko'rish"
+                                    title={t('view')}
                                   >
                                     <Eye className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
@@ -1169,7 +1272,7 @@ function Products() {
                                     size="icon"
                                     className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleEdit(product)}
-                                    title="Tahrirlash"
+                                    title={t('edit')}
                                   >
                                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
@@ -1178,7 +1281,7 @@ function Products() {
                                     size="icon"
                                     className="h-7 w-7 sm:h-8 sm:w-8"
                                     onClick={() => handleDelete(product)}
-                                    title="O'chirish"
+                                    title={t('delete')}
                                   >
                                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                                   </Button>
@@ -1199,14 +1302,12 @@ function Products() {
                     <Package className="h-6 w-6" />
                   </EmptyMedia>
                   <EmptyTitle>
-                    {searchTerm
-                      ? 'Mahsulot topilmadi'
-                      : 'Hech qanday mahsulot yo\'q'}
+                    {searchTerm ? t('productNotFound') : t('noProductsYet')}
                   </EmptyTitle>
                   <EmptyDescription>
                     {searchTerm
-                      ? 'Qidiruv natijasiga mos mahsulot topilmadi. Boshqa qidiruv so\'zlarini sinab ko\'ring.'
-                      : 'Hali hech qanday mahsulot yaratilmagan. "Yangi mahsulot" tugmasini bosing va birinchi mahsulotingizni yarating.'}
+                      ? t('noProductsMatchSearch')
+                      : t('noProductsDescription')}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -1220,7 +1321,7 @@ function Products() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              Sahifada ko'rsatish:
+              {t('showPerPage')}:
             </span>
             <Select
               value={itemsPerPage.toString()}
@@ -1237,7 +1338,7 @@ function Products() {
               </SelectContent>
             </Select>
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              {startIndex + 1}-{endIndex} dan {totalProducts} ta
+              {startIndex + 1}-{endIndex} {t('of')} {totalProducts} {t('items')}
             </span>
           </div>
 
@@ -1250,7 +1351,7 @@ function Products() {
               className="flex-1 sm:flex-initial"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              <span className="text-xs sm:text-sm">Oldingi</span>
+              <span className="text-xs sm:text-sm">{t('previous')}</span>
             </Button>
             <span className="text-xs sm:text-sm text-muted-foreground px-2">
               {currentPage} / {totalPages || 1}
@@ -1262,7 +1363,7 @@ function Products() {
               disabled={currentPage === totalPages || totalPages === 0}
               className="flex-1 sm:flex-initial"
             >
-              <span className="text-xs sm:text-sm">Keyingi</span>
+              <span className="text-xs sm:text-sm">{t('next')}</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
@@ -1287,15 +1388,16 @@ function Products() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Mahsulotni o'chirish</DialogTitle>
+            <DialogTitle>{t('deleteProduct')}</DialogTitle>
             <DialogDescription>
-              Bu mahsulotni o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.
+              {t('deleteProductDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             {productToDelete && (
               <p className="text-sm text-muted-foreground">
-                <strong>{getProductName(productToDelete)}</strong> mahsuloti butunlay o'chiriladi.
+                <strong>{getProductName(productToDelete)}</strong>{' '}
+                {t('productWillBeDeleted')}
               </p>
             )}
           </div>
@@ -1305,7 +1407,7 @@ function Products() {
               onClick={() => setDeleteDialogOpen(false)}
               className="w-full sm:w-auto"
             >
-              Bekor qilish
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -1313,19 +1415,22 @@ function Products() {
               className="w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
-              O'chirish
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Bulk Delete Confirmation Dialog */}
-      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+      <Dialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Mahsulotlarni o'chirish</DialogTitle>
+            <DialogTitle>{t('deleteProducts')}</DialogTitle>
             <DialogDescription>
-              {selectedProducts.length} ta mahsulotni o'chirishni tasdiqlaysizmi? Bu amalni qaytarib bo'lmaydi.
+              {selectedProducts.length} {t('deleteProductsDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -1334,7 +1439,7 @@ function Products() {
               onClick={() => setBulkDeleteDialogOpen(false)}
               className="w-full sm:w-auto"
             >
-              Bekor qilish
+              {t('cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -1342,7 +1447,7 @@ function Products() {
               className="w-full sm:w-auto"
             >
               <Trash2 className="h-4 w-4" />
-              O'chirish
+              {t('delete')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
 import { useTheme } from '@/provider/ThemeProvider';
+import { useEffect, useState } from 'react';
 
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -8,10 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Check, Minus } from 'lucide-react';
 import { useFont } from '@/context/FontContext';
+import { Check, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 function Appearance() {
   const { setTheme } = useTheme();
@@ -239,17 +239,14 @@ function Appearance() {
             {t('languagesDescription')}
           </p>
         </div>
-        <Select
-          onValueChange={changeLanguage}
-          value={i18n.language || 'uz'}
-        >
+        <Select onValueChange={changeLanguage} value={i18n.language || 'uz'}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder={t('languagesTitle')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="uz">O'zbek</SelectItem>
-            <SelectItem value="ru">Russkie</SelectItem>
-            <SelectItem value="en">English</SelectItem>
+            <SelectItem value="uz">{t('uzbek')}</SelectItem>
+            <SelectItem value="ru">{t('russian')}</SelectItem>
+            <SelectItem value="en">{t('english')}</SelectItem>
           </SelectContent>
         </Select>
       </div>

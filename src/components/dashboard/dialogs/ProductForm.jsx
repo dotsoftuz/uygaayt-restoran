@@ -1,17 +1,5 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useDropzone } from 'react-dropzone';
-import { NumericFormat } from 'react-number-format';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Form,
   FormControl,
@@ -22,9 +10,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -32,42 +18,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TreeSelect } from '@/components/ui/tree-select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import {
-  Upload,
-  Image as ImageIcon,
-  X,
-  Loader2,
-  Star,
-  AlertTriangle,
-  Plus,
-} from 'lucide-react';
-import { toast } from 'sonner';
-import {
-  uploadImage,
-  fetchStoreProducts,
-  getStoreProductById,
-  fetchCategories,
-} from '@/services/storeProducts';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TextEditor from '@/components/ui/text-editor';
-import { DatePicker } from '@/components/ui/date-picker';
+import { TreeSelect } from '@/components/ui/tree-select';
+import {
+  fetchCategories,
+  getStoreProductById,
+  uploadImage,
+} from '@/services/storeProducts';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertTriangle, Loader2, Plus, Star, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { useFieldArray, useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { NumericFormat } from 'react-number-format';
+import { toast } from 'sonner';
+import * as z from 'zod';
 
 const compoundSchema = z.object({
-  name: z.string().min(1, 'Nomi majburiy'),
-  value: z.string().min(1, 'Qiymati majburiy'),
+  name: z.string().min(1, 'nameRequired'),
+  value: z.string().min(1, 'valueRequired'),
 });
 
 const productSchema = z.object({
   name: z.object({
-    uz: z.string().min(1, 'O\'zbekcha nom majburiy'),
-    ru: z.string().min(1, 'Ruscha nom majburiy'),
-    en: z.string().min(1, 'Inglizcha nom majburiy'),
+    uz: z.string().min(1, 'nameUzRequired'),
+    ru: z.string().min(1, 'nameRuRequired'),
+    en: z.string().min(1, 'nameEnRequired'),
   }),
-  categoryId: z.string().min(1, 'Kategoriya majburiy'),
-  price: z.number({ required_error: 'Narx majburiy', invalid_type_error: 'Narx raqam bo\'lishi kerak' }).min(0.01, 'Narx 0 dan katta bo\'lishi kerak'),
-  inStock: z.number({ required_error: 'Ombordagi miqdor majburiy', invalid_type_error: 'Ombordagi miqdor raqam bo\'lishi kerak' }).min(0, 'Ombordagi miqdor 0 dan katta yoki teng bo\'lishi kerak'),
+  categoryId: z.string().min(1, 'categoryRequired'),
+  price: z
+    .number({
+      required_error: 'priceRequired',
+      invalid_type_error: 'priceMustBeNumber',
+    })
+    .min(0.01, 'priceMustBeGreaterThanZero'),
+  inStock: z
+    .number({
+      required_error: 'stockRequired',
+      invalid_type_error: 'stockMustBeNumber',
+    })
+    .min(0, 'stockMustBeGreaterThanOrEqualZero'),
   description: z.string().optional(),
   isActive: z.boolean().default(true),
   mainImageId: z.string().optional().nullable(),
@@ -90,7 +91,12 @@ const productSchema = z.object({
 });
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+];
 
 // Helper function to resize images
 function resizeImage(file, maxWidth, maxHeight) {
@@ -139,12 +145,12 @@ const normalizeId = (id) => {
   if (!id) return null;
 
   // Case 1: { $oid: "id" }
-  if (typeof id === "object" && id.$oid) {
+  if (typeof id === 'object' && id.$oid) {
     return String(id.$oid);
   }
 
   // Case 2: MongoDB ObjectId instance (toString() valid)
-  if (typeof id === "object" && id.toString) {
+  if (typeof id === 'object' && id.toString) {
     const str = id.toString();
     if (/^[a-fA-F0-9]{24}$/.test(str)) {
       return str;
@@ -152,20 +158,19 @@ const normalizeId = (id) => {
   }
 
   // Case 3: direct string
-  if (typeof id === "string" && /^[a-fA-F0-9]{24}$/.test(id)) {
+  if (typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id)) {
     return id;
   }
 
   return null;
 };
 
-
 // Helper function to build category tree with children property
 const buildCategoryTree = (categories) => {
   if (!categories || categories.length === 0) return [];
 
   // Normalize all IDs first
-  const normalizedCategories = categories.map(cat => ({
+  const normalizedCategories = categories.map((cat) => ({
     ...cat,
     _id: normalizeId(cat._id) || cat._id,
     parentId: normalizeId(cat.parentId) || cat.parentId,
@@ -173,13 +178,13 @@ const buildCategoryTree = (categories) => {
 
   // Create a map for quick lookup
   const categoryMap = new Map();
-  normalizedCategories.forEach(cat => {
+  normalizedCategories.forEach((cat) => {
     categoryMap.set(cat._id, { ...cat, children: [] });
   });
 
   // Build tree structure
   const rootCategories = [];
-  normalizedCategories.forEach(cat => {
+  normalizedCategories.forEach((cat) => {
     const category = categoryMap.get(cat._id);
     if (cat.parentId && categoryMap.has(cat.parentId)) {
       // This is a child category
@@ -195,16 +200,26 @@ const buildCategoryTree = (categories) => {
 
   // Remove empty children arrays
   const cleanTree = (nodes) => {
-    return nodes.map(node => ({
+    return nodes.map((node) => ({
       ...node,
-      children: node.children && node.children.length > 0 ? cleanTree(node.children) : undefined,
+      children:
+        node.children && node.children.length > 0
+          ? cleanTree(node.children)
+          : undefined,
     }));
   };
 
   return cleanTree(rootCategories);
 };
 
-function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) {
+function ProductForm({
+  open,
+  onOpenChange,
+  product = null,
+  onSave,
+  onRefresh,
+}) {
+  const { t } = useTranslation();
   const [uploadingImages, setUploadingImages] = useState(false);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
@@ -225,17 +240,29 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
   }, []);
 
   // Helper function to get category name for display
-  const getCategoryDisplayName = useCallback((categoryId) => {
-    if (!categoryId || !categories.length) return '';
-    const category = categories.find(cat => {
-      const catId = typeof cat._id === 'object' ? cat._id.toString() : String(cat._id);
-      const searchId = typeof categoryId === 'object' ? categoryId.toString() : String(categoryId);
-      return catId === searchId;
-    });
-    if (!category) return '';
-    const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-    return category.name?.[currentLang] || category.name?.uz || category.name || 'Kategoriya';
-  }, [categories]);
+  const getCategoryDisplayName = useCallback(
+    (categoryId) => {
+      if (!categoryId || !categories.length) return '';
+      const category = categories.find((cat) => {
+        const catId =
+          typeof cat._id === 'object' ? cat._id.toString() : String(cat._id);
+        const searchId =
+          typeof categoryId === 'object'
+            ? categoryId.toString()
+            : String(categoryId);
+        return catId === searchId;
+      });
+      if (!category) return '';
+      const currentLang = localStorage.getItem('i18nextLng') || 'uz';
+      return (
+        category.name?.[currentLang] ||
+        category.name?.uz ||
+        category.name ||
+        'Kategoriya'
+      );
+    },
+    [categories]
+  );
 
   const form = useForm({
     resolver: zodResolver(productSchema),
@@ -270,7 +297,11 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
     },
   });
 
-  const { fields: compoundFields, append: appendCompound, remove: removeCompound } = useFieldArray({
+  const {
+    fields: compoundFields,
+    append: appendCompound,
+    remove: removeCompound,
+  } = useFieldArray({
     control: form.control,
     name: 'compounds',
   });
@@ -291,15 +322,18 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
           }
 
           // Debug: Log raw categories data
-          console.log('Raw categories from API:', categoriesList.map(cat => ({
-            _id: cat._id,
-            _idType: typeof cat._id,
-            _idString: String(cat._id),
-            parentId: cat.parentId,
-            parentIdType: typeof cat.parentId,
-            parentIdString: cat.parentId ? String(cat.parentId) : null,
-            name: cat.name,
-          })));
+          console.log(
+            'Raw categories from API:',
+            categoriesList.map((cat) => ({
+              _id: cat._id,
+              _idType: typeof cat._id,
+              _idString: String(cat._id),
+              parentId: cat.parentId,
+              parentIdType: typeof cat.parentId,
+              parentIdString: cat.parentId ? String(cat.parentId) : null,
+              name: cat.name,
+            }))
+          );
 
           setCategories(categoriesList);
         })
@@ -315,7 +349,8 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         .then((response) => {
           const productData = response?.data || response;
           if (productData) {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+            const baseUrl =
+              import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
             // Base URL'ni tozalash - trailing slash'ni olib tashlash
             const cleanBaseUrl = baseUrl.replace(/\/$/, '');
 
@@ -358,27 +393,37 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
             const mainIdx = imagePreviewsList.findIndex((img) => img.isMain);
             setMainImageIndex(mainIdx >= 0 ? mainIdx : 0);
 
-            const expiryDate = productData.expiryDate 
-              ? new Date(productData.expiryDate) 
+            const expiryDate = productData.expiryDate
+              ? new Date(productData.expiryDate)
               : null;
             const compounds = productData.compounds || [];
             const hasCompounds = compounds.length > 0;
-            const hasAttributes = !!(productData.attributes && productData.attributes.length > 0);
+            const hasAttributes = !!(
+              productData.attributes && productData.attributes.length > 0
+            );
 
             form.reset({
               name: productData.name || { uz: '', ru: '', en: '' },
-              categoryId: productData.categoryId || productData.category?._id || '',
+              categoryId:
+                productData.categoryId || productData.category?._id || '',
               price: productData.price ?? undefined,
               inStock: productData.inStock ?? undefined,
               description: productData.description || '',
-              isActive: productData.isActive !== undefined ? productData.isActive : true,
+              isActive:
+                productData.isActive !== undefined
+                  ? productData.isActive
+                  : true,
               mainImageId: productData.mainImage?._id || null,
               imageIds: productData.images?.map((img) => img._id) || [],
               discountEnabled: productData.discountEnabled || false,
               discountType: productData.discountType || 'amount',
               discountValue: productData.discountValue || 0,
-              discountStartAt: productData.discountStartAt ? new Date(productData.discountStartAt) : null,
-              discountEndAt: productData.discountEndAt ? new Date(productData.discountEndAt) : null,
+              discountStartAt: productData.discountStartAt
+                ? new Date(productData.discountStartAt)
+                : null,
+              discountEndAt: productData.discountEndAt
+                ? new Date(productData.discountEndAt)
+                : null,
               yellowLine: productData.yellowLine || 0,
               redLine: productData.redLine || 0,
               locationBlock: productData.locationBlock || '',
@@ -397,7 +442,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         })
         .catch((error) => {
           console.error('Error loading product:', error);
-          toast.error('Mahsulotni yuklashda xatolik yuz berdi');
+          toast.error(t('productLoadError'));
         })
         .finally(() => {
           setLoadingProduct(false);
@@ -436,93 +481,97 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
   }, [product, open, form]);
 
   // Image upload handler
-  const onDrop = useCallback(async (acceptedFiles) => {
-    const files = acceptedFiles.filter((file) => {
-      if (file.size > MAX_IMAGE_SIZE) {
-        toast.error(`${file.name} - fayl hajmi 5MB dan katta`);
-        return false;
-      }
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        toast.error(`${file.name} - noto'g'ri fayl formati`);
-        return false;
-      }
-      return true;
-    });
-
-    if (files.length === 0) return;
-
-    setUploadingImages(true);
-
-    try {
-      const uploadPromises = files.map(async (file, index) => {
-        const preview = URL.createObjectURL(file);
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 50 }));
-
-        const resizedFile = await resizeImage(file, 1200, 1200);
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 75 }));
-
-        const response = await uploadImage(resizedFile);
-        setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
-
-        // API interceptor response.data ni qaytaradi, lekin turli response strukturalarini qo'llab-quvvatlash
-        const imageData = response?.data || response;
-
-        console.log('Image upload response:', { response, imageData });
-
-        if (imageData?._id) {
-          // Format image URL for preview
-          let serverImageUrl = null;
-          if (imageData.url) {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-            const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-            // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
-            let url = imageData.url;
-            if (url.startsWith('uploads/')) {
-              url = url.replace('uploads/', '');
-            }
-            serverImageUrl = `${cleanBaseUrl}/uploads/${url}`;
-            console.log('Formatted server URL:', serverImageUrl);
-          }
-
-          return {
-            preview: preview, // Keep blob URL for immediate preview
-            url: serverImageUrl || preview, // Use server URL if available, otherwise blob URL
-            id: imageData._id,
-            imageUrl: imageData.url, // Store original backend URL
-            isMain: false,
-          };
-        } else {
-          // Clean up blob URL on error
-          if (preview && preview.startsWith('blob:')) {
-            URL.revokeObjectURL(preview);
-          }
-          throw new Error('Image upload failed - no image ID received');
+  const onDrop = useCallback(
+    async (acceptedFiles) => {
+      const files = acceptedFiles.filter((file) => {
+        if (file.size > MAX_IMAGE_SIZE) {
+          toast.error(`${file.name} - ${t('fileTooLarge')}`);
+          return false;
         }
+        if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+          toast.error(`${file.name} - ${t('invalidFileType')}`);
+          return false;
+        }
+        return true;
       });
 
-      const results = await Promise.all(uploadPromises);
-      const newPreviews = [...imagePreviews, ...results];
-      setImagePreviews(newPreviews);
+      if (files.length === 0) return;
 
-      const currentImageIds = form.getValues('imageIds') || [];
-      const newImageIds = results.map((r) => r.id);
-      form.setValue('imageIds', [...currentImageIds, ...newImageIds]);
+      setUploadingImages(true);
 
-      // If no main image, set first as main
-      if (!form.getValues('mainImageId') && results.length > 0) {
-        form.setValue('mainImageId', results[0].id);
-        setMainImageIndex(0);
+      try {
+        const uploadPromises = files.map(async (file, index) => {
+          const preview = URL.createObjectURL(file);
+          setUploadProgress((prev) => ({ ...prev, [file.name]: 50 }));
+
+          const resizedFile = await resizeImage(file, 1200, 1200);
+          setUploadProgress((prev) => ({ ...prev, [file.name]: 75 }));
+
+          const response = await uploadImage(resizedFile);
+          setUploadProgress((prev) => ({ ...prev, [file.name]: 100 }));
+
+          // API interceptor response.data ni qaytaradi, lekin turli response strukturalarini qo'llab-quvvatlash
+          const imageData = response?.data || response;
+
+          console.log('Image upload response:', { response, imageData });
+
+          if (imageData?._id) {
+            // Format image URL for preview
+            let serverImageUrl = null;
+            if (imageData.url) {
+              const baseUrl =
+                import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+              const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+              // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
+              let url = imageData.url;
+              if (url.startsWith('uploads/')) {
+                url = url.replace('uploads/', '');
+              }
+              serverImageUrl = `${cleanBaseUrl}/uploads/${url}`;
+              console.log('Formatted server URL:', serverImageUrl);
+            }
+
+            return {
+              preview: preview, // Keep blob URL for immediate preview
+              url: serverImageUrl || preview, // Use server URL if available, otherwise blob URL
+              id: imageData._id,
+              imageUrl: imageData.url, // Store original backend URL
+              isMain: false,
+            };
+          } else {
+            // Clean up blob URL on error
+            if (preview && preview.startsWith('blob:')) {
+              URL.revokeObjectURL(preview);
+            }
+            throw new Error('Image upload failed - no image ID received');
+          }
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const newPreviews = [...imagePreviews, ...results];
+        setImagePreviews(newPreviews);
+
+        const currentImageIds = form.getValues('imageIds') || [];
+        const newImageIds = results.map((r) => r.id);
+        form.setValue('imageIds', [...currentImageIds, ...newImageIds]);
+
+        // If no main image, set first as main
+        if (!form.getValues('mainImageId') && results.length > 0) {
+          form.setValue('mainImageId', results[0].id);
+          setMainImageIndex(0);
+        }
+
+        toast.success(`${files.length} ${t('imagesUploaded')}`);
+      } catch (error) {
+        console.error('Error uploading images:', error);
+        toast.error(t('imageUploadError'));
+      } finally {
+        setUploadingImages(false);
+        setUploadProgress({});
       }
-
-      toast.success(`${files.length} ta rasm yuklandi`);
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      toast.error('Rasmlarni yuklashda xatolik yuz berdi');
-    } finally {
-      setUploadingImages(false);
-      setUploadProgress({});
-    }
-  }, [form, imagePreviews]);
+    },
+    [form, imagePreviews]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -571,31 +620,39 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
     try {
       // Validate required fields before submitting
       if (!data.name?.uz || !data.name?.ru || !data.name?.en) {
-        toast.error('Mahsulot nomi barcha tillarda majburiy');
+        toast.error(t('productNameAllLanguagesRequired'));
         return;
       }
 
       if (!data.categoryId) {
-        toast.error('Kategoriya majburiy');
+        toast.error(t('categoryRequired'));
         return;
       }
 
       // Ensure price and inStock are valid numbers
-      const price = typeof data.price === 'number' && !isNaN(data.price) && data.price > 0
-        ? data.price
-        : (data.price ? parseFloat(String(data.price).replace(/\s/g, '')) : null);
+      const price =
+        typeof data.price === 'number' && !isNaN(data.price) && data.price > 0
+          ? data.price
+          : data.price
+            ? parseFloat(String(data.price).replace(/\s/g, ''))
+            : null;
 
-      const inStock = typeof data.inStock === 'number' && !isNaN(data.inStock) && data.inStock >= 0
-        ? data.inStock
-        : (data.inStock ? parseFloat(String(data.inStock).replace(/\s/g, '')) : null);
+      const inStock =
+        typeof data.inStock === 'number' &&
+        !isNaN(data.inStock) &&
+        data.inStock >= 0
+          ? data.inStock
+          : data.inStock
+            ? parseFloat(String(data.inStock).replace(/\s/g, ''))
+            : null;
 
       if (!price || isNaN(price) || price <= 0) {
-        toast.error('Narx majburiy va 0 dan katta bo\'lishi kerak');
+        toast.error(t('priceRequiredAndGreaterThanZero'));
         return;
       }
 
       if (inStock === null || isNaN(inStock) || inStock < 0) {
-        toast.error('Ombordagi miqdor majburiy va 0 dan katta yoki teng bo\'lishi kerak');
+        toast.error(t('stockRequiredAndGreaterThanOrEqualZero'));
         return;
       }
 
@@ -612,15 +669,29 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       };
 
       // Add optional fields only if they have values
-      if (data.yellowLine !== undefined && data.yellowLine !== null && data.yellowLine !== '') {
-        const yellowLine = typeof data.yellowLine === 'number' ? data.yellowLine : parseFloat(String(data.yellowLine).replace(/\s/g, '')) || 0;
+      if (
+        data.yellowLine !== undefined &&
+        data.yellowLine !== null &&
+        data.yellowLine !== ''
+      ) {
+        const yellowLine =
+          typeof data.yellowLine === 'number'
+            ? data.yellowLine
+            : parseFloat(String(data.yellowLine).replace(/\s/g, '')) || 0;
         if (!isNaN(yellowLine) && yellowLine > 0) {
           payload.yellowLine = yellowLine;
         }
       }
 
-      if (data.redLine !== undefined && data.redLine !== null && data.redLine !== '') {
-        const redLine = typeof data.redLine === 'number' ? data.redLine : parseFloat(String(data.redLine).replace(/\s/g, '')) || 0;
+      if (
+        data.redLine !== undefined &&
+        data.redLine !== null &&
+        data.redLine !== ''
+      ) {
+        const redLine =
+          typeof data.redLine === 'number'
+            ? data.redLine
+            : parseFloat(String(data.redLine).replace(/\s/g, '')) || 0;
         if (!isNaN(redLine) && redLine > 0) {
           payload.redLine = redLine;
         }
@@ -639,13 +710,14 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
       }
 
       if (data.isMyExpire && data.expiryDate) {
-        payload.expiryDate = data.expiryDate instanceof Date 
-          ? data.expiryDate.toISOString() 
-          : new Date(data.expiryDate).toISOString();
+        payload.expiryDate =
+          data.expiryDate instanceof Date
+            ? data.expiryDate.toISOString()
+            : new Date(data.expiryDate).toISOString();
       }
 
       if (data.compounds && data.compounds.length > 0) {
-        payload.compounds = data.compounds.filter(c => c.name && c.value);
+        payload.compounds = data.compounds.filter((c) => c.name && c.value);
       }
 
       if (data.hasAttributes && data.attributes && data.attributes.length > 0) {
@@ -657,10 +729,17 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
         payload.discountEnabled = true;
         payload.discountType = data.discountType || 'amount';
 
-        if (data.discountValue !== undefined && data.discountValue !== null && data.discountValue !== '') {
-          const discountValue = typeof data.discountValue === 'number'
-            ? data.discountValue
-            : parseFloat(String(data.discountValue).replace(/\s/g, '').replace('%', '')) || 0;
+        if (
+          data.discountValue !== undefined &&
+          data.discountValue !== null &&
+          data.discountValue !== ''
+        ) {
+          const discountValue =
+            typeof data.discountValue === 'number'
+              ? data.discountValue
+              : parseFloat(
+                  String(data.discountValue).replace(/\s/g, '').replace('%', '')
+                ) || 0;
           if (!isNaN(discountValue) && discountValue > 0) {
             payload.discountValue = discountValue;
           }
@@ -706,14 +785,15 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-3xl overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>
-            {product ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'}
+            {product ? t('editProduct') : t('newProduct')}
           </SheetTitle>
-          <SheetDescription>
-            Mahsulot ma'lumotlarini to'ldiring va saqlang
-          </SheetDescription>
+          <SheetDescription>{t('productFormDescription')}</SheetDescription>
         </SheetHeader>
 
         {loadingProduct ? (
@@ -722,13 +802,16 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
           </div>
         ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-6">
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-6 mt-6"
+            >
               <Tabs defaultValue="basic" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="basic">Asosiy</TabsTrigger>
-                  <TabsTrigger value="images">Rasmlar</TabsTrigger>
-                  <TabsTrigger value="discount">Chegirma</TabsTrigger>
-                  <TabsTrigger value="stock">Ombordagi</TabsTrigger>
+                  <TabsTrigger value="basic">{t('basic')}</TabsTrigger>
+                  <TabsTrigger value="images">{t('images')}</TabsTrigger>
+                  <TabsTrigger value="discount">{t('discount')}</TabsTrigger>
+                  <TabsTrigger value="stock">{t('stock')}</TabsTrigger>
                 </TabsList>
 
                 {/* Basic Information Tab */}
@@ -738,10 +821,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="name.uz"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Nomi (O'zbekcha)</FormLabel>
+                        <FormLabel required>{t('nameUz')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Mahsulot nomi (O'zbekcha)"
+                            placeholder={t('productNameUzPlaceholder')}
                             {...field}
                           />
                         </FormControl>
@@ -755,10 +838,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="name.ru"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Nomi (Ruscha)</FormLabel>
+                        <FormLabel required>{t('nameRu')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Mahsulot nomi (Ruscha)"
+                            placeholder={t('productNameRuPlaceholder')}
                             {...field}
                           />
                         </FormControl>
@@ -772,10 +855,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="name.en"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Nomi (Inglizcha)</FormLabel>
+                        <FormLabel required>{t('nameEn')}</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="Mahsulot nomi (Inglizcha)"
+                            placeholder={t('productNameEnPlaceholder')}
                             {...field}
                           />
                         </FormControl>
@@ -789,7 +872,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="categoryId"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel required>Kategoriya</FormLabel>
+                        <FormLabel required>{t('category')}</FormLabel>
                         <FormControl>
                           <TreeSelect
                             categories={categoryTree}
@@ -797,12 +880,12 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                             onValueChange={(value) => {
                               field.onChange(value);
                             }}
-                            placeholder="Kategoriya tanlang (asosiy yoki sub-kategoriya)"
+                            placeholder={t('selectCategoryPlaceholder')}
                             language={currentLanguage}
                           />
                         </FormControl>
                         <FormDescription>
-                          Asosiy kategoriya yoki sub-kategoriyani tanlang
+                          {t('selectCategoryDescription')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -815,17 +898,27 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                       name="price"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel required>Narx (so'm)</FormLabel>
+                          <FormLabel required>
+                            {t('price')} ({t('currency')})
+                          </FormLabel>
                           <FormControl>
                             <NumericFormat
                               customInput={Input}
                               thousandSeparator=" "
-                              placeholder="Masalan: 5 000"
-                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              placeholder={t('pricePlaceholder')}
+                              value={
+                                field.value === undefined ||
+                                field.value === null
+                                  ? ''
+                                  : field.value
+                              }
                               onValueChange={(values) => {
                                 const { floatValue } = values;
                                 // Set undefined if empty, otherwise set the number value
-                                if (floatValue === undefined || floatValue === null) {
+                                if (
+                                  floatValue === undefined ||
+                                  floatValue === null
+                                ) {
                                   field.onChange(undefined);
                                 } else {
                                   field.onChange(floatValue);
@@ -845,17 +938,25 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                       name="inStock"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel required>Ombordagi miqdor</FormLabel>
+                          <FormLabel required>{t('stock')}</FormLabel>
                           <FormControl>
                             <NumericFormat
                               customInput={Input}
                               thousandSeparator=" "
-                              placeholder="Masalan: 100"
-                              value={field.value === undefined || field.value === null ? '' : field.value}
+                              placeholder={t('stockPlaceholder')}
+                              value={
+                                field.value === undefined ||
+                                field.value === null
+                                  ? ''
+                                  : field.value
+                              }
                               onValueChange={(values) => {
                                 const { floatValue } = values;
                                 // Set undefined if empty, otherwise set the number value
-                                if (floatValue === undefined || floatValue === null) {
+                                if (
+                                  floatValue === undefined ||
+                                  floatValue === null
+                                ) {
                                   field.onChange(undefined);
                                 } else {
                                   field.onChange(floatValue);
@@ -876,12 +977,12 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel optional>Tavsif</FormLabel>
+                        <FormLabel optional>{t('description')}</FormLabel>
                         <FormControl>
                           <TextEditor
                             value={field.value || ''}
                             onChange={field.onChange}
-                            placeholder="Mahsulot haqida batafsil ma'lumot..."
+                            placeholder={t('productDescriptionPlaceholder')}
                           />
                         </FormControl>
                         <FormMessage />
@@ -891,9 +992,11 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
                   {/* Product Location Fields */}
                   <div className="rounded-lg border p-4 space-y-4">
-                    <Label className="text-base font-semibold">Mahsulot joylashuvi</Label>
+                    <Label className="text-base font-semibold">
+                      {t('productLocation')}
+                    </Label>
                     <FormDescription className="text-sm text-muted-foreground mb-4">
-                      Kuryer mahsulotni topishi uchun joylashuv ma'lumotlarini kiriting
+                      {t('productLocationDescription')}
                     </FormDescription>
 
                     <div className="grid grid-cols-3 gap-2">
@@ -902,10 +1005,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="locationBlock"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel optional>Blok</FormLabel>
+                            <FormLabel optional>{t('block')}</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Masalan: A blok"
+                                placeholder={t('blockPlaceholder')}
                                 {...field}
                               />
                             </FormControl>
@@ -919,10 +1022,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="locationShelf"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel optional>Javon</FormLabel>
+                            <FormLabel optional>{t('shelf')}</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Masalan: 2 javon"
+                                placeholder={t('shelfPlaceholder')}
                                 {...field}
                               />
                             </FormControl>
@@ -936,10 +1039,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="locationRow"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel optional>Qator</FormLabel>
+                            <FormLabel optional>{t('row')}</FormLabel>
                             <FormControl>
                               <Input
-                                placeholder="Masalan: 3 qator"
+                                placeholder={t('rowPlaceholder')}
                                 {...field}
                               />
                             </FormControl>
@@ -952,12 +1055,15 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
                   <div className="space-y-2 border rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <FormLabel optional>Muddatli mahsulot</FormLabel>
+                      <FormLabel optional>{t('expiryProduct')}</FormLabel>
                       <FormField
                         control={form.control}
                         name="isMyExpire"
                         render={({ field }) => (
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         )}
                       />
                     </div>
@@ -967,7 +1073,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="expiryDate"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Yaroqlilik muddati</FormLabel>
+                            <FormLabel>{t('expiryDate')}</FormLabel>
                             <FormControl>
                               <DatePicker
                                 value={field.value}
@@ -985,7 +1091,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
                   <div className="space-y-2 border rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <FormLabel optional>Tarkibli tovar</FormLabel>
+                      <FormLabel optional>{t('compoundProduct')}</FormLabel>
                       <Switch
                         checked={hasCompoundsEnabled}
                         onCheckedChange={(checked) => {
@@ -998,51 +1104,63 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         }}
                       />
                     </div>
-                    {hasCompoundsEnabled && compoundFields.map((field, index) => (
-                      <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                        <div className="md:col-span-5">
-                          <FormField
-                            control={form.control}
-                            name={`compounds.${index}.name`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Nomi</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Masalan: Suv" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                    {hasCompoundsEnabled &&
+                      compoundFields.map((field, index) => (
+                        <div
+                          key={field.id}
+                          className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end"
+                        >
+                          <div className="md:col-span-5">
+                            <FormField
+                              control={form.control}
+                              name={`compounds.${index}.name`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('name')}</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder={t('compoundNamePlaceholder')}
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="md:col-span-5">
+                            <FormField
+                              control={form.control}
+                              name={`compounds.${index}.value`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('quantity')}</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder={t(
+                                        'compoundQuantityPlaceholder'
+                                      )}
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => removeCompound(index)}
+                              className="w-full"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="md:col-span-5">
-                          <FormField
-                            control={form.control}
-                            name={`compounds.${index}.value`}
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Miqdori</FormLabel>
-                                <FormControl>
-                                  <Input placeholder="Masalan: 100ml" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeCompound(index)}
-                            className="w-full"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                     {hasCompoundsEnabled && (
                       <Button
                         type="button"
@@ -1051,14 +1169,14 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         className="w-full"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        Qo'shish
+                        {t('add')}
                       </Button>
                     )}
                   </div>
 
                   <div className="space-y-2 border rounded-lg p-4">
                     <div className="flex items-center justify-between">
-                      <FormLabel optional>Mahsulot variantlari</FormLabel>
+                      <FormLabel optional>{t('productVariants')}</FormLabel>
                       <Switch
                         checked={hasAttributesEnabled}
                         onCheckedChange={(checked) => {
@@ -1071,7 +1189,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     </div>
                     {hasAttributesEnabled && (
                       <div className="text-sm text-muted-foreground">
-                        Variantlar funksiyasi tez orada qo'shiladi
+                        {t('variantsComingSoon')}
                       </div>
                     )}
                   </div>
@@ -1082,9 +1200,9 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel optional>Mahsulot faol</FormLabel>
+                          <FormLabel optional>{t('productActive')}</FormLabel>
                           <FormDescription>
-                            Mahsulot mijozlarga ko'rinadimi?
+                            {t('productActiveDescription')}
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -1105,22 +1223,23 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="imageIds"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel optional>Mahsulot rasmlari</FormLabel>
+                        <FormLabel optional>{t('productImages')}</FormLabel>
                         <FormControl>
                           <div className="space-y-4">
                             <div
                               {...getRootProps()}
-                              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragActive
-                                ? 'border-primary bg-primary/5'
-                                : 'border-muted-foreground/25 hover:border-primary/50'
-                                }`}
+                              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                                isDragActive
+                                  ? 'border-primary bg-primary/5'
+                                  : 'border-muted-foreground/25 hover:border-primary/50'
+                              }`}
                             >
                               <input {...getInputProps()} />
                               {uploadingImages ? (
                                 <div className="flex flex-col items-center gap-2">
                                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                   <p className="text-sm text-muted-foreground">
-                                    Yuklanmoqda...
+                                    {t('uploading')}...
                                   </p>
                                 </div>
                               ) : (
@@ -1128,11 +1247,11 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                   <Upload className="h-8 w-8 text-muted-foreground" />
                                   <p className="text-sm">
                                     {isDragActive
-                                      ? 'Rasmlarni bu yerga tashlang'
-                                      : 'Rasmlarni bu yerga tashlang yoki bosing'}
+                                      ? t('dropImagesHere')
+                                      : t('dropOrClickToUploadImages')}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    PNG, JPG, WEBP (maks. 5MB)
+                                    {t('imageFormatsHint')}
                                   </p>
                                 </div>
                               )}
@@ -1141,22 +1260,28 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                             {imagePreviews.length > 0 && (
                               <div className="grid grid-cols-3 gap-2">
                                 {imagePreviews.map((preview, index) => (
-                                  <div
-                                    key={index}
-                                    className="relative group"
-                                  >
+                                  <div key={index} className="relative group">
                                     <div
-                                      className={`aspect-square rounded-lg overflow-hidden border-2 ${index === mainImageIndex
-                                        ? 'border-primary'
-                                        : 'border-muted'
-                                        }`}
+                                      className={`aspect-square rounded-lg overflow-hidden border-2 ${
+                                        index === mainImageIndex
+                                          ? 'border-primary'
+                                          : 'border-muted'
+                                      }`}
                                     >
                                       <img
                                         src={
                                           // Priority: url (server URL) > preview (blob URL)
-                                          preview.url && (preview.url.startsWith('http') || preview.url.startsWith('blob:'))
+                                          preview.url &&
+                                          (preview.url.startsWith('http') ||
+                                            preview.url.startsWith('blob:'))
                                             ? preview.url
-                                            : preview.preview && (preview.preview.startsWith('http') || preview.preview.startsWith('blob:'))
+                                            : preview.preview &&
+                                                (preview.preview.startsWith(
+                                                  'http'
+                                                ) ||
+                                                  preview.preview.startsWith(
+                                                    'blob:'
+                                                  ))
                                               ? preview.preview
                                               : ''
                                         }
@@ -1170,7 +1295,10 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                             imageUrl: preview.imageUrl,
                                           });
                                           // Fallback to blob if server URL fails
-                                          if (preview.preview && preview.preview.startsWith('blob:')) {
+                                          if (
+                                            preview.preview &&
+                                            preview.preview.startsWith('blob:')
+                                          ) {
                                             e.target.src = preview.preview;
                                           }
                                         }}
@@ -1179,7 +1307,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                     {index === mainImageIndex && (
                                       <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-xs px-2 py-1 rounded flex items-center gap-1">
                                         <Star className="h-3 w-3 fill-current" />
-                                        Asosiy
+                                        {t('main')}
                                       </div>
                                     )}
                                     <div className="absolute top-2 right-2 flex gap-1">
@@ -1223,9 +1351,9 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                         <div className="space-y-0.5">
-                          <FormLabel optional>Chegirma yoqilgan</FormLabel>
+                          <FormLabel optional>{t('discountEnabled')}</FormLabel>
                           <FormDescription>
-                            Mahsulotga chegirma qo'shish
+                            {t('addDiscountToProduct')}
                           </FormDescription>
                         </div>
                         <FormControl>
@@ -1252,16 +1380,23 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                         name="discountType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel optional>Chegirma turi</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <FormLabel optional>{t('discountType')}</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
                               <FormControl>
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="amount">So'm (miqdor)</SelectItem>
-                                <SelectItem value="percent">Foiz (%)</SelectItem>
+                                <SelectItem value="amount">
+                                  {t('amount')} ({t('currency')})
+                                </SelectItem>
+                                <SelectItem value="percent">
+                                  {t('percent')} (%)
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -1276,19 +1411,31 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                           <FormItem>
                             <FormLabel optional>
                               {form.watch('discountType') === 'percent'
-                                ? 'Chegirma foizi'
-                                : 'Chegirma miqdori (so\'m)'}
+                                ? t('discountPercent')
+                                : t('discountAmount') +
+                                  ' (' +
+                                  t('currency') +
+                                  ')'}
                             </FormLabel>
                             <FormControl>
                               {form.watch('discountType') === 'percent' ? (
                                 <NumericFormat
                                   customInput={Input}
                                   suffix="%"
-                                  placeholder="Masalan: 10"
-                                  value={field.value === 0 || field.value === undefined ? '' : field.value}
+                                  placeholder={t('discountPlaceholder')}
+                                  value={
+                                    field.value === 0 ||
+                                    field.value === undefined
+                                      ? ''
+                                      : field.value
+                                  }
                                   onValueChange={(values) => {
                                     const { floatValue } = values;
-                                    field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                                    field.onChange(
+                                      floatValue === undefined
+                                        ? undefined
+                                        : floatValue || 0
+                                    );
                                   }}
                                   onBlur={field.onBlur}
                                   allowNegative={false}
@@ -1299,11 +1446,20 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                                 <NumericFormat
                                   customInput={Input}
                                   thousandSeparator=" "
-                                  placeholder="Masalan: 1 000"
-                                  value={field.value === 0 || field.value === undefined ? '' : field.value}
+                                  placeholder={t('discountPlaceholder')}
+                                  value={
+                                    field.value === 0 ||
+                                    field.value === undefined
+                                      ? ''
+                                      : field.value
+                                  }
                                   onValueChange={(values) => {
                                     const { floatValue } = values;
-                                    field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                                    field.onChange(
+                                      floatValue === undefined
+                                        ? undefined
+                                        : floatValue || 0
+                                    );
                                   }}
                                   onBlur={field.onBlur}
                                   allowNegative={false}
@@ -1321,7 +1477,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                           name="discountStartAt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel optional>Boshlanish sanasi</FormLabel>
+                              <FormLabel optional>{t('startDate')}</FormLabel>
                               <FormControl>
                                 <DatePicker
                                   value={field.value}
@@ -1338,7 +1494,7 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                           name="discountEndAt"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel optional>Tugash sanasi</FormLabel>
+                              <FormLabel optional>{t('endDate')}</FormLabel>
                               <FormControl>
                                 <DatePicker
                                   value={field.value}
@@ -1361,23 +1517,31 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="yellowLine"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel optional>Sariq chiziq</FormLabel>
+                        <FormLabel optional>{t('yellowLine')}</FormLabel>
                         <FormControl>
                           <NumericFormat
                             customInput={Input}
                             thousandSeparator=" "
-                            placeholder="Masalan: 20"
-                            value={field.value === 0 || field.value === undefined ? '' : field.value}
+                            placeholder={t('yellowLinePlaceholder')}
+                            value={
+                              field.value === 0 || field.value === undefined
+                                ? ''
+                                : field.value
+                            }
                             onValueChange={(values) => {
                               const { floatValue } = values;
-                              field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                              field.onChange(
+                                floatValue === undefined
+                                  ? undefined
+                                  : floatValue || 0
+                              );
                             }}
                             onBlur={field.onBlur}
                             allowNegative={false}
                           />
                         </FormControl>
                         <FormDescription>
-                          Ombordagi miqdor shu qiymatdan past bo'lganda ogohlantirish
+                          {t('yellowLineDescription')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1389,23 +1553,31 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
                     name="redLine"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel optional>Qizil chiziq</FormLabel>
+                        <FormLabel optional>{t('redLine')}</FormLabel>
                         <FormControl>
                           <NumericFormat
                             customInput={Input}
                             thousandSeparator=" "
-                            placeholder="Masalan: 10"
-                            value={field.value === 0 || field.value === undefined ? '' : field.value}
+                            placeholder={t('redLinePlaceholder')}
+                            value={
+                              field.value === 0 || field.value === undefined
+                                ? ''
+                                : field.value
+                            }
                             onValueChange={(values) => {
                               const { floatValue } = values;
-                              field.onChange(floatValue === undefined ? undefined : floatValue || 0);
+                              field.onChange(
+                                floatValue === undefined
+                                  ? undefined
+                                  : floatValue || 0
+                              );
                             }}
                             onBlur={field.onBlur}
                             allowNegative={false}
                           />
                         </FormControl>
                         <FormDescription>
-                          Ombordagi miqdor shu qiymatdan past bo'lganda jiddiy ogohlantirish
+                          {t('redLineDescription')}
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -1414,43 +1586,53 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
 
                   {/* Stock Alerts */}
                   <div className="rounded-lg border p-4 space-y-2">
-                    <Label className="text-base font-semibold">Ombordagi holat</Label>
+                    <Label className="text-base font-semibold">
+                      {t('stockStatus')}
+                    </Label>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm">Joriy miqdor:</span>
-                        <span className="font-medium">{inStock} dona</span>
+                        <span className="text-sm">{t('currentQuantity')}:</span>
+                        <span className="font-medium">
+                          {inStock} {t('pieces')}
+                        </span>
                       </div>
                       {yellowLine > 0 && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm flex items-center gap-1">
                             <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                            Sariq chiziq:
+                            {t('yellowLine')}:
                           </span>
-                          <span className="font-medium">{yellowLine} dona</span>
+                          <span className="font-medium">
+                            {yellowLine} {t('pieces')}
+                          </span>
                         </div>
                       )}
                       {redLine > 0 && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm flex items-center gap-1">
                             <AlertTriangle className="h-4 w-4 text-red-500" />
-                            Qizil chiziq:
+                            {t('redLine')}:
                           </span>
-                          <span className="font-medium">{redLine} dona</span>
+                          <span className="font-medium">
+                            {redLine} {t('pieces')}
+                          </span>
                         </div>
                       )}
                       {inStock <= redLine && redLine > 0 && (
                         <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-800 dark:text-red-200">
-                          ⚠️ Jiddiy ogohlantirish: Ombordagi miqdor qizil chiziqdan past!
+                          ⚠️ {t('criticalWarning')}: {t('stockBelowRedLine')}
                         </div>
                       )}
-                      {inStock <= yellowLine && inStock > redLine && yellowLine > 0 && (
-                        <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-800 dark:text-yellow-200">
-                          ⚠️ Ogohlantirish: Ombordagi miqdor sariq chiziqdan past!
-                        </div>
-                      )}
+                      {inStock <= yellowLine &&
+                        inStock > redLine &&
+                        yellowLine > 0 && (
+                          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-sm text-yellow-800 dark:text-yellow-200">
+                            ⚠️ {t('warning')}: {t('stockBelowYellowLine')}
+                          </div>
+                        )}
                       {inStock > yellowLine && yellowLine > 0 && (
                         <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-sm text-green-800 dark:text-green-200">
-                          ✓ Ombordagi miqdor normal
+                          ✓ {t('stockNormal')}
                         </div>
                       )}
                     </div>
@@ -1459,12 +1641,21 @@ function ProductForm({ open, onOpenChange, product = null, onSave, onRefresh }) 
               </Tabs>
 
               <SheetFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Bekor qilish
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {t('cancel')}
                 </Button>
-                <Button type="submit" disabled={uploadingImages || loadingProduct}>
-                  {uploadingImages && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {product ? 'Yangilash' : 'Yaratish'}
+                <Button
+                  type="submit"
+                  disabled={uploadingImages || loadingProduct}
+                >
+                  {uploadingImages && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {product ? t('update') : t('create')}
                 </Button>
               </SheetFooter>
             </form>

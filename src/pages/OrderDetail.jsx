@@ -1,32 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { formatDate, formatNumber } from '@/lib/utils';
+import api from '@/services/api';
 import {
   ArrowLeft,
-  Phone,
-  MapPin,
-  CheckCircle2,
-  Clock,
-  Package,
-  Truck,
-  XCircle,
-  DollarSign,
-  User,
   Building,
+  CheckCircle2,
   Circle,
-  PlayCircle,
+  Clock,
+  DollarSign,
+  MapPin,
+  Package,
+  Phone,
+  Truck,
+  User,
 } from 'lucide-react';
-import { formatNumber, formatDate } from '@/lib/utils';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useIsMobile } from '@/hooks/use-mobile';
-import api from '@/services/api';
 
 // Backend order formatidan frontend formatiga o'tkazish
 const mapOrderFromBackend = (backendOrder) => {
@@ -67,13 +61,19 @@ const mapOrderFromBackend = (backendOrder) => {
 
   // Combined order-lar uchun store-specific items olish
   let itemsToMap = backendOrder.items || [];
-  if (backendOrder.orderStructureType === 'combined' && backendOrder.stores && Array.isArray(backendOrder.stores) && backendOrder.stores.length > 0) {
-    const currentStoreId = localStorage.getItem('storeId')?.toString().toLowerCase() || '';
+  if (
+    backendOrder.orderStructureType === 'combined' &&
+    backendOrder.stores &&
+    Array.isArray(backendOrder.stores) &&
+    backendOrder.stores.length > 0
+  ) {
+    const currentStoreId =
+      localStorage.getItem('storeId')?.toString().toLowerCase() || '';
     const storeData = backendOrder.stores.find((store) => {
       const storeStoreId = store.storeId?.toString().toLowerCase() || '';
       return storeStoreId === currentStoreId;
     });
-    
+
     if (storeData && storeData.items && Array.isArray(storeData.items)) {
       itemsToMap = storeData.items;
     }
@@ -84,22 +84,33 @@ const mapOrderFromBackend = (backendOrder) => {
     console.log(`🔍 Mapping item ${index}:`, item);
 
     // Product name ni olish - turli variantlarni tekshirish
-    let productName = 'Noma\'lum mahsulot';
+    let productName = '';
     if (item.product) {
       if (typeof item.product.name === 'string') {
         productName = item.product.name;
       } else if (item.product.name && typeof item.product.name === 'object') {
         // Agar name object bo'lsa (multi-language)
-        productName = item.product.name.uz || item.product.name.ru || Object.values(item.product.name)[0] || 'Noma\'lum mahsulot';
+        productName =
+          item.product.name.uz ||
+          item.product.name.ru ||
+          Object.values(item.product.name)[0] ||
+          '';
       }
     } else if (item.name) {
-      productName = typeof item.name === 'string' ? item.name : (item.name.uz || item.name.ru || Object.values(item.name)[0] || 'Noma\'lum mahsulot');
+      productName =
+        typeof item.name === 'string'
+          ? item.name
+          : item.name.uz || item.name.ru || Object.values(item.name)[0] || '';
     }
 
     let variant = '';
-    if (item.attributes && Array.isArray(item.attributes) && item.attributes.length > 0) {
+    if (
+      item.attributes &&
+      Array.isArray(item.attributes) &&
+      item.attributes.length > 0
+    ) {
       variant = item.attributes
-        .map(attr => {
+        .map((attr) => {
           if (typeof attr.attributeItem === 'string') {
             return attr.attributeItem;
           }
@@ -130,7 +141,8 @@ const mapOrderFromBackend = (backendOrder) => {
   // Address
   const address = backendOrder.addressName || '';
   const addressLocation = backendOrder.addressLocation || {};
-  const fullAddress = address +
+  const fullAddress =
+    address +
     (backendOrder.houseNumber ? `, ${backendOrder.houseNumber}` : '') +
     (backendOrder.entrance ? `, ${backendOrder.entrance}` : '') +
     (backendOrder.apartmentNumber ? `, ${backendOrder.apartmentNumber}` : '') +
@@ -142,34 +154,48 @@ const mapOrderFromBackend = (backendOrder) => {
     number: backendOrder.number,
     clientName: customer.firstName
       ? `${customer.firstName} ${customer.lastName || ''}`.trim()
-      : customer.name || 'Noma\'lum mijoz',
+      : customer.name || '',
     phone: customer.phoneNumber || customer.phone || '',
     address: fullAddress || address,
     addressLocation: addressLocation,
     deliveryNotes: backendOrder.comment || '',
     items: items,
-    paymentStatus: backendOrder.paymentState === 'completed' ? 'paid' : 'unpaid',
+    paymentStatus:
+      backendOrder.paymentState === 'completed' ? 'paid' : 'unpaid',
     paymentType: backendOrder.paymentType || 'cash',
     status: state.state || 'created',
     statusIndex: getStatusIndex(state),
     state: state,
     deliveryType: backendOrder.type === 'immediate' ? 'delivery' : 'pickup',
-    createdAt: backendOrder.createdAt ? new Date(backendOrder.createdAt) : new Date(),
-    acceptedAt: backendOrder.acceptedAt ? new Date(backendOrder.acceptedAt) : null,
-    inProcessAt: backendOrder.inProcessAt ? new Date(backendOrder.inProcessAt) : null,
-    inDeliveryAt: backendOrder.inDeliveryAt ? new Date(backendOrder.inDeliveryAt) : null,
-    completedAt: backendOrder.completedAt ? new Date(backendOrder.completedAt) : null,
-    appliedPromo: backendOrder.promocodePrice > 0 ? {
-      code: backendOrder.promocodeCode || 'PROMO',
-      type: 'fixed',
-      discountValue: backendOrder.promocodePrice,
-      discountAmount: backendOrder.promocodePrice,
-    } : null,
+    createdAt: backendOrder.createdAt
+      ? new Date(backendOrder.createdAt)
+      : new Date(),
+    acceptedAt: backendOrder.acceptedAt
+      ? new Date(backendOrder.acceptedAt)
+      : null,
+    inProcessAt: backendOrder.inProcessAt
+      ? new Date(backendOrder.inProcessAt)
+      : null,
+    inDeliveryAt: backendOrder.inDeliveryAt
+      ? new Date(backendOrder.inDeliveryAt)
+      : null,
+    completedAt: backendOrder.completedAt
+      ? new Date(backendOrder.completedAt)
+      : null,
+    appliedPromo:
+      backendOrder.promocodePrice > 0
+        ? {
+            code: backendOrder.promocodeCode || 'PROMO',
+            type: 'fixed',
+            discountValue: backendOrder.promocodePrice,
+            discountAmount: backendOrder.promocodePrice,
+          }
+        : null,
     promocode: backendOrder.promocode || null,
     store: backendOrder.store,
     storeId: backendOrder.storeId,
     orderStructureType: backendOrder.orderStructureType || 'singleStore',
-    stores: (backendOrder.stores || []).map(store => ({
+    stores: (backendOrder.stores || []).map((store) => ({
       ...store,
       promocodePrice: store.promocodePrice || 0,
       usedBalance: store.usedBalance || 0,
@@ -191,16 +217,19 @@ const mapOrderFromBackend = (backendOrder) => {
 
 // Order Products Component
 const OrderProducts = ({ order }) => {
+  const { t } = useTranslation();
   const statusLabels = {
-    created: 'Yaratildi',
-    inProcess: 'Jarayonda',
-    inDelivery: 'Yetkazib berishda',
-    completed: 'Tugallangan',
+    created: t('orderCreated'),
+    inProcess: t('orderInProcess'),
+    inDelivery: t('orderInDelivery'),
+    completed: t('orderCompleted'),
   };
 
   const formatTime = (date) => {
     if (!date) return '';
-    return new Date(date.getTime() + 5 * 60 * 60 * 1000).toISOString().slice(11, 19);
+    return new Date(date.getTime() + 5 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(11, 19);
   };
 
   const getImageUrl = (image) => {
@@ -208,7 +237,8 @@ const OrderProducts = ({ order }) => {
       console.log('🔍 getImageUrl - No image or url:', image);
       return null;
     }
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
     // Base URL'ni tozalash - trailing slash'ni olib tashlash
     const cleanBaseUrl = baseUrl.replace(/\/$/, '');
     // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
@@ -221,7 +251,16 @@ const OrderProducts = ({ order }) => {
     // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
     // baseUrl allaqachon /v1 ni o'z ichiga oladi, shuning uchun /v1/uploads/ bo'ladi
     const finalUrl = `${cleanBaseUrl}/uploads/${url}`;
-    console.log('🔍 getImageUrl - Base URL:', baseUrl, 'Clean:', cleanBaseUrl, 'Image URL:', image.url, 'Final:', finalUrl);
+    console.log(
+      '🔍 getImageUrl - Base URL:',
+      baseUrl,
+      'Clean:',
+      cleanBaseUrl,
+      'Image URL:',
+      image.url,
+      'Final:',
+      finalUrl
+    );
     return finalUrl;
   };
 
@@ -230,7 +269,7 @@ const OrderProducts = ({ order }) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Package className="w-5 h-5" />
-          Buyurtma mahsulotlari
+          {t('orderProducts')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -239,10 +278,13 @@ const OrderProducts = ({ order }) => {
           <div className="flex items-center justify-between">
             {/* Created Status */}
             <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 1
-                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                : 'bg-muted/50 border-muted-foreground/30'
-                }`}>
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                  order.statusIndex >= 1
+                    ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                    : 'bg-muted/50 border-muted-foreground/30'
+                }`}
+              >
                 {order.statusIndex >= 1 ? (
                   <CheckCircle2 className="w-5 h-5" />
                 ) : (
@@ -250,25 +292,35 @@ const OrderProducts = ({ order }) => {
                 )}
               </div>
               <div className="text-center">
-                <p className={`text-xs font-medium ${order.statusIndex >= 1 ? 'text-primary' : 'text-muted-foreground/60'}`}>
-                  Yaratildi
+                <p
+                  className={`text-xs font-medium ${order.statusIndex >= 1 ? 'text-primary' : 'text-muted-foreground/60'}`}
+                >
+                  {t('orderCreated')}
                 </p>
-                <p className={`text-xs mt-0.5 ${order.statusIndex >= 1 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                <p
+                  className={`text-xs mt-0.5 ${order.statusIndex >= 1 ? 'text-foreground' : 'text-muted-foreground/50'}`}
+                >
                   {formatTime(order.createdAt) || '-'}
                 </p>
               </div>
             </div>
 
             {/* Connector Line */}
-            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 2 ? 'bg-primary' : 'bg-muted/30'
-              }`}></div>
+            <div
+              className={`flex-1 h-0.5 mx-2 transition-all ${
+                order.statusIndex >= 2 ? 'bg-primary' : 'bg-muted/30'
+              }`}
+            ></div>
 
             {/* Accepted Status */}
             <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 2
-                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                : 'bg-muted/50 border-muted-foreground/30'
-                }`}>
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                  order.statusIndex >= 2
+                    ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                    : 'bg-muted/50 border-muted-foreground/30'
+                }`}
+              >
                 {order.statusIndex >= 2 ? (
                   <CheckCircle2 className="w-5 h-5" />
                 ) : order.statusIndex === 1 ? (
@@ -278,25 +330,35 @@ const OrderProducts = ({ order }) => {
                 )}
               </div>
               <div className="text-center">
-                <p className={`text-xs font-medium ${order.statusIndex >= 2 ? 'text-primary' : 'text-muted-foreground/60'}`}>
-                  Qabul qilindi
+                <p
+                  className={`text-xs font-medium ${order.statusIndex >= 2 ? 'text-primary' : 'text-muted-foreground/60'}`}
+                >
+                  {t('orderAccepted')}
                 </p>
-                <p className={`text-xs mt-0.5 ${order.statusIndex >= 2 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                <p
+                  className={`text-xs mt-0.5 ${order.statusIndex >= 2 ? 'text-foreground' : 'text-muted-foreground/50'}`}
+                >
                   {formatTime(order.acceptedAt) || '-'}
                 </p>
               </div>
             </div>
 
             {/* Connector Line */}
-            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 3 ? 'bg-primary' : 'bg-muted/30'
-              }`}></div>
+            <div
+              className={`flex-1 h-0.5 mx-2 transition-all ${
+                order.statusIndex >= 3 ? 'bg-primary' : 'bg-muted/30'
+              }`}
+            ></div>
 
             {/* In Delivery Status */}
             <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 3
-                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                : 'bg-muted/50 border-muted-foreground/30'
-                }`}>
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                  order.statusIndex >= 3
+                    ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                    : 'bg-muted/50 border-muted-foreground/30'
+                }`}
+              >
                 {order.statusIndex >= 3 ? (
                   <Truck className="w-5 h-5" />
                 ) : order.statusIndex === 2 ? (
@@ -306,25 +368,35 @@ const OrderProducts = ({ order }) => {
                 )}
               </div>
               <div className="text-center">
-                <p className={`text-xs font-medium ${order.statusIndex >= 3 ? 'text-primary' : 'text-muted-foreground/60'}`}>
-                  Yetkazilmoqda
+                <p
+                  className={`text-xs font-medium ${order.statusIndex >= 3 ? 'text-primary' : 'text-muted-foreground/60'}`}
+                >
+                  {t('orderInDelivery')}
                 </p>
-                <p className={`text-xs mt-0.5 ${order.statusIndex >= 3 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                <p
+                  className={`text-xs mt-0.5 ${order.statusIndex >= 3 ? 'text-foreground' : 'text-muted-foreground/50'}`}
+                >
                   {formatTime(order.inDeliveryAt) || '-'}
                 </p>
               </div>
             </div>
 
             {/* Connector Line */}
-            <div className={`flex-1 h-0.5 mx-2 transition-all ${order.statusIndex >= 4 ? 'bg-primary' : 'bg-muted/30'
-              }`}></div>
+            <div
+              className={`flex-1 h-0.5 mx-2 transition-all ${
+                order.statusIndex >= 4 ? 'bg-primary' : 'bg-muted/30'
+              }`}
+            ></div>
 
             {/* Completed Status */}
             <div className="flex flex-col items-center gap-2 z-10 bg-background relative">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${order.statusIndex >= 4
-                ? 'bg-primary text-primary-foreground border-primary shadow-md'
-                : 'bg-muted/50 border-muted-foreground/30'
-                }`}>
+              <div
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
+                  order.statusIndex >= 4
+                    ? 'bg-primary text-primary-foreground border-primary shadow-md'
+                    : 'bg-muted/50 border-muted-foreground/30'
+                }`}
+              >
                 {order.statusIndex >= 4 ? (
                   <CheckCircle2 className="w-5 h-5" />
                 ) : order.statusIndex === 3 ? (
@@ -334,10 +406,14 @@ const OrderProducts = ({ order }) => {
                 )}
               </div>
               <div className="text-center">
-                <p className={`text-xs font-medium ${order.statusIndex >= 4 ? 'text-primary' : 'text-muted-foreground/60'}`}>
-                  Tugallandi
+                <p
+                  className={`text-xs font-medium ${order.statusIndex >= 4 ? 'text-primary' : 'text-muted-foreground/60'}`}
+                >
+                  {t('orderCompleted')}
                 </p>
-                <p className={`text-xs mt-0.5 ${order.statusIndex >= 4 ? 'text-foreground' : 'text-muted-foreground/50'}`}>
+                <p
+                  className={`text-xs mt-0.5 ${order.statusIndex >= 4 ? 'text-foreground' : 'text-muted-foreground/50'}`}
+                >
                   {formatTime(order.completedAt) || '-'}
                 </p>
               </div>
@@ -350,11 +426,17 @@ const OrderProducts = ({ order }) => {
           {order.items.map((item, index) => {
             console.log(`🔍 Product ${index}:`, item);
             console.log(`🔍 Product ${index} - product:`, item.product);
-            console.log(`🔍 Product ${index} - mainImage:`, item.product?.mainImage);
+            console.log(
+              `🔍 Product ${index} - mainImage:`,
+              item.product?.mainImage
+            );
             const imageUrl = getImageUrl(item.product?.mainImage);
             console.log(`🔍 Product ${index} - imageUrl:`, imageUrl);
             return (
-              <div key={index} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors">
+              <div
+                key={index}
+                className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/30 transition-colors"
+              >
                 <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 border">
                   {imageUrl ? (
                     <img
@@ -362,39 +444,57 @@ const OrderProducts = ({ order }) => {
                       alt={item.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        console.error(`🔍 Image load error for product ${index}:`, imageUrl);
+                        console.error(
+                          `🔍 Image load error for product ${index}:`,
+                          imageUrl
+                        );
                         e.target.style.display = 'none';
                         if (e.target.nextSibling) {
                           e.target.nextSibling.style.display = 'flex';
                         }
                       }}
                       onLoad={() => {
-                        console.log(`🔍 Image loaded successfully for product ${index}:`, imageUrl);
+                        console.log(
+                          `🔍 Image loaded successfully for product ${index}:`,
+                          imageUrl
+                        );
                       }}
                     />
                   ) : null}
-                  <div className={`w-full h-full items-center justify-center ${imageUrl ? 'hidden' : 'flex'}`}>
+                  <div
+                    className={`w-full h-full items-center justify-center ${imageUrl ? 'hidden' : 'flex'}`}
+                  >
                     <Package className="w-8 h-8 text-muted-foreground" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base">{item.name}</p>
-                  {item.variant && item.attributes && item.attributes.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {item.attributes.map((attr, idx) => (
-                        <Badge key={idx} variant="outline" className="text-xs">
-                          {typeof attr.attributeItem === 'string' ? attr.attributeItem : `${attr.name}: ${attr.value}`}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
+                  <p className="font-medium text-sm sm:text-base">
+                    {item.name || t('unknownProduct')}
+                  </p>
+                  {item.variant &&
+                    item.attributes &&
+                    item.attributes.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {item.attributes.map((attr, idx) => (
+                          <Badge
+                            key={idx}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {typeof attr.attributeItem === 'string'
+                              ? attr.attributeItem
+                              : `${attr.name}: ${attr.value}`}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   <p className="text-sm text-muted-foreground mt-1.5">
-                    {item.quantity} x {formatNumber(item.price)} so'm
+                    {item.quantity} x {formatNumber(item.price)} {t('currency')}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-semibold text-sm sm:text-base">
-                    {formatNumber(item.price * item.quantity)} so'm
+                    {formatNumber(item.price * item.quantity)} {t('currency')}
                   </p>
                 </div>
               </div>
@@ -405,35 +505,45 @@ const OrderProducts = ({ order }) => {
         {/* Order Summary - moved to end */}
         <div className="border-t pt-4 space-y-3 bg-muted/20 rounded-lg p-4 -mx-4 -mb-4">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Barcha mahsulotlar:</span>
-            <span className="font-medium">{formatNumber(order.itemPrice)} so'm</span>
+            <span className="text-muted-foreground">{t('itemsSubtotal')}:</span>
+            <span className="font-medium">
+              {formatNumber(order.itemPrice)} {t('currency')}
+            </span>
           </div>
           {order.usedBalance > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Foydalanilgan balans:</span>
-              <span className="font-medium text-primary">-{formatNumber(order.usedBalance)} so'm</span>
+              <span className="text-muted-foreground">{t('usedBalance')}:</span>
+              <span className="font-medium text-primary">
+                -{formatNumber(order.usedBalance)} {t('currency')}
+              </span>
             </div>
           )}
           {order.promocodePrice > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Promo kod:</span>
-              <span className="font-medium text-primary">-{formatNumber(order.promocodePrice)} so'm</span>
+              <span className="text-muted-foreground">{t('promoCode')}:</span>
+              <span className="font-medium text-primary">
+                -{formatNumber(order.promocodePrice)} {t('currency')}
+              </span>
             </div>
           )}
           {order.discount > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Chegirma:</span>
-              <span className="font-medium text-primary">-{formatNumber(order.discount)} so'm</span>
+              <span className="text-muted-foreground">{t('discount')}:</span>
+              <span className="font-medium text-primary">
+                -{formatNumber(order.discount)} {t('currency')}
+              </span>
             </div>
           )}
           <div className="flex justify-between font-bold text-base sm:text-lg pt-3 border-t">
-            <span>Umumiy:</span>
+            <span>{t('total')}:</span>
             <span className="text-primary">
               {(() => {
-                const promoDiscount = order.promocodePrice > 0 ? order.promocodePrice : 0;
-                const balanceDiscount = order.usedBalance > 0 ? order.usedBalance : 0;
+                const promoDiscount =
+                  order.promocodePrice > 0 ? order.promocodePrice : 0;
+                const balanceDiscount =
+                  order.usedBalance > 0 ? order.usedBalance : 0;
                 const total = order.itemPrice - promoDiscount - balanceDiscount;
-                return `${formatNumber(total)} so'm`;
+                return `${formatNumber(total)} ${t('currency')}`;
               })()}
             </span>
           </div>
@@ -445,9 +555,11 @@ const OrderProducts = ({ order }) => {
 
 // Order Info Component
 const OrderInfo = ({ order }) => {
+  const { t } = useTranslation();
   const getImageUrl = (image) => {
     if (!image || !image.url) return null;
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
     const cleanBaseUrl = baseUrl.replace(/\/$/, '');
     // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
     // ServeStaticModule '/v1/uploads' path'ida serve qiladi
@@ -470,20 +582,28 @@ const OrderInfo = ({ order }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
-            To'lov ma'lumotlari
+            {t('paymentInfo')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">To'lov turi:</span>
+            <span className="text-sm text-muted-foreground">
+              {t('paymentType')}:
+            </span>
             <Badge variant="outline">
-              {order.paymentType === 'cash' ? 'Naqd' : 'Karta'}
+              {order.paymentType === 'cash' ? t('cash') : t('card')}
             </Badge>
           </div>
           <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">Holat:</span>
-            <Badge variant={order.paymentStatus === 'paid' ? 'default' : 'destructive'}>
-              {order.paymentStatus === 'paid' ? 'To\'langan' : 'To\'lanmagan'}
+            <span className="text-sm text-muted-foreground">
+              {t('status')}:
+            </span>
+            <Badge
+              variant={
+                order.paymentStatus === 'paid' ? 'default' : 'destructive'
+              }
+            >
+              {order.paymentStatus === 'paid' ? t('paid') : t('unpaid')}
             </Badge>
           </div>
         </CardContent>
@@ -494,7 +614,7 @@ const OrderInfo = ({ order }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            Mijoz
+            {t('customer')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -503,7 +623,7 @@ const OrderInfo = ({ order }) => {
               {order.customer?.image ? (
                 <img
                   src={getImageUrl(order.customer.image)}
-                  alt={order.clientName}
+                  alt={order.clientName || t('unknownCustomer')}
                   className="w-full h-full rounded-full object-cover"
                 />
               ) : (
@@ -511,9 +631,13 @@ const OrderInfo = ({ order }) => {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm sm:text-base truncate">{order.clientName}</p>
+              <p className="font-medium text-sm sm:text-base truncate">
+                {order.clientName || t('unknownCustomer')}
+              </p>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs sm:text-sm text-muted-foreground">{order.phone}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  {order.phone}
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -533,35 +657,42 @@ const OrderInfo = ({ order }) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <MapPin className="w-5 h-5" />
-            Manzil
+            {t('address')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="bg-muted/30 rounded-lg p-3">
-            <p className="text-sm break-words leading-relaxed">{order.address || 'Manzil ko\'rsatilmagan'}</p>
+            <p className="text-sm break-words leading-relaxed">
+              {order.address || t('addressNotProvided')}
+            </p>
           </div>
           {order.deliveryNotes && (
             <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
               <p className="text-xs text-foreground">
-                <span className="font-semibold text-blue-700 dark:text-blue-300">Eslatma:</span>{' '}
-                <span className="text-muted-foreground">{order.deliveryNotes}</span>
+                <span className="font-semibold text-blue-700 dark:text-blue-300">
+                  {t('note')}:
+                </span>{' '}
+                <span className="text-muted-foreground">
+                  {order.deliveryNotes}
+                </span>
               </p>
             </div>
           )}
-          {order.addressLocation?.latitude && order.addressLocation?.longitude && (
-            <div className="mt-2 rounded-lg overflow-hidden border shadow-sm">
-              <iframe
-                width="100%"
-                height="220"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                referrerPolicy="no-referrer-when-downgrade"
-                src={`https://www.google.com/maps?q=${order.addressLocation.latitude},${order.addressLocation.longitude}&output=embed&zoom=15`}
-                className="w-full"
-              />
-            </div>
-          )}
+          {order.addressLocation?.latitude &&
+            order.addressLocation?.longitude && (
+              <div className="mt-2 rounded-lg overflow-hidden border shadow-sm">
+                <iframe
+                  width="100%"
+                  height="220"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.google.com/maps?q=${order.addressLocation.latitude},${order.addressLocation.longitude}&output=embed&zoom=15`}
+                  className="w-full"
+                />
+              </div>
+            )}
         </CardContent>
       </Card>
 
@@ -571,7 +702,7 @@ const OrderInfo = ({ order }) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Truck className="w-5 h-5" />
-              Kuryer
+              {t('courier')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -608,8 +739,12 @@ const OrderInfo = ({ order }) => {
             </div>
             {order.courier.carBrand && order.courier.carNumber && (
               <div className="flex items-center justify-between p-2 bg-muted rounded-lg">
-                <span className="text-xs sm:text-sm font-medium">{order.courier.carBrand}</span>
-                <span className="text-xs sm:text-sm text-muted-foreground">{order.courier.carNumber}</span>
+                <span className="text-xs sm:text-sm font-medium">
+                  {order.courier.carBrand}
+                </span>
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  {order.courier.carNumber}
+                </span>
               </div>
             )}
           </CardContent>
@@ -622,21 +757,27 @@ const OrderInfo = ({ order }) => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building className="w-5 h-5" />
-              Do'kon
+              {t('store')}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="font-medium text-sm sm:text-base">{order.store.name}</p>
+            <p className="font-medium text-sm sm:text-base">
+              {order.store.name}
+            </p>
             {order.store.phoneNumber && (
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{order.store.phoneNumber}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                {order.store.phoneNumber}
+              </p>
             )}
             {order.store.addressName && (
-              <p className="text-xs sm:text-sm text-muted-foreground mt-1">📍 {order.store.addressName}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                📍 {order.store.addressName}
+              </p>
             )}
             {order.orderStructureType === 'combined' && (
               <div className="mt-3 pt-3 border-t">
                 <p className="text-xs text-muted-foreground">
-                  ℹ️ Bu birlashtirilgan buyurtma. Faqat sizning do'koningiz mahsulotlari ko'rsatilmoqda.
+                  {t('combinedOrderInfo')}
                 </p>
               </div>
             )}
@@ -645,46 +786,56 @@ const OrderInfo = ({ order }) => {
       )}
 
       {/* Rating & Comments */}
-      {order.status === 'completed' && (order.rate || order.rateComment || order.rateComments?.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Reyting va izoh</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {order.rateComment && (
-              <p className="text-sm border-b pb-3">{order.rateComment}</p>
-            )}
-            {order.rate && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Reyting:</span>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <span key={star} className={star <= order.rate ? 'text-yellow-400' : 'text-muted-foreground'}>
-                      ★
-                    </span>
+      {order.status === 'completed' &&
+        (order.rate || order.rateComment || order.rateComments?.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('ratingAndComment')}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {order.rateComment && (
+                <p className="text-sm border-b pb-3">{order.rateComment}</p>
+              )}
+              {order.rate && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    {t('rating')}:
+                  </span>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={
+                          star <= order.rate
+                            ? 'text-yellow-400'
+                            : 'text-muted-foreground'
+                        }
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {order.rateComments && order.rateComments.length > 0 && (
+                <div className="space-y-2 pt-3">
+                  {order.rateComments.map((comment, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      {comment.image && (
+                        <img
+                          src={getImageUrl(comment.image)}
+                          alt="comment"
+                          className="w-12 h-12 rounded-lg object-cover"
+                        />
+                      )}
+                      <p className="text-sm flex-1">{comment.title}</p>
+                    </div>
                   ))}
                 </div>
-              </div>
-            )}
-            {order.rateComments && order.rateComments.length > 0 && (
-              <div className="space-y-2 pt-3">
-                {order.rateComments.map((comment, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    {comment.image && (
-                      <img
-                        src={getImageUrl(comment.image)}
-                        alt="comment"
-                        className="w-12 h-12 rounded-lg object-cover"
-                      />
-                    )}
-                    <p className="text-sm flex-1">{comment.title}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              )}
+            </CardContent>
+          </Card>
+        )}
     </div>
   );
 };
@@ -693,6 +844,7 @@ function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -700,7 +852,7 @@ function OrderDetail() {
   useEffect(() => {
     const fetchOrder = async () => {
       if (!orderId) {
-        toast.error('Buyurtma ID topilmadi');
+        toast.error(t('orderIdNotFound'));
         navigate('/dashboard/orders');
         return;
       }
@@ -721,13 +873,16 @@ function OrderDetail() {
         const mappedOrder = mapOrderFromBackend(orderData);
         console.log('🔍 Order Detail - Mapped Order:', mappedOrder);
         console.log('🔍 Order Detail - Mapped Items:', mappedOrder.items);
-        console.log('🔍 Order Detail - Mapped Items Length:', mappedOrder.items?.length);
+        console.log(
+          '🔍 Order Detail - Mapped Items Length:',
+          mappedOrder.items?.length
+        );
 
         setOrder(mappedOrder);
       } catch (error) {
         console.error('Error fetching order:', error);
         console.error('Error response:', error.response);
-        toast.error('Buyurtma ma\'lumotlarini yuklashda xatolik yuz berdi');
+        toast.error(t('orderLoadError'));
         navigate('/dashboard/orders');
       } finally {
         setLoading(false);
@@ -742,7 +897,9 @@ function OrderDetail() {
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-2">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Buyurtma ma'lumotlari yuklanmoqda...</p>
+          <p className="text-sm text-muted-foreground">
+            {t('loadingOrderDetails')}
+          </p>
         </div>
       </div>
     );
@@ -751,17 +908,17 @@ function OrderDetail() {
   if (!order) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Buyurtma topilmadi</p>
+        <p className="text-sm text-muted-foreground">{t('orderNotFound')}</p>
       </div>
     );
   }
 
   const statusLabels = {
-    created: 'Yaratildi',
-    inProcess: 'Jarayonda',
-    inDelivery: 'Yetkazib berishda',
-    completed: 'Tugallangan',
-    cancelled: 'Bekor qilingan',
+    created: t('orderCreated'),
+    inProcess: t('orderInProcess'),
+    inDelivery: t('orderInDelivery'),
+    completed: t('orderCompleted'),
+    cancelled: t('orderCancelled'),
   };
 
   return (
@@ -779,14 +936,20 @@ function OrderDetail() {
           </Button>
           <div className="min-w-0 flex-1">
             <h2 className="title truncate">
-              Buyurtma #{order.id}
+              {t('orderTitle', { id: order.id })}
             </h2>
-            <p className="paragraph">
-              {formatDate(order.createdAt.getTime())}
-            </p>
+            <p className="paragraph">{formatDate(order.createdAt.getTime())}</p>
           </div>
         </div>
-        <Badge variant={order.status === 'completed' ? 'default' : order.status === 'cancelled' ? 'destructive' : 'secondary'}>
+        <Badge
+          variant={
+            order.status === 'completed'
+              ? 'default'
+              : order.status === 'cancelled'
+                ? 'destructive'
+                : 'secondary'
+          }
+        >
           {statusLabels[order.status] || order.status}
         </Badge>
       </div>

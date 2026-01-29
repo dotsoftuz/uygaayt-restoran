@@ -1,28 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import api from '@/services/api';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
-  Eye,
-  Phone,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical,
-  Calendar,
-  DollarSign,
-  CreditCard,
-  Truck,
-  Package,
-  Download,
-  List,
-  Grid3x3,
-} from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -39,23 +30,29 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { formatNumber, formatDate, formatDateTime } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from '@/components/ui/empty';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { formatDateTime, formatNumber } from '@/lib/utils';
+import api from '@/services/api';
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  DollarSign,
+  Download,
+  Eye,
+  Grid3x3,
+  List,
+  MoreVertical,
+  Package,
+  Phone,
+  Search,
+  Truck,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 // Fake data
@@ -89,8 +86,10 @@ const generateFakeOrders = () => {
       now.getTime() - Math.random() * 30 * 24 * 60 * 60 * 1000
     );
     const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const paymentType = paymentTypes[Math.floor(Math.random() * paymentTypes.length)];
-    const deliveryType = deliveryTypes[Math.floor(Math.random() * deliveryTypes.length)];
+    const paymentType =
+      paymentTypes[Math.floor(Math.random() * paymentTypes.length)];
+    const deliveryType =
+      deliveryTypes[Math.floor(Math.random() * deliveryTypes.length)];
     const name = names[Math.floor(Math.random() * names.length)];
     const phone = `+998${Math.floor(900000000 + Math.random() * 99999999)}`;
     const amount = Math.floor(Math.random() * 500000) + 50000;
@@ -112,11 +111,12 @@ const generateFakeOrders = () => {
 
 // Status Badge Component
 const StatusBadge = ({ status }) => {
+  const { t } = useTranslation();
   const statusConfig = {
-    pending: { label: 'Kutilmoqda', variant: 'secondary' },
-    processing: { label: 'Jarayonda', variant: 'default' },
-    completed: { label: 'Tugallangan', variant: 'default' },
-    cancelled: { label: 'Bekor qilingan', variant: 'destructive' },
+    pending: { label: t('pending'), variant: 'secondary' },
+    processing: { label: t('processing'), variant: 'default' },
+    completed: { label: t('completedOrder'), variant: 'default' },
+    cancelled: { label: t('cancelledOrdersLabel'), variant: 'destructive' },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
@@ -129,19 +129,21 @@ const StatusBadge = ({ status }) => {
 
 // Order Card Component (Mobile)
 const OrderCard = ({ order, onView, onContact }) => {
+  const { t } = useTranslation();
+
   const getPaymentTypeLabel = (type) => {
     const labels = {
-      cash: 'Naqd',
-      card: 'Karta',
-      online: 'Online',
+      cash: t('cash'),
+      card: t('card'),
+      online: t('online'),
     };
     return labels[type] || type;
   };
 
   const getDeliveryTypeLabel = (type) => {
     const labels = {
-      pickup: 'Olib ketish',
-      delivery: 'Yetkazib berish',
+      pickup: t('pickup'),
+      delivery: t('homeDelivery'),
     };
     return labels[type] || type;
   };
@@ -170,16 +172,16 @@ const OrderCard = ({ order, onView, onContact }) => {
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <DollarSign className="h-3 w-3" />
-              Summa:
+              {t('amount')}:
             </span>
             <span className="font-semibold">
-              {formatNumber(order.amount)} so'm
+              {formatNumber(order.amount)} {t('currency')}
             </span>
           </div>
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <CreditCard className="h-3 w-3" />
-              To'lov:
+              {t('payment')}:
             </span>
             <span className="font-medium">
               {getPaymentTypeLabel(order.paymentType)}
@@ -188,7 +190,7 @@ const OrderCard = ({ order, onView, onContact }) => {
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <Truck className="h-3 w-3" />
-              Yetkazib berish:
+              {t('delivery')}:
             </span>
             <span className="font-medium">
               {getDeliveryTypeLabel(order.deliveryType)}
@@ -197,7 +199,7 @@ const OrderCard = ({ order, onView, onContact }) => {
           <div className="flex items-center justify-between text-xs sm:text-sm">
             <span className="text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              Vaqt:
+              {t('time')}:
             </span>
             <span className="font-medium text-xs">
               {order.createdAt instanceof Date
@@ -216,7 +218,7 @@ const OrderCard = ({ order, onView, onContact }) => {
             className="flex-1 text-xs"
           >
             <Eye className="h-3 w-3 mr-1" />
-            Ko'rish
+            {t('view')}
           </Button>
           <Button
             variant="outline"
@@ -225,7 +227,7 @@ const OrderCard = ({ order, onView, onContact }) => {
             className="flex-1 text-xs"
           >
             <Phone className="h-3 w-3 mr-1" />
-            Qo'ng'iroq
+            {t('call')}
           </Button>
         </div>
       </CardContent>
@@ -235,25 +237,27 @@ const OrderCard = ({ order, onView, onContact }) => {
 
 // Order Table Row Component
 const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
+  const { t } = useTranslation();
+
   const getPaymentTypeLabel = (type) => {
     const labels = {
-      cash: 'Naqd',
-      card: 'Karta',
-      online: 'Online',
+      cash: t('cash'),
+      card: t('card'),
+      online: t('online'),
     };
     return labels[type] || type;
   };
 
   const getDeliveryTypeLabel = (type) => {
     const labels = {
-      pickup: 'Olib ketish',
-      delivery: 'Yetkazib berish',
+      pickup: t('pickup'),
+      delivery: t('homeDelivery'),
     };
     return labels[type] || type;
   };
 
   return (
-    <TableRow 
+    <TableRow
       className="hover:bg-muted/50 cursor-pointer"
       onClick={() => onView(order.id)}
     >
@@ -272,7 +276,7 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
       </TableCell>
       <TableCell className="hidden sm:table-cell">
         <span className="font-semibold text-sm sm:text-base truncate block">
-          {formatNumber(order.amount)} so'm
+          {formatNumber(order.amount)} {t('currency')}
         </span>
       </TableCell>
       <TableCell className="hidden md:table-cell text-sm">
@@ -292,18 +296,22 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
         {isMobile ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 sm:h-8 sm:w-8"
+              >
                 <MoreVertical className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onView(order.id)}>
                 <Eye className="h-4 w-4" />
-                Ko'rish
+                {t('view')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onContact(order.phone)}>
                 <Phone className="h-4 w-4" />
-                Qo'ng'iroq
+                {t('call')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -342,8 +350,9 @@ function Orders() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState('table'); // Default to table/list view
-  
+
   // YANGI: API dan orderlarni olish
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -386,21 +395,25 @@ function Orders() {
     const customer = order.customer || order.receiverCustomer || {};
     const state = order.state || {};
     const deliveryType = order.type === 'immediate' ? 'delivery' : 'pickup';
-    
+
     // Order ID ni formatlash - #23 ko'rinishida
-    const orderId = order.number 
+    const orderId = order.number
       ? `#${order.number}`
       : order._id || order.id || '#0';
-    
+
     // Combined order-lar uchun store-specific price hisoblash
     let displayAmount = order.totalPrice || 0;
-    if (order.orderStructureType === 'combined' && order.combinedStores && Array.isArray(order.combinedStores)) {
+    if (
+      order.orderStructureType === 'combined' &&
+      order.combinedStores &&
+      Array.isArray(order.combinedStores)
+    ) {
       const currentStoreId = storeId?.toString().toLowerCase() || '';
       const storeData = order.combinedStores.find((store) => {
         const storeStoreId = store.storeId?.toString().toLowerCase() || '';
         return storeStoreId === currentStoreId;
       });
-      
+
       if (storeData) {
         const storeSubtotal = storeData.subtotal || 0;
         const storePromocodePrice = storeData.promocodePrice || 0;
@@ -408,13 +421,13 @@ function Orders() {
         displayAmount = storeSubtotal - storePromocodePrice - storeUsedBalance;
       }
     }
-    
+
     return {
       id: orderId,
       _id: order._id || order.id, // Backend ID ni saqlash
-      clientName: customer.firstName 
+      clientName: customer.firstName
         ? `${customer.firstName} ${customer.lastName || ''}`.trim()
-        : customer.name || 'Noma\'lum mijoz',
+        : customer.name || t('unknownCustomer'),
       phone: customer.phoneNumber || customer.phone || '',
       amount: displayAmount,
       paymentType: order.paymentType || 'cash',
@@ -435,38 +448,38 @@ function Orders() {
           page: currentPage,
           limit: itemsPerPage,
         };
-        
+
         // Status filter - backend state ga o'tkazish
         if (statusFilter !== 'all') {
           // Frontend status dan backend state ga map qilish
           const stateMap = {
-            'pending': 'created',
-            'processing': 'inProcess',
-            'completed': 'completed',
-            'cancelled': 'cancelled',
+            pending: 'created',
+            processing: 'inProcess',
+            completed: 'completed',
+            cancelled: 'cancelled',
           };
           // Backend da state filter qo'shish kerak, lekin hozircha client-side filter qilamiz
         }
-        
+
         const response = await api.post('/store/order/paging', params);
-        
+
         // Backend response format: { data: [...], total: ... }
         const responseData = response?.data?.data || response?.data || [];
-        const mappedOrders = Array.isArray(responseData) 
+        const mappedOrders = Array.isArray(responseData)
           ? responseData.map(mapOrderFromBackend)
           : [];
-        
+
         setOrders(mappedOrders);
       } catch (error) {
         console.error('Error fetching orders:', error);
         // Xato bo'lsa, fake data ishlatish
         setOrders(generateFakeOrders());
-        toast.error('Buyurtmalarni yuklashda xatolik yuz berdi');
+        toast.error(t('loadingOrdersError'));
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchOrders();
   }, [storeId, currentPage, itemsPerPage, statusFilter]);
 
@@ -480,8 +493,11 @@ function Orders() {
         (order) =>
           order.id.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
           order.phone.includes(debouncedSearchTerm) ||
-          order.clientName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          (order.number && order.number.toString().includes(debouncedSearchTerm))
+          order.clientName
+            .toLowerCase()
+            .includes(debouncedSearchTerm.toLowerCase()) ||
+          (order.number &&
+            order.number.toString().includes(debouncedSearchTerm))
       );
     }
 
@@ -525,9 +541,7 @@ function Orders() {
 
     // Sort
     if (sortBy === 'newest') {
-      filtered.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
+      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else if (sortBy === 'highest') {
       filtered.sort((a, b) => b.amount - a.amount);
     }
@@ -551,7 +565,13 @@ function Orders() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, periodFilter, sortBy]);
+  }, [
+    debouncedSearchTerm,
+    statusFilter,
+    paymentTypeFilter,
+    periodFilter,
+    sortBy,
+  ]);
 
   // Read filters and pagination from URL on mount and when URL changes
   useEffect(() => {
@@ -562,13 +582,13 @@ function Orders() {
     const sort = searchParams.get('sort');
     const page = searchParams.get('page');
     const limit = searchParams.get('limit');
-    
+
     if (search !== null) setSearchTerm(search);
     if (status !== null) {
       const statusMap = {
-        'pending': 'pending',
-        'completed': 'completed',
-        'cancelled': 'cancelled',
+        pending: 'pending',
+        completed: 'completed',
+        cancelled: 'cancelled',
       };
       setStatusFilter(statusMap[status] || status || 'all');
     }
@@ -588,32 +608,38 @@ function Orders() {
   // Update URL when filters change (using debounced search)
   useEffect(() => {
     const params = new URLSearchParams();
-    
+
     if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
     if (statusFilter !== 'all') params.set('status', statusFilter);
     if (paymentTypeFilter !== 'all') params.set('payment', paymentTypeFilter);
     if (periodFilter !== 'all') params.set('period', periodFilter);
     if (sortBy !== 'newest') params.set('sort', sortBy);
-    
+
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, statusFilter, paymentTypeFilter, periodFilter, sortBy]);
+  }, [
+    debouncedSearchTerm,
+    statusFilter,
+    paymentTypeFilter,
+    periodFilter,
+    sortBy,
+  ]);
 
   // Update URL when pagination changes
   useEffect(() => {
     const params = new URLSearchParams(searchParams);
-    
+
     if (currentPage > 1) {
       params.set('page', currentPage.toString());
     } else {
       params.delete('page');
     }
-    
+
     if (itemsPerPage !== 20) {
       params.set('limit', itemsPerPage.toString());
     } else {
       params.delete('limit');
     }
-    
+
     setSearchParams(params, { replace: true });
   }, [currentPage, itemsPerPage]);
 
@@ -632,7 +658,7 @@ function Orders() {
 
   const handleView = (orderId) => {
     // Order ID yoki _id ni topish
-    const order = orders.find(o => o.id === orderId || o._id === orderId);
+    const order = orders.find((o) => o.id === orderId || o._id === orderId);
     const actualId = order?._id || orderId;
     navigate(`/dashboard/order-detail/${actualId}`);
   };
@@ -645,7 +671,16 @@ function Orders() {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
       [
-        ['Order ID', 'Mijoz ismi', 'Telefon', 'Summa', 'To\'lov turi', 'Yetkazib berish', 'Holat', 'Sana'].join(','),
+        [
+          t('orderId'),
+          t('clientName'),
+          t('phone'),
+          t('amount'),
+          t('paymentType'),
+          t('delivery'),
+          t('status'),
+          t('date'),
+        ].join(','),
         ...filteredAndSortedOrders.map((order) =>
           [
             order.id,
@@ -669,7 +704,7 @@ function Orders() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success('CSV fayl yuklab olindi');
+    toast.success(t('csvDownloaded'));
   };
 
   // Auto set view mode based on screen size
@@ -689,10 +724,8 @@ function Orders() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h2 className="title">Buyurtmalar</h2>
-          <p className="paragraph">
-            Barcha buyurtmalarni ko'rib chiqing va boshqaring
-          </p>
+          <h2 className="title">{t('orders')}</h2>
+          <p className="paragraph">{t('ordersDescription')}</p>
         </div>
       </div>
 
@@ -701,7 +734,7 @@ function Orders() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="ID, telefon yoki ism bo'yicha qidirish..."
+          placeholder={t('searchByPhoneOrName')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10 text-sm sm:text-base"
@@ -718,11 +751,13 @@ function Orders() {
             className="w-full"
           >
             <Package className="h-4 w-4 mr-2" />
-            Filtrlar {hasActiveFilters && `(${[
-              statusFilter !== 'all' ? 1 : 0,
-              paymentTypeFilter !== 'all' ? 1 : 0,
-              periodFilter !== 'all' ? 1 : 0,
-            ].reduce((a, b) => a + b, 0)})`}
+            {t('filters')}{' '}
+            {hasActiveFilters &&
+              `(${[
+                statusFilter !== 'all' ? 1 : 0,
+                paymentTypeFilter !== 'all' ? 1 : 0,
+                periodFilter !== 'all' ? 1 : 0,
+              ].reduce((a, b) => a + b, 0)})`}
           </Button>
         ) : null}
 
@@ -730,54 +765,64 @@ function Orders() {
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Buyurtma holati" />
+                <SelectValue placeholder={t('orderStatus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Umumiy buyurtmalar</SelectItem>
-                <SelectItem value="pending">Kutilmoqda</SelectItem>
-                <SelectItem value="completed">Bajarilgan</SelectItem>
-                <SelectItem value="cancelled">Bekor qilingan</SelectItem>
+                <SelectItem value="all">{t('all')}</SelectItem>
+                <SelectItem value="pending">{t('pending')}</SelectItem>
+                <SelectItem value="completed">{t('completedOrder')}</SelectItem>
+                <SelectItem value="cancelled">
+                  {t('cancelledOrdersLabel')}
+                </SelectItem>
               </SelectContent>
             </Select>
 
-            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+            <Select
+              value={paymentTypeFilter}
+              onValueChange={setPaymentTypeFilter}
+            >
               <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="To'lov turi" />
+                <SelectValue placeholder={t('paymentType')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Barcha to'lov turlari</SelectItem>
-                <SelectItem value="cash">Naqd</SelectItem>
-                <SelectItem value="card">Karta</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="all">{t('all')}</SelectItem>
+                <SelectItem value="cash">{t('cash')}</SelectItem>
+                <SelectItem value="card">{t('card')}</SelectItem>
+                <SelectItem value="online">{t('online')}</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={periodFilter} onValueChange={setPeriodFilter}>
               <SelectTrigger className="w-full sm:w-[140px]">
-                <SelectValue placeholder="Davr" />
+                <SelectValue placeholder={t('period')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Barcha vaqt</SelectItem>
-                <SelectItem value="today">Bugun</SelectItem>
-                <SelectItem value="week">Oxirgi hafta</SelectItem>
-                <SelectItem value="month">Oxirgi oy</SelectItem>
+                <SelectItem value="all">{t('all')}</SelectItem>
+                <SelectItem value="today">{t('today')}</SelectItem>
+                <SelectItem value="week">{t('thisWeek')}</SelectItem>
+                <SelectItem value="month">{t('thisMonth')}</SelectItem>
               </SelectContent>
             </Select>
 
-              <Select value={sortBy} onValueChange={setSortBy}>
+            <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger className="w-full sm:w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="newest">Eng yangilari</SelectItem>
-                <SelectItem value="highest">Eng yuqori summa</SelectItem>
+                <SelectItem value="newest">{t('newestOrders')}</SelectItem>
+                <SelectItem value="highest">{t('highestAmount')}</SelectItem>
               </SelectContent>
             </Select>
 
             {!isMobile && (
-              <Button variant="outline" size="sm" onClick={handleExportCSV} className="ml-auto">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportCSV}
+                className="ml-auto"
+              >
                 <Download className="w-4 h-4 mr-2" />
-                CSV Export
+                {t('exportOrders')}
               </Button>
             )}
             {!isMobile && (
@@ -800,7 +845,6 @@ function Orders() {
             )}
           </div>
         )}
-
       </div>
 
       {/* Orders List */}
@@ -839,13 +883,27 @@ function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[120px] whitespace-nowrap">Order ID</TableHead>
-                    <TableHead className="w-[180px] whitespace-nowrap">Mijoz ismi</TableHead>
-                    <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">Summa</TableHead>
-                    <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">To'lov turi</TableHead>
-                    <TableHead className="w-[110px] whitespace-nowrap">Holat</TableHead>
-                    <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">Vaqt</TableHead>
-                    <TableHead className="text-right w-[140px] whitespace-nowrap">Amal</TableHead>
+                    <TableHead className="w-[120px] whitespace-nowrap">
+                      {t('orderId')}
+                    </TableHead>
+                    <TableHead className="w-[180px] whitespace-nowrap">
+                      {t('clientName')}
+                    </TableHead>
+                    <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">
+                      {t('amount')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">
+                      {t('paymentType')}
+                    </TableHead>
+                    <TableHead className="w-[110px] whitespace-nowrap">
+                      {t('status')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">
+                      {t('time')}
+                    </TableHead>
+                    <TableHead className="text-right w-[140px] whitespace-nowrap">
+                      {t('actions')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -905,13 +963,27 @@ function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[120px] whitespace-nowrap">Order ID</TableHead>
-                    <TableHead className="w-[180px] whitespace-nowrap">Mijoz ismi</TableHead>
-                    <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">Summa</TableHead>
-                    <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">To'lov turi</TableHead>
-                    <TableHead className="w-[110px] whitespace-nowrap">Holat</TableHead>
-                    <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">Vaqt</TableHead>
-                    <TableHead className="text-right w-[140px] whitespace-nowrap">Amal</TableHead>
+                    <TableHead className="w-[120px] whitespace-nowrap">
+                      {t('orderId')}
+                    </TableHead>
+                    <TableHead className="w-[180px] whitespace-nowrap">
+                      {t('clientName')}
+                    </TableHead>
+                    <TableHead className="hidden sm:table-cell w-[120px] whitespace-nowrap">
+                      {t('amount')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">
+                      {t('paymentType')}
+                    </TableHead>
+                    <TableHead className="w-[110px] whitespace-nowrap">
+                      {t('status')}
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">
+                      {t('time')}
+                    </TableHead>
+                    <TableHead className="text-right w-[140px] whitespace-nowrap">
+                      {t('actions')}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -937,13 +1009,13 @@ function Orders() {
             </EmptyMedia>
             <EmptyTitle>
               {searchTerm || hasActiveFilters
-                ? 'Buyurtma topilmadi'
-                : 'Hech qanday buyurtma yo\'q'}
+                ? t('noOrdersFound')
+                : t('noOrdersYet')}
             </EmptyTitle>
             <EmptyDescription>
               {searchTerm || hasActiveFilters
-                ? 'Qidiruv yoki filtrlash natijasiga mos buyurtma topilmadi. Boshqa qidiruv so\'zlarini yoki filtrlarni sinab ko\'ring.'
-                : 'Hali hech qanday buyurtma qo\'shilmagan. Yangi buyurtmalar shu yerda ko\'rinadi.'}
+                ? t('noOrdersMatchSearch')
+                : t('noOrdersDescription')}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -954,7 +1026,7 @@ function Orders() {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              Sahifada ko'rsatish:
+              {t('showPerPage')}:
             </span>
             <Select
               value={itemsPerPage.toString()}
@@ -972,8 +1044,12 @@ function Orders() {
               </SelectContent>
             </Select>
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-              {startIndex + 1}-{Math.min(endIndex, filteredAndSortedOrders.length)} dan{' '}
-              {filteredAndSortedOrders.length} ta
+              {t('paginationInfo', {
+                start: startIndex + 1,
+                end: Math.min(endIndex, filteredAndSortedOrders.length),
+                total: filteredAndSortedOrders.length,
+                unit: t('unit'),
+              })}
             </span>
           </div>
 
@@ -986,7 +1062,7 @@ function Orders() {
               className="flex-1 sm:flex-initial"
             >
               <ChevronLeft className="h-4 w-4 mr-1" />
-              <span className="text-xs sm:text-sm">Oldingi</span>
+              <span className="text-xs sm:text-sm">{t('previous')}</span>
             </Button>
             <span className="text-xs sm:text-sm text-muted-foreground px-2">
               {currentPage} / {totalPages}
@@ -998,7 +1074,7 @@ function Orders() {
               disabled={currentPage === totalPages}
               className="flex-1 sm:flex-initial"
             >
-              <span className="text-xs sm:text-sm">Keyingi</span>
+              <span className="text-xs sm:text-sm">{t('next')}</span>
               <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>

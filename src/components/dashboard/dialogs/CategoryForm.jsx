@@ -1,8 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useDropzone } from 'react-dropzone';
+import { Button } from '@/components/ui/button';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Sheet,
   SheetContent,
@@ -12,36 +17,26 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import {
-  Upload,
-  Image as ImageIcon,
-  X,
-  Loader2,
-} from 'lucide-react';
+  fetchStoreCategories,
+  getStoreCategoryById,
+  uploadImage,
+} from '@/services/storeCategories';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2, Upload, X } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import { uploadImage, fetchStoreCategories, getStoreCategoryById } from '@/services/storeCategories';
-
-const categorySchema = z.object({
-  name: z.object({
-    uz: z.string().min(1, 'O\'zbekcha nom majburiy'),
-    ru: z.string().min(1, 'Ruscha nom majburiy'),
-    en: z.string().min(1, 'Inglizcha nom majburiy'),
-  }),
-  imageId: z.string().optional().nullable(),
-});
+import * as z from 'zod';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+];
 
 // Helper function to resize images
 function resizeImage(file, maxWidth, maxHeight) {
@@ -88,11 +83,33 @@ function resizeImage(file, maxWidth, maxHeight) {
   });
 }
 
-function CategoryForm({ open, onOpenChange, category = null, parentId = null, onSave, onRefresh }) {
+function CategoryForm({
+  open,
+  onOpenChange,
+  category = null,
+  parentId = null,
+  onSave,
+  onRefresh,
+}) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
   const [loadingCategory, setLoadingCategory] = useState(false);
   const [allCategories, setAllCategories] = useState([]);
+
+  const { t } = useTranslation();
+
+  const categorySchema = React.useMemo(
+    () =>
+      z.object({
+        name: z.object({
+          uz: z.string().min(1, t('categoryNameUzRequired')),
+          ru: z.string().min(1, t('categoryNameRuRequired')),
+          en: z.string().min(1, t('categoryNameEnRequired')),
+        }),
+        imageId: z.string().optional().nullable(),
+      }),
+    [t]
+  );
 
   const form = useForm({
     resolver: zodResolver(categorySchema),
@@ -137,19 +154,20 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
             });
             // Set image preview
             if (catData.image?.url) {
-              const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+              const baseUrl =
+                import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
               // Base URL'ni tozalash - trailing slash'ni olib tashlash
               const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-              
+
               // Backend'dan kelgan URL: 'uploads/1763466603309.jpeg'
               // ServeStaticModule '/v1/uploads' path'ida serve qiladi
               let imageUrl = catData.image.url;
-              
+
               // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
               if (imageUrl.startsWith('uploads/')) {
                 imageUrl = imageUrl.replace('uploads/', '');
               }
-              
+
               // To'g'ri URL'ni yaratish: baseUrl + /uploads/ + filename
               setImagePreview(`${cleanBaseUrl}/uploads/${imageUrl}`);
             } else {
@@ -159,7 +177,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
         })
         .catch((error) => {
           console.error('Error loading category:', error);
-          toast.error('Kategoriyani yuklashda xatolik yuz berdi');
+          toast.error(t('categoryLoadError'));
         })
         .finally(() => {
           setLoadingCategory(false);
@@ -174,106 +192,110 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
   }, [category, open, form]);
 
   // Image upload handler
-  const onDrop = useCallback(async (acceptedFiles) => {
-    const file = acceptedFiles[0];
-    if (!file) return;
+  const onDrop = useCallback(
+    async (acceptedFiles) => {
+      const file = acceptedFiles[0];
+      if (!file) return;
 
-    if (file.size > MAX_IMAGE_SIZE) {
-      toast.error('Fayl hajmi 5MB dan katta');
-      return;
-    }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      toast.error('Noto\'g\'ri fayl formati');
-      return;
-    }
-
-    setUploadingImage(true);
-
-    try {
-      // Avval preview'ni o'rnatish - foydalanuvchi darhol ko'radi
-      const preview = URL.createObjectURL(file);
-      setImagePreview(preview);
-
-      // Resize image
-      const resizedFile = await resizeImage(file, 800, 800);
-
-      // Upload to backend
-      const response = await uploadImage(resizedFile);
-      
-      // API interceptor response.data ni qaytaradi, lekin turli response strukturalarini qo'llab-quvvatlash
-      const imageData = response?.data || response;
-      
-      console.log('Image upload response:', { response, imageData });
-      
-      if (imageData?._id) {
-        form.setValue('imageId', imageData._id);
-        
-        // Preview URL'ni yangilash - agar backend'dan URL kelgan bo'lsa
-        if (imageData.url) {
-          try {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-            // Base URL'ni tozalash - trailing slash'ni olib tashlash
-            const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-            
-            // Backend'dan kelgan URL: 'uploads/1763466186234.jpeg'
-            // ServeStaticModule '/v1/uploads' path'ida serve qiladi
-            // Shuning uchun to'g'ri URL: 'http://localhost:3008/v1/uploads/1763466186234.jpeg'
-            let imageUrl = imageData.url;
-            
-            // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
-            if (imageUrl.startsWith('uploads/')) {
-              imageUrl = imageUrl.replace('uploads/', '');
-            }
-            
-            // To'g'ri URL'ni yaratish: baseUrl + /v1/uploads/ + filename
-            const serverPreviewUrl = `${cleanBaseUrl}/uploads/${imageUrl}`;
-            console.log('Setting preview URL:', serverPreviewUrl);
-            console.log('Image data:', imageData);
-            console.log('Original URL from backend:', imageData.url);
-            
-            // Yangi URL'ni o'rnatish
-            setImagePreview(serverPreviewUrl);
-            
-            // Eski blob URL'ni keyin tozalash (setTimeout bilan - state yangilanishini kutish)
-            setTimeout(() => {
-              if (preview && preview.startsWith('blob:')) {
-                URL.revokeObjectURL(preview);
-              }
-            }, 500);
-          } catch (urlError) {
-            console.error('Error setting preview URL:', urlError);
-            // Agar URL o'rnatishda xatolik bo'lsa, blob URL'ni saqlab qolish
-            console.log('Keeping blob preview due to URL error');
-          }
-        } else {
-          // Agar URL kelmasa, blob URL'ni saqlab qolish
-          console.log('No URL in response, keeping blob preview');
-          console.log('Full imageData:', imageData);
-        }
-        
-        toast.success('Rasm yuklandi');
-      } else {
-        // Eski blob URL'ni tozalash
-        if (preview && preview.startsWith('blob:')) {
-          URL.revokeObjectURL(preview);
-        }
-        setImagePreview(null);
-        throw new Error('Image upload failed - no image ID received');
+      if (file.size > MAX_IMAGE_SIZE) {
+        toast.error(t('fileTooLarge'));
+        return;
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      // Eski blob URL'ni tozalash - preview o'zgaruvchisini ishlatish
-      setImagePreview((prevPreview) => {
-        if (prevPreview && prevPreview.startsWith('blob:')) {
-          URL.revokeObjectURL(prevPreview);
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        toast.error(t('invalidFileType'));
+        return;
+      }
+
+      setUploadingImage(true);
+
+      try {
+        // Avval preview'ni o'rnatish - foydalanuvchi darhol ko'radi
+        const preview = URL.createObjectURL(file);
+        setImagePreview(preview);
+
+        // Resize image
+        const resizedFile = await resizeImage(file, 800, 800);
+
+        // Upload to backend
+        const response = await uploadImage(resizedFile);
+
+        // API interceptor response.data ni qaytaradi, lekin turli response strukturalarini qo'llab-quvvatlash
+        const imageData = response?.data || response;
+
+        console.log('Image upload response:', { response, imageData });
+
+        if (imageData?._id) {
+          form.setValue('imageId', imageData._id);
+
+          // Preview URL'ni yangilash - agar backend'dan URL kelgan bo'lsa
+          if (imageData.url) {
+            try {
+              const baseUrl =
+                import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+              // Base URL'ni tozalash - trailing slash'ni olib tashlash
+              const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+
+              // Backend'dan kelgan URL: 'uploads/1763466186234.jpeg'
+              // ServeStaticModule '/v1/uploads' path'ida serve qiladi
+              // Shuning uchun to'g'ri URL: 'http://localhost:3008/v1/uploads/1763466186234.jpeg'
+              let imageUrl = imageData.url;
+
+              // Agar URL 'uploads/' bilan boshlansa, faqat fayl nomini olish
+              if (imageUrl.startsWith('uploads/')) {
+                imageUrl = imageUrl.replace('uploads/', '');
+              }
+
+              // To'g'ri URL'ni yaratish: baseUrl + /v1/uploads/ + filename
+              const serverPreviewUrl = `${cleanBaseUrl}/uploads/${imageUrl}`;
+              console.log('Setting preview URL:', serverPreviewUrl);
+              console.log('Image data:', imageData);
+              console.log('Original URL from backend:', imageData.url);
+
+              // Yangi URL'ni o'rnatish
+              setImagePreview(serverPreviewUrl);
+
+              // Eski blob URL'ni keyin tozalash (setTimeout bilan - state yangilanishini kutish)
+              setTimeout(() => {
+                if (preview && preview.startsWith('blob:')) {
+                  URL.revokeObjectURL(preview);
+                }
+              }, 500);
+            } catch (urlError) {
+              console.error('Error setting preview URL:', urlError);
+              // Agar URL o'rnatishda xatolik bo'lsa, blob URL'ni saqlab qolish
+              console.log('Keeping blob preview due to URL error');
+            }
+          } else {
+            // Agar URL kelmasa, blob URL'ni saqlab qolish
+            console.log('No URL in response, keeping blob preview');
+            console.log('Full imageData:', imageData);
+          }
+
+          toast.success(t('imageUploaded'));
+        } else {
+          // Eski blob URL'ni tozalash
+          if (preview && preview.startsWith('blob:')) {
+            URL.revokeObjectURL(preview);
+          }
+          setImagePreview(null);
+          throw new Error('Image upload failed - no image ID received');
         }
-        return null;
-      });
-      toast.error('Rasmlarni yuklashda xatolik yuz berdi');
-    } finally {
-      setUploadingImage(false);
-    }
-  }, [form]);
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        // Eski blob URL'ni tozalash - preview o'zgaruvchisini ishlatish
+        setImagePreview((prevPreview) => {
+          if (prevPreview && prevPreview.startsWith('blob:')) {
+            URL.revokeObjectURL(prevPreview);
+          }
+          return null;
+        });
+        toast.error(t('imageUploadError'));
+      } finally {
+        setUploadingImage(false);
+      }
+    },
+    [form]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -295,7 +317,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
         name: data.name,
         imageId: data.imageId || undefined,
       };
-      
+
       // Faqat yangi kategoriya yaratilganda parentId qo'shiladi
       if (!category) {
         payload.parentId = parentId || undefined;
@@ -315,14 +337,15 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+      <SheetContent
+        side="right"
+        className="w-full sm:max-w-2xl overflow-y-auto"
+      >
         <SheetHeader>
           <SheetTitle>
-            {category ? 'Kategoriyani tahrirlash' : 'Yangi kategoriya'}
+            {category ? t('editCategory') : t('newCategory')}
           </SheetTitle>
-          <SheetDescription>
-            Kategoriya ma'lumotlarini to'ldiring va saqlang
-          </SheetDescription>
+          <SheetDescription>{t('categoryFormDescription')}</SheetDescription>
         </SheetHeader>
 
         {loadingCategory ? (
@@ -331,17 +354,20 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
           </div>
         ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 mt-6">
+            <form
+              onSubmit={form.handleSubmit(handleSubmit)}
+              className="space-y-6 mt-6"
+            >
               <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="name.uz"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nomi (O'zbekcha)</FormLabel>
+                      <FormLabel required>{t('categoryNameUzLabel')}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Kategoriya nomi (O'zbekcha)"
+                          placeholder={t('categoryNameUzPlaceholder')}
                           {...field}
                         />
                       </FormControl>
@@ -355,10 +381,10 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                   name="name.ru"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nomi (Ruscha)</FormLabel>
+                      <FormLabel required>{t('categoryNameRuLabel')}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Kategoriya nomi (Ruscha)"
+                          placeholder={t('categoryNameRuPlaceholder')}
                           {...field}
                         />
                       </FormControl>
@@ -372,10 +398,10 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                   name="name.en"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel required>Nomi (Inglizcha)</FormLabel>
+                      <FormLabel required>{t('categoryNameEnLabel')}</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Kategoriya nomi (Inglizcha)"
+                          placeholder={t('categoryNameEnPlaceholder')}
                           {...field}
                         />
                       </FormControl>
@@ -390,7 +416,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                   name="imageId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel optional>Kategoriya rasmi</FormLabel>
+                      <FormLabel optional>{t('categoryImage')}</FormLabel>
                       <FormControl>
                         <div className="space-y-4">
                           {imagePreview ? (
@@ -398,7 +424,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                               <div className="relative aspect-video w-full rounded-lg overflow-hidden border bg-muted">
                                 <img
                                   src={imagePreview}
-                                  alt="Preview"
+                                  alt={t('preview')}
                                   className="w-full h-full object-cover"
                                 />
                               </div>
@@ -426,7 +452,7 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                                 <div className="flex flex-col items-center gap-2">
                                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                                   <p className="text-sm text-muted-foreground">
-                                    Yuklanmoqda...
+                                    {t('uploading')}
                                   </p>
                                 </div>
                               ) : (
@@ -434,11 +460,11 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
                                   <Upload className="h-8 w-8 text-muted-foreground" />
                                   <p className="text-sm">
                                     {isDragActive
-                                      ? 'Rasmni bu yerga tashlang'
-                                      : 'Rasmni bu yerga tashlang yoki bosing'}
+                                      ? t('dropImageHere')
+                                      : t('dropOrClickToUpload')}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
-                                    PNG, JPG, WEBP (maks. 5MB)
+                                    {t('imageFormatsHint')}
                                   </p>
                                 </div>
                               )}
@@ -453,12 +479,21 @@ function CategoryForm({ open, onOpenChange, category = null, parentId = null, on
               </div>
 
               <SheetFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                  Bekor qilish
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {t('cancel')}
                 </Button>
-                <Button type="submit" disabled={uploadingImage || loadingCategory}>
-                  {uploadingImage && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {category ? 'Yangilash' : 'Yaratish'}
+                <Button
+                  type="submit"
+                  disabled={uploadingImage || loadingCategory}
+                >
+                  {uploadingImage && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  {category ? t('update') : t('create')}
                 </Button>
               </SheetFooter>
             </form>

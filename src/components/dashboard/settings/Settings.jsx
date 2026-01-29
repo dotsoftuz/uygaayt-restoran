@@ -1,29 +1,22 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  KeyRound,
-  WandSparkles,
-  Store,
-  ShoppingCart,
-  Bell,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { KeyRound, ShoppingCart, Store, WandSparkles } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import Appearance from './Appearance';
+import OrderSettings from './OrderSettings';
 import Password from './Password';
 import ProfileHeader from './ProfileHeader';
 import StoreSettings from './StoreSettings';
-import OrderSettings from './OrderSettings';
-import NotificationPreferences from './NotificationPreferences';
 
 // Helper function to format image URL
 const formatImageUrl = (imageUrl) => {
   if (!imageUrl) return null;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+  const baseUrl =
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   let url = imageUrl;
   if (url.startsWith('uploads/')) {
@@ -32,40 +25,6 @@ const formatImageUrl = (imageUrl) => {
   return `${cleanBaseUrl}/uploads/${url}`;
 };
 
-const SETTINGS_TABS = [
-  {
-    value: 'store',
-    label: 'Do\'kon sozlamalari',
-    icon: Store,
-    description: 'Do\'kon ma\'lumotlari va ish vaqti',
-  },
-  {
-    value: 'order',
-    label: 'Buyurtma sozlamalari',
-    icon: ShoppingCart,
-    description: 'Yetkazib berish va to\'lov usullari',
-  },
-  {
-    value: 'notifications',
-    label: 'Xabarnomalar',
-    icon: Bell,
-    description: 'Email, push va SMS xabarnomalar',
-  },
-  {
-    value: 'appearance',
-    label: 'Ko\'rinish',
-    icon: WandSparkles,
-    description: 'Tema va dizayn sozlamalari',
-    badge: 'new',
-  },
-  {
-    value: 'password',
-    label: 'Parol',
-    icon: KeyRound,
-    description: 'Parolni o\'zgartirish',
-  },
-];
-
 function SettingsPage() {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -73,6 +32,34 @@ function SettingsPage() {
   const activeTab = searchParams.get('tab') || 'store';
 
   const [imageSrc, setImageSrc] = useState(null);
+
+  const SETTINGS_TABS = [
+    {
+      value: 'store',
+      label: t('storeSettings'),
+      icon: Store,
+      description: t('storeSettingsDescription'),
+    },
+    {
+      value: 'order',
+      label: t('orderSettings'),
+      icon: ShoppingCart,
+      description: t('orderSettingsDescription'),
+    },
+    {
+      value: 'appearance',
+      label: t('appearance'),
+      icon: WandSparkles,
+      description: t('appearanceDescription'),
+      badge: 'new',
+    },
+    {
+      value: 'password',
+      label: t('password'),
+      icon: KeyRound,
+      description: t('passwordDescription'),
+    },
+  ];
 
   // Load logo from storeData
   useEffect(() => {
@@ -85,7 +72,7 @@ function SettingsPage() {
           if (storeData.logo?.url) {
             const logoUrl = formatImageUrl(storeData.logo.url);
             setImageSrc(logoUrl);
-          } 
+          }
           // Fallback: if logoId exists but logo object doesn't have url, fetch from API
           else if (storeData.logoId && !storeData.logo) {
             // Try to fetch logo from API if we have logoId but no logo object
@@ -143,8 +130,8 @@ function SettingsPage() {
       <ProfileHeader imageSrc={imageSrc} />
 
       {/* Settings Tabs */}
-      <Tabs 
-        value={activeTab} 
+      <Tabs
+        value={activeTab}
         onValueChange={(value) => {
           setSearchParams({ tab: value }, { replace: true });
         }}
@@ -171,10 +158,14 @@ function SettingsPage() {
                             aria-hidden="true"
                           />
                           <span className="whitespace-nowrap hidden sm:inline">
-                            {tab.value === 'appearance' ? t('appearance') : tab.label}
+                            {tab.value === 'appearance'
+                              ? t('appearance')
+                              : tab.label}
                           </span>
                           <span className="whitespace-nowrap sm:hidden">
-                            {tab.value === 'appearance' ? t('appearance') : tab.label.split(' ')[0]}
+                            {tab.value === 'appearance'
+                              ? t('appearance')
+                              : tab.label.split(' ')[0]}
                           </span>
                           {tab.badge && (
                             <Badge className="ml-1 h-4 px-1.5 text-[10px] flex-shrink-0">
@@ -212,7 +203,9 @@ function SettingsPage() {
                           aria-hidden="true"
                         />
                         <span className="whitespace-nowrap">
-                          {tab.value === 'appearance' ? t('appearance') : tab.label}
+                          {tab.value === 'appearance'
+                            ? t('appearance')
+                            : tab.label}
                         </span>
                         {tab.badge && (
                           <Badge className="ml-auto h-4 px-1.5 text-xs">
@@ -241,12 +234,6 @@ function SettingsPage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="notifications" className="mt-0">
-              <div className="max-w-2xl">
-                <NotificationPreferences />
-              </div>
-            </TabsContent>
-
             <TabsContent value="appearance" className="mt-0">
               <div className="max-w-2xl">
                 <Appearance />
@@ -272,12 +259,6 @@ function SettingsPage() {
           <TabsContent value="order" className="mt-0">
             <div className="w-full">
               <OrderSettings />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="notifications" className="mt-0">
-            <div className="w-full">
-              <NotificationPreferences />
             </div>
           </TabsContent>
 

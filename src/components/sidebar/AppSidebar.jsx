@@ -1,25 +1,12 @@
 import {
-  Briefcase,
   ClipboardList,
-  LayoutDashboard,
-  PlusCircle,
-  Settings,
-  UserCog,
-  Users,
-  FileText,
-  Store,
-  Apple,
-  Truck,
-  Users2,
-  Target,
-  ChartPie,
-  Search,
-  Slash,
-  Package,
-  FolderTree,
   DollarSign,
-  Tag,
+  FolderTree,
+  LayoutDashboard,
+  Package,
+  Settings,
   Star,
+  Tag,
 } from 'lucide-react';
 
 import {
@@ -36,53 +23,53 @@ import {
 import { useAppContext } from '@/context/AppContext';
 import { Link, useLocation } from 'react-router-dom';
 // import { NavUser } from './NavUser';
-import { UserSettings } from './UserSettings';
-import { Input } from '../ui/input';
-import { Kbd } from '../ui/kbd';
+import { useTranslation } from 'react-i18next';
 import { SearchCommandDialog } from '../dashboard/dialogs/search-comman';
+import { UserSettings } from './UserSettings';
 
 export function AppSidebar({ ...props }) {
   const { user } = useAppContext();
   const location = useLocation();
+  const { t } = useTranslation();
 
   const navItems = [
     {
-      title: 'Dashboard',
+      title: t('Dashboard'),
       url: '/dashboard',
       icon: LayoutDashboard,
     },
     {
-      title: 'Buyurtmalar',
+      title: t('Buyurtmalar'),
       url: '/dashboard/orders',
       icon: ClipboardList,
     },
     {
-      title: 'Katalog',
+      title: t('Katalog'),
       url: '/dashboard/catalog',
       icon: FolderTree,
     },
     {
-      title: 'Mahsulotlar',
+      title: t('Mahsulotlar'),
       url: '/dashboard/products',
       icon: Package,
     },
     {
-      title: 'Moliya',
+      title: t('Moliya'),
       url: '/dashboard/finance',
       icon: DollarSign,
     },
     {
-      title: 'Aksiyalar',
+      title: t('Aksiyalar'),
       url: '/dashboard/promotions',
       icon: Tag,
     },
     {
-      title: 'Sharhlar',
+      title: t('Sharhlar'),
       url: '/dashboard/reviews',
       icon: Star,
     },
     {
-      title: 'Sozlamalar',
+      title: t('Sozlamalar'),
       url: '/dashboard/settings',
       icon: Settings,
     },
@@ -93,13 +80,13 @@ export function AppSidebar({ ...props }) {
       <SidebarHeader className="pt-4">
         <img
           src="/assets/logos/uygaayt-store-admin.svg"
-          alt="Creative Studio"
+          alt={t('appName')}
           className="w-32 mx-auto group-data-[collapsible=icon]:hidden"
         />
 
         <img
           src="/assets/logos/uygaayt-shape.svg"
-          alt="Creative Studio"
+          alt={t('appName')}
           className="w-8 h-8 mx-auto hidden group-data-[collapsible=icon]:block"
         />
       </SidebarHeader>
@@ -107,7 +94,7 @@ export function AppSidebar({ ...props }) {
         <SidebarGroup className="space-y-0.5">
           <SearchCommandDialog />
           <SidebarGroupLabel className="hidden group-data-[collapsible=icon]:hidden">
-            Main Menu
+            {t('mainMenu')}
           </SidebarGroupLabel>
           {navItems.map((item, i) => {
             let isActive = false;
@@ -124,10 +111,11 @@ export function AppSidebar({ ...props }) {
               <Link key={i} to={item.url}>
                 <SidebarMenuButton
                   tooltip={item.title}
-                  className={`flex items-center group-data-[collapsible=icon]:justify-center ${isActive
-                    ? 'bg-primary text-white dark:text-black hover:bg-primary/90 hover:text-white border-l-2 border-primary'
-                    : 'hover:bg-muted'
-                    }`}
+                  className={`flex items-center group-data-[collapsible=icon]:justify-center ${
+                    isActive
+                      ? 'bg-primary text-white dark:text-black hover:bg-primary/90 hover:text-white border-l-2 border-primary'
+                      : 'hover:bg-muted'
+                  }`}
                 >
                   <item.icon className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
                   <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">

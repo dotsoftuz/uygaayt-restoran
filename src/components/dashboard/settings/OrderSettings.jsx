@@ -1,12 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -15,12 +8,29 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Truck, CreditCard, Loader2, CheckCircle2, XCircle, Star, Package, Plus } from 'lucide-react';
-import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import api from '@/services/api';
-import PackageItemForm from './PackageItemForm';
-import { Badge } from '@/components/ui/badge';
 import { fetchStoreCategories } from '@/services/storeCategories';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  Package,
+  Plus,
+  Star,
+  Truck,
+  XCircle,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import * as z from 'zod';
+import PackageItemForm from './PackageItemForm';
 
 // Helper function to format number with spaces (10 000)
 const formatNumber = (value) => {
@@ -42,12 +52,13 @@ const parseNumber = (value) => {
 
 // Validation schema
 const deliverySchema = z.object({
-  orderMinimumPrice: z.number().min(0, 'Minimal buyurtma narxi 0 dan kichik bo\'lmasligi kerak'),
-  itemPrepTimeFrom: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
-  itemPrepTimeTo: z.number().min(1, 'Tayyorlanish vaqti 1 dan kichik bo\'lmasligi kerak'),
+  orderMinimumPrice: z.number().min(0, 'orderMinimumPriceMinError'),
+  itemPrepTimeFrom: z.number().min(1, 'prepTimeMinError'),
+  itemPrepTimeTo: z.number().min(1, 'prepTimeMinError'),
 });
 
 function OrderSettings() {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [storeData, setStoreData] = useState(null);
   const [originalStoreData, setOriginalStoreData] = useState(null);
@@ -103,9 +114,11 @@ function OrderSettings() {
           setOriginalStoreData(JSON.parse(JSON.stringify(data)));
           populateForms(data);
           localStorage.setItem('storeData', JSON.stringify(data));
-          
+
           if (data.packageItems) {
-            setPackageItems(Array.isArray(data.packageItems) ? data.packageItems : []);
+            setPackageItems(
+              Array.isArray(data.packageItems) ? data.packageItems : []
+            );
           }
         }
       } catch (error) {
@@ -127,7 +140,7 @@ function OrderSettings() {
             categoriesList = res.data;
           }
           const map = {};
-          categoriesList.forEach(cat => {
+          categoriesList.forEach((cat) => {
             map[String(cat._id)] = cat;
           });
           setCategoriesMap(map);
@@ -165,15 +178,22 @@ function OrderSettings() {
 
     const deliveryValues = deliveryForm.watch();
     const hasDeliveryChanges =
-      deliveryValues.orderMinimumPrice !== (originalStoreData.orderMinimumPrice || 0) ||
-      deliveryValues.itemPrepTimeFrom !== (originalStoreData.itemPrepTimeFrom || 10) ||
-      deliveryValues.itemPrepTimeTo !== (originalStoreData.itemPrepTimeTo || 15);
+      deliveryValues.orderMinimumPrice !==
+        (originalStoreData.orderMinimumPrice || 0) ||
+      deliveryValues.itemPrepTimeFrom !==
+        (originalStoreData.itemPrepTimeFrom || 10) ||
+      deliveryValues.itemPrepTimeTo !==
+        (originalStoreData.itemPrepTimeTo || 15);
 
     const hasPaymentChanges =
       paymentMethods.acceptCash !== (originalStoreData.acceptCash || false) ||
       paymentMethods.acceptCard !== (originalStoreData.acceptCard || false) ||
-      paymentMethods.acceptOnlinePayment !== (originalStoreData.acceptOnlinePayment || false) ||
-      statusFlags.isActive !== (originalStoreData.isActive !== undefined ? originalStoreData.isActive : true) ||
+      paymentMethods.acceptOnlinePayment !==
+        (originalStoreData.acceptOnlinePayment || false) ||
+      statusFlags.isActive !==
+        (originalStoreData.isActive !== undefined
+          ? originalStoreData.isActive
+          : true) ||
       statusFlags.isVerified !== (originalStoreData.isVerified || false) ||
       statusFlags.isPremium !== (originalStoreData.isPremium || false);
 
@@ -191,24 +211,27 @@ function OrderSettings() {
   // Helper function to preserve images in response
   const preserveImagesInResponse = (responseData, currentData) => {
     const preserved = { ...responseData };
-    
+
     if (currentData?.logo) {
       preserved.logo = currentData.logo;
       preserved.logoId = currentData.logoId || currentData.logo._id;
     }
-    
+
     if (currentData?.banner) {
       preserved.banner = currentData.banner;
       preserved.bannerId = currentData.bannerId || currentData.banner._id;
     }
-    
+
     return preserved;
   };
 
   // Update original data after successful save
   const updateOriginalData = (updatedData) => {
     const mergedData = { ...originalStoreData, ...updatedData };
-    const preservedData = preserveImagesInResponse(mergedData, originalStoreData);
+    const preservedData = preserveImagesInResponse(
+      mergedData,
+      originalStoreData
+    );
     setOriginalStoreData(JSON.parse(JSON.stringify(preservedData)));
     setStoreData(preservedData);
     localStorage.setItem('storeData', JSON.stringify(preservedData));
@@ -242,15 +265,21 @@ function OrderSettings() {
 
       const response = await api.put('/store/update', updateData);
       const updatedStoreData = response?.data || response || updateData;
-      const updatedWithImages = preserveImagesInResponse(updatedStoreData, storeData);
+      const updatedWithImages = preserveImagesInResponse(
+        updatedStoreData,
+        storeData
+      );
 
       updateOriginalData(updatedWithImages);
 
       // Form'larni yangilash
       deliveryForm.reset({
-        orderMinimumPrice: updatedStoreData.orderMinimumPrice ?? deliveryData.orderMinimumPrice,
-        itemPrepTimeFrom: updatedStoreData.itemPrepTimeFrom ?? deliveryData.itemPrepTimeFrom,
-        itemPrepTimeTo: updatedStoreData.itemPrepTimeTo ?? deliveryData.itemPrepTimeTo,
+        orderMinimumPrice:
+          updatedStoreData.orderMinimumPrice ?? deliveryData.orderMinimumPrice,
+        itemPrepTimeFrom:
+          updatedStoreData.itemPrepTimeFrom ?? deliveryData.itemPrepTimeFrom,
+        itemPrepTimeTo:
+          updatedStoreData.itemPrepTimeTo ?? deliveryData.itemPrepTimeTo,
       });
 
       if (updatedStoreData.acceptCash !== undefined) {
@@ -262,27 +291,30 @@ function OrderSettings() {
       }
       if (updatedStoreData.isActive !== undefined) {
         setStatusFlags({
-          isActive: updatedStoreData.isActive !== undefined ? updatedStoreData.isActive : true,
+          isActive:
+            updatedStoreData.isActive !== undefined
+              ? updatedStoreData.isActive
+              : true,
           isVerified: updatedStoreData.isVerified || false,
           isPremium: updatedStoreData.isPremium || false,
         });
       }
 
       setHasChanges(false);
-      toast.success('Buyurtma sozlamalari saqlandi');
+      toast.success(t('orderSettingsSaved'));
     } catch (error) {
       console.error('Error updating order settings:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Ma\'lumotlarni saqlashda xatolik yuz berdi';
+      const errorMessage =
+        error?.response?.data?.message || error?.message || t('dataSaveError');
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-
   const handleCancel = () => {
     if (!originalStoreData) return;
-    
+
     deliveryForm.reset({
       orderMinimumPrice: originalStoreData.orderMinimumPrice || 0,
       itemPrepTimeFrom: originalStoreData.itemPrepTimeFrom || 10,
@@ -296,14 +328,17 @@ function OrderSettings() {
     });
 
     setStatusFlags({
-      isActive: originalStoreData.isActive !== undefined ? originalStoreData.isActive : true,
+      isActive:
+        originalStoreData.isActive !== undefined
+          ? originalStoreData.isActive
+          : true,
       isVerified: originalStoreData.isVerified || false,
       isPremium: originalStoreData.isPremium || false,
     });
 
     setHasChanges(false);
     setShowCancelDialog(false);
-    toast.success('Barcha o\'zgarishlar bekor qilindi');
+    toast.success(t('allChangesCancelled'));
   };
 
   return (
@@ -312,51 +347,65 @@ function OrderSettings() {
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b">
           <Truck className="w-5 h-5" />
-          <h2 className="text-lg sm:text-xl font-semibold">Yetkazib berish sozlamalari</h2>
+          <h2 className="text-lg sm:text-xl font-semibold">
+            {t('deliverySettings')}
+          </h2>
         </div>
         <div className="space-y-6">
-        <div className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label required className="text-xs sm:text-sm">
-                Minimal buyurtma narxi
+                {t('minimumOrderPrice')}
               </Label>
-            <div className="flex items-center gap-2">
-              <Input
+              <div className="flex items-center gap-2">
+                <Input
                   type="text"
-                  value={formatNumber(deliveryForm.watch('orderMinimumPrice') || 0)}
+                  value={formatNumber(
+                    deliveryForm.watch('orderMinimumPrice') || 0
+                  )}
                   onChange={(e) => {
                     const parsed = parseNumber(e.target.value);
-                    deliveryForm.setValue('orderMinimumPrice', parsed, { shouldValidate: true });
+                    deliveryForm.setValue('orderMinimumPrice', parsed, {
+                      shouldValidate: true,
+                    });
                   }}
                   onBlur={(e) => {
                     const parsed = parseNumber(e.target.value);
-                    deliveryForm.setValue('orderMinimumPrice', parsed, { shouldValidate: true });
+                    deliveryForm.setValue('orderMinimumPrice', parsed, {
+                      shouldValidate: true,
+                    });
                   }}
                   className="text-sm sm:text-base"
                   placeholder="0"
-              />
-              <span className="text-xs sm:text-sm text-muted-foreground">so'm</span>
-            </div>
+                />
+                <span className="text-xs sm:text-sm text-muted-foreground">
+                  so'm
+                </span>
+              </div>
               {deliveryForm.formState.errors.orderMinimumPrice && (
                 <p className="text-xs text-destructive">
                   {deliveryForm.formState.errors.orderMinimumPrice.message}
-            </p>
+                </p>
               )}
-          </div>
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label required className="text-xs sm:text-sm">
-                  Tayyorlanish vaqti (dan)
+                  {t('prepTimeFrom')}
                 </Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
                     min="1"
-                    {...deliveryForm.register('itemPrepTimeFrom', { valueAsNumber: true })}
+                    {...deliveryForm.register('itemPrepTimeFrom', {
+                      valueAsNumber: true,
+                    })}
                     className="text-sm sm:text-base"
                   />
-                  <span className="text-xs sm:text-sm text-muted-foreground">daqiqa</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    {t('minutes')}
+                  </span>
                 </div>
                 {deliveryForm.formState.errors.itemPrepTimeFrom && (
                   <p className="text-xs text-destructive">
@@ -366,16 +415,20 @@ function OrderSettings() {
               </div>
               <div className="space-y-2">
                 <Label required className="text-xs sm:text-sm">
-                  Tayyorlanish vaqti (gacha)
+                  {t('prepTimeTo')}
                 </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
                     min="1"
-                    {...deliveryForm.register('itemPrepTimeTo', { valueAsNumber: true })}
+                    {...deliveryForm.register('itemPrepTimeTo', {
+                      valueAsNumber: true,
+                    })}
                     className="text-sm sm:text-base"
                   />
-                  <span className="text-xs sm:text-sm text-muted-foreground">daqiqa</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">
+                    {t('minutes')}
+                  </span>
                 </div>
                 {deliveryForm.formState.errors.itemPrepTimeTo && (
                   <p className="text-xs text-destructive">
@@ -392,7 +445,9 @@ function OrderSettings() {
       <div className="space-y-4 pt-6 border-t">
         <div className="flex items-center gap-2 pb-2 border-b">
           <CreditCard className="w-5 h-5" />
-          <h2 className="text-lg sm:text-xl font-semibold">To'lov usullari va status</h2>
+          <h2 className="text-lg sm:text-xl font-semibold">
+            {t('paymentMethodsAndStatus')}
+          </h2>
         </div>
         <div className="space-y-6">
           <div className="space-y-4">
@@ -403,20 +458,25 @@ function OrderSettings() {
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <Label className="text-sm sm:text-base font-medium">Naqd pul</Label>
-            <p className="text-xs text-muted-foreground">
-                      Mijozlar naqd pul bilan to'lov qilishlari mumkin
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('cash')}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('cashPaymentDescription')}
                     </p>
                   </div>
                 </div>
                 <Switch
                   checked={paymentMethods.acceptCash}
                   onCheckedChange={(checked) =>
-                    setPaymentMethods({ ...paymentMethods, acceptCash: checked })
+                    setPaymentMethods({
+                      ...paymentMethods,
+                      acceptCash: checked,
+                    })
                   }
                   disabled
                 />
-          </div>
+              </div>
 
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="flex items-center gap-3">
@@ -424,207 +484,251 @@ function OrderSettings() {
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <Label className="text-sm sm:text-base font-medium">Bank kartasi</Label>
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('bankCard')}
+                    </Label>
                     <p className="text-xs text-muted-foreground">
-                      Terminal yoki bank kartasi orqali to'lov
+                      {t('cardPaymentDescription')}
                     </p>
                   </div>
                 </div>
                 <Switch
                   checked={paymentMethods.acceptCard}
                   onCheckedChange={(checked) =>
-                    setPaymentMethods({ ...paymentMethods, acceptCard: checked })
+                    setPaymentMethods({
+                      ...paymentMethods,
+                      acceptCard: checked,
+                    })
                   }
                   disabled
                 />
-          </div>
+              </div>
 
-          <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-muted">
                     <CreditCard className="w-5 h-5" />
                   </div>
                   <div>
-                    <Label className="text-sm sm:text-base font-medium">Onlayn to'lov</Label>
-              <p className="text-xs text-muted-foreground">
-                      Onlayn to'lov tizimlari orqali to'lov
-              </p>
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('onlinePayment')}
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {t('onlinePaymentDescription')}
+                    </p>
                   </div>
-            </div>
-            <Switch
+                </div>
+                <Switch
                   checked={paymentMethods.acceptOnlinePayment}
                   onCheckedChange={(checked) =>
-                    setPaymentMethods({ ...paymentMethods, acceptOnlinePayment: checked })
+                    setPaymentMethods({
+                      ...paymentMethods,
+                      acceptOnlinePayment: checked,
+                    })
                   }
                   disabled
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="space-y-4 pt-6 border-t">
-          <div className="flex items-center justify-between pb-2 border-b">
-            <div className="flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              <h2 className="text-lg sm:text-xl font-semibold">Qo'shimcha itemlar</h2>
+                />
+              </div>
             </div>
-            {packageItems.length === 0 && (
-              <Button
-                type="button"
-                onClick={() => {
-                  setEditingPackageItem(null);
-                  setShowPackageItemForm(true);
-                }}
-                size="sm"
-                className="text-xs sm:text-sm"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Qo'shish
-              </Button>
-            )}
           </div>
-        <div className="space-y-4">
-          {packageItems.length === 0 ? (
-            <div className="border rounded-lg p-8 text-center">
-              <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Hozircha qo'shimcha itemlar mavjud emas
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Customer cart'ga product qo'shganda avtomatik qo'shiladigan itemlar
-              </p>
+
+          <Separator />
+
+          <div className="space-y-4 pt-6 border-t">
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                <h2 className="text-lg sm:text-xl font-semibold">
+                  {t('additionalItems')}
+                </h2>
+              </div>
+              {packageItems.length === 0 && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setEditingPackageItem(null);
+                    setShowPackageItemForm(true);
+                  }}
+                  size="sm"
+                  className="text-xs sm:text-sm"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t('add')}
+                </Button>
+              )}
             </div>
-          ) : (
-            <div className="space-y-2">
-              {packageItems.map((item, index) => {
-                const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-                const itemName = item.name?.[currentLang] || item.name?.uz || item.name || 'Nomsiz';
-                
-                const formatImageUrl = (imageUrl) => {
-                  if (!imageUrl) return null;
-                  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-                  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-                  let url = imageUrl;
-                  if (url.startsWith('uploads/')) {
-                    url = url.replace('uploads/', '');
-                  }
-                  if (!url.startsWith('http')) {
-                    return `${cleanBaseUrl}/uploads/${url}`;
-                  }
-                  return url;
-                };
-                
-                let imageUrl = null;
-                if (item.image?.url) {
-                  imageUrl = formatImageUrl(item.image.url);
-                } else if (item.imageId) {
-                  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
-                  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-                  imageUrl = `${cleanBaseUrl}/image/get/${item.imageId}`;
-                } else if (item.image && typeof item.image === 'string') {
-                  imageUrl = formatImageUrl(item.image);
-                }
-                
-                const getCategoryName = (categoryId) => {
-                  const category = categoriesMap[String(categoryId)];
-                  if (!category) return '';
-                  const currentLang = localStorage.getItem('i18nextLng') || 'uz';
-                  return category.name?.[currentLang] || category.name?.uz || category.name || '';
-                };
-                
-                return (
-                  <div
-                    key={item._id || index}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {imageUrl ? (
-                        <img
-                          src={imageUrl}
-                          alt={itemName}
-                          className="w-16 h-16 object-cover rounded-lg border"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div className={`w-16 h-16 bg-muted rounded-lg flex items-center justify-center ${imageUrl ? 'hidden' : ''}`}>
-                        <Package className="w-8 h-8 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{itemName}</p>
-                          {item.isActive !== false ? (
-                            <Badge variant="default" className="text-xs">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Faol
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              <XCircle className="w-3 h-3 mr-1" />
-                              Nofaol
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {item.price?.toLocaleString('uz-UZ') || 0} so'm
-                        </p>
-                        {item.categoryIds && item.categoryIds.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {item.categoryIds.map((categoryId) => {
-                              const categoryName = getCategoryName(categoryId);
-                              if (!categoryName) return null;
-                              return (
-                                <Badge key={String(categoryId)} variant="outline" className="text-xs">
-                                  {categoryName}
-                                </Badge>
-                              );
-                            })}
+            <div className="space-y-4">
+              {packageItems.length === 0 ? (
+                <div className="border rounded-lg p-8 text-center">
+                  <Package className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {t('noAdditionalItems')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t('additionalItemsDescription')}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {packageItems.map((item, index) => {
+                    const currentLang =
+                      localStorage.getItem('i18nextLng') || 'uz';
+                    const itemName =
+                      item.name?.[currentLang] ||
+                      item.name?.uz ||
+                      item.name ||
+                      t('nameless');
+
+                    const formatImageUrl = (imageUrl) => {
+                      if (!imageUrl) return null;
+                      const baseUrl =
+                        import.meta.env.VITE_API_BASE_URL ||
+                        'http://localhost:3008/v1';
+                      const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+                      let url = imageUrl;
+                      if (url.startsWith('uploads/')) {
+                        url = url.replace('uploads/', '');
+                      }
+                      if (!url.startsWith('http')) {
+                        return `${cleanBaseUrl}/uploads/${url}`;
+                      }
+                      return url;
+                    };
+
+                    let imageUrl = null;
+                    if (item.image?.url) {
+                      imageUrl = formatImageUrl(item.image.url);
+                    } else if (item.imageId) {
+                      const baseUrl =
+                        import.meta.env.VITE_API_BASE_URL ||
+                        'http://localhost:3008/v1';
+                      const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+                      imageUrl = `${cleanBaseUrl}/image/get/${item.imageId}`;
+                    } else if (item.image && typeof item.image === 'string') {
+                      imageUrl = formatImageUrl(item.image);
+                    }
+
+                    const getCategoryName = (categoryId) => {
+                      const category = categoriesMap[String(categoryId)];
+                      if (!category) return '';
+                      const currentLang =
+                        localStorage.getItem('i18nextLng') || 'uz';
+                      return (
+                        category.name?.[currentLang] ||
+                        category.name?.uz ||
+                        category.name ||
+                        ''
+                      );
+                    };
+
+                    return (
+                      <div
+                        key={item._id || index}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={itemName}
+                              className="w-16 h-16 object-cover rounded-lg border"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-16 h-16 bg-muted rounded-lg flex items-center justify-center ${imageUrl ? 'hidden' : ''}`}
+                          >
+                            <Package className="w-8 h-8 text-muted-foreground" />
                           </div>
-                        ) : (
-                          <Badge variant="secondary" className="text-xs mt-2">
-                            Barcha kategoriyalar uchun
-                          </Badge>
-                        )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium truncate">
+                                {itemName}
+                              </p>
+                              {item.isActive !== false ? (
+                                <Badge variant="default" className="text-xs">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  {t('active')}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  {t('inactive')}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {item.price?.toLocaleString('uz-UZ') || 0}{' '}
+                              {t('sum')}
+                            </p>
+                            {item.categoryIds && item.categoryIds.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {item.categoryIds.map((categoryId) => {
+                                  const categoryName =
+                                    getCategoryName(categoryId);
+                                  if (!categoryName) return null;
+                                  return (
+                                    <Badge
+                                      key={String(categoryId)}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {categoryName}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className="text-xs mt-2"
+                              >
+                                {t('forAllCategories')}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingPackageItem(item);
+                            setShowPackageItemForm(true);
+                          }}
+                        >
+                          {t('edit')}
+                        </Button>
                       </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setEditingPackageItem(item);
-                        setShowPackageItemForm(true);
-                      }}
-                    >
-                      Tahrirlash
-                    </Button>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      <div className="space-y-4">
-            <h4 className="text-base sm:text-lg font-semibold">Status</h4>
+          <div className="space-y-4">
+            <h4 className="text-base sm:text-lg font-semibold">
+              {t('status')}
+            </h4>
 
-        <div className="space-y-3">
+            <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                   {statusFlags.isActive ? (
                     <CheckCircle2 className="w-5 h-5 text-green-500" />
                   ) : (
                     <XCircle className="w-5 h-5 text-red-500" />
                   )}
                   <div>
-                    <Label className="text-sm sm:text-base font-medium">Faol</Label>
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('active')}
+                    </Label>
                     <p className="text-xs text-muted-foreground">
-                      Do'kon faol holatda va buyurtmalarni qabul qiladi
+                      {t('activeStoreDescription')}
                     </p>
                   </div>
                 </div>
@@ -635,7 +739,7 @@ function OrderSettings() {
                   }
                   disabled
                 />
-                    </div>
+              </div>
 
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="flex items-center gap-3">
@@ -644,14 +748,16 @@ function OrderSettings() {
                   ) : (
                     <XCircle className="w-5 h-5 text-gray-400" />
                   )}
-                    <div>
-                    <Label className="text-sm sm:text-base font-medium">Tasdiqlangan</Label>
+                  <div>
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('verified')}
+                    </Label>
                     <p className="text-xs text-muted-foreground">
-                      Do'kon ma'lumotlari tasdiqlangan
+                      {t('verifiedDescription')}
                     </p>
                   </div>
-                  </div>
-                  <Switch
+                </div>
+                <Switch
                   checked={statusFlags.isVerified}
                   onCheckedChange={(checked) =>
                     setStatusFlags({ ...statusFlags, isVerified: checked })
@@ -668,9 +774,11 @@ function OrderSettings() {
                     <Star className="w-5 h-5 text-gray-400" />
                   )}
                   <div>
-                    <Label className="text-sm sm:text-base font-medium">Premium</Label>
+                    <Label className="text-sm sm:text-base font-medium">
+                      {t('premium')}
+                    </Label>
                     <p className="text-xs text-muted-foreground">
-                      Premium do'kon statusi
+                      {t('premiumDescription')}
                     </p>
                   </div>
                 </div>
@@ -697,7 +805,7 @@ function OrderSettings() {
             disabled={!hasChanges || isSubmitting}
             className="text-xs sm:text-sm"
           >
-            Bekor qilish
+            {t('cancel')}
           </Button>
           <Button
             type="button"
@@ -706,7 +814,7 @@ function OrderSettings() {
             className="text-xs sm:text-sm"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Saqlash
+            {t('save')}
           </Button>
         </div>
       </div>
@@ -715,23 +823,18 @@ function OrderSettings() {
       <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Bekor qilish</DialogTitle>
-            <DialogDescription>
-              Barcha o'zgarishlar bekor qilinadi va asl qiymatlarga qaytadi. Bu amalni bekor qilib bo'lmaydi.
-            </DialogDescription>
+            <DialogTitle>{t('cancel')}</DialogTitle>
+            <DialogDescription>{t('cancelDescription')}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setShowCancelDialog(false)}
             >
-              Yopish
+              {t('close')}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleCancel}
-            >
-              Bekor qilish
+            <Button variant="destructive" onClick={handleCancel}>
+              {t('cancel')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -755,30 +858,48 @@ function OrderSettings() {
                 if (typeof id === 'object' && id.$oid) return id.$oid;
                 return String(id);
               };
-              updatedPackageItems = packageItems.map(item => {
+              updatedPackageItems = packageItems.map((item) => {
                 const itemId = normalizeId(item._id);
-                const editingId = normalizeId(editingPackageItem._id) || normalizeId(editingPackageItem.id);
-                return itemId === editingId ? { ...data, _id: editingPackageItem._id || editingPackageItem.id } : item;
+                const editingId =
+                  normalizeId(editingPackageItem._id) ||
+                  normalizeId(editingPackageItem.id);
+                return itemId === editingId
+                  ? {
+                      ...data,
+                      _id: editingPackageItem._id || editingPackageItem.id,
+                    }
+                  : item;
               });
             } else {
               const generateMongoObjectId = () => {
-                const timestamp = Math.floor(new Date().getTime() / 1000).toString(16);
-                const randomPart = 'xxxxxxxxxxxxxxxx'.replace(/[x]/g, function() {
-                  return (Math.random() * 16 | 0).toString(16);
-                }).toLowerCase();
+                const timestamp = Math.floor(
+                  new Date().getTime() / 1000
+                ).toString(16);
+                const randomPart = 'xxxxxxxxxxxxxxxx'
+                  .replace(/[x]/g, function () {
+                    return ((Math.random() * 16) | 0).toString(16);
+                  })
+                  .toLowerCase();
                 const objectId = (timestamp + randomPart).substring(0, 24);
                 return { $oid: objectId };
               };
-              updatedPackageItems = [...packageItems, { ...data, _id: generateMongoObjectId() }];
+              updatedPackageItems = [
+                ...packageItems,
+                { ...data, _id: generateMongoObjectId() },
+              ];
             }
-            
+
             const deliveryData = deliveryForm.getValues();
             const { logoId, bannerId } = getCurrentImageIds();
-            
+
             const transformPackageItemsForBackend = (items) => {
-              return items.map(item => {
+              return items.map((item) => {
                 const transformedItem = { ...item };
-                if (transformedItem._id && typeof transformedItem._id === 'object' && transformedItem._id.$oid) {
+                if (
+                  transformedItem._id &&
+                  typeof transformedItem._id === 'object' &&
+                  transformedItem._id.$oid
+                ) {
                   transformedItem._id = transformedItem._id.$oid;
                 }
                 return transformedItem;
@@ -799,24 +920,41 @@ function OrderSettings() {
               isActive: statusFlags.isActive,
               isVerified: statusFlags.isVerified,
               isPremium: statusFlags.isPremium,
-              packageItems: transformPackageItemsForBackend(updatedPackageItems),
+              packageItems:
+                transformPackageItemsForBackend(updatedPackageItems),
               ...(logoId && { logoId }),
               ...(bannerId && { bannerId }),
             };
-            
+
             const response = await api.put('/store/update', updateData);
             const updatedData = response?.data || response || updateData;
-            const updatedWithImages = preserveImagesInResponse(updatedData, storeData);
-            
-            const finalPackageItems = updatedData.packageItems || updatedPackageItems;
+            const updatedWithImages = preserveImagesInResponse(
+              updatedData,
+              storeData
+            );
+
+            const finalPackageItems =
+              updatedData.packageItems || updatedPackageItems;
             setPackageItems(finalPackageItems);
-            
-            const newStoreData = { ...storeData, ...updatedWithImages, packageItems: finalPackageItems };
+
+            const newStoreData = {
+              ...storeData,
+              ...updatedWithImages,
+              packageItems: finalPackageItems,
+            };
             setStoreData(newStoreData);
-            setOriginalStoreData({ ...originalStoreData, ...updatedWithImages, packageItems: finalPackageItems });
+            setOriginalStoreData({
+              ...originalStoreData,
+              ...updatedWithImages,
+              packageItems: finalPackageItems,
+            });
             localStorage.setItem('storeData', JSON.stringify(newStoreData));
-            
-            toast.success(editingPackageItem ? 'Qo\'shimcha item yangilandi' : 'Qo\'shimcha item saqlandi');
+
+            toast.success(
+              editingPackageItem
+                ? "Qo'shimcha item yangilandi"
+                : "Qo'shimcha item saqlandi"
+            );
             setEditingPackageItem(null);
           } catch (error) {
             console.error('Error saving package item:', error);
@@ -829,4 +967,3 @@ function OrderSettings() {
 }
 
 export default OrderSettings;
-
