@@ -1,3 +1,4 @@
+import TransactionDetailModal from '@/components/dashboard/dialogs/TransactionDetailModal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -244,6 +245,8 @@ function Finance() {
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const fetchStatistics = async () => {
     setStatisticsLoading(true);
@@ -432,7 +435,8 @@ function Finance() {
   };
 
   const handleView = (transaction) => {
-    console.log('View transaction:', transaction);
+    setSelectedTransaction(transaction);
+    setIsDetailModalOpen(true);
   };
 
   const hasActiveFilters = debouncedSearchTerm;
@@ -796,6 +800,12 @@ function Finance() {
           </ChartContainer>
         </CardContent>
       </Card>
+
+      <TransactionDetailModal
+        open={isDetailModalOpen}
+        onOpenChange={setIsDetailModalOpen}
+        transaction={selectedTransaction}
+      />
     </div>
   );
 }

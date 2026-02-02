@@ -654,5 +654,16 @@
   "stockRequiredAndGreaterThanOrEqualZero": "Количество на складе обязательно и должно быть больше или равно 0",
   "imagesUploaded": "изображений загружено",
   "imageUploadError": "Ошибка загрузки изображений",
-  "productLoadError": "Ошибка загрузки продукта"
+  "productLoadError": "Ошибка загрузки продукта",
+  "transactionDetails": "Детали транзакции",
+  "transactionDetailsDescription": "Полная информация о транзакции",
+  "summary": "Сводка",
+  "balanceInformation": "Информация о балансе",
+  "details": "Детали",
+  "beforeTransaction": "До транзакции",
+  "afterTransaction": "После транзакции",
+  "transactionAmount": "Сумма транзакции",
+  "close": "Закрыть",
+  "customerName": "Имя клиента",
+  "viewOrderDetails": "Просмотреть детали заказа"
 }

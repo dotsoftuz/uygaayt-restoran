@@ -655,5 +655,16 @@
   "stockRequiredAndGreaterThanOrEqualZero": "Ombordagi miqdor majburiy va 0 dan katta yoki teng bo'lishi kerak",
   "imagesUploaded": "ta rasm yuklandi",
   "imageUploadError": "Rasmlarni yuklashda xatolik yuz berdi",
-  "productLoadError": "Mahsulotni yuklashda xatolik yuz berdi"
+  "productLoadError": "Mahsulotni yuklashda xatolik yuz berdi",
+  "transactionDetails": "Tranzaksiya tafsilotlari",
+  "transactionDetailsDescription": "Tranzaksiya haqida to'liq ma'lumot",
+  "summary": "Xulosa",
+  "balanceInformation": "Balans ma'lumotlari",
+  "details": "Tafsilotlar",
+  "beforeTransaction": "Tranzaksiyadan oldin",
+  "afterTransaction": "Tranzaksiyadan keyin",
+  "transactionAmount": "Tranzaksiya summasi",
+  "close": "Yopish",
+  "customerName": "Mijoz ismi",
+  "viewOrderDetails": "Buyurtma tafsilotlarini ko'rish"
 }

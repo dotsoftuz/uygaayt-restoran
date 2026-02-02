@@ -654,5 +654,16 @@
   "stockRequiredAndGreaterThanOrEqualZero": "Stock quantity is required and must be greater than or equal to 0",
   "imagesUploaded": "images uploaded",
   "imageUploadError": "Error uploading images",
-  "productLoadError": "Error loading product"
+  "productLoadError": "Error loading product",
+  "transactionDetails": "Transaction Details",
+  "transactionDetailsDescription": "Complete information about the transaction",
+  "summary": "Summary",
+  "balanceInformation": "Balance Information",
+  "details": "Details",
+  "beforeTransaction": "Before Transaction",
+  "afterTransaction": "After Transaction",
+  "transactionAmount": "Transaction Amount",
+  "close": "Close",
+  "customerName": "Customer Name",
+  "viewOrderDetails": "View Order Details"
 }
