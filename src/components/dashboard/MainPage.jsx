@@ -55,26 +55,40 @@ function AdminDashboard() {
 
   useEffect(() => {
     const fetchStoreName = () => {
+      console.log('🏪 [MainPage] fetchStoreName called');
       try {
         const storeDataStr = localStorage.getItem('storeData');
+        console.log(
+          '📦 [MainPage] localStorage data:',
+          storeDataStr ? JSON.parse(storeDataStr) : null
+        );
+
         if (storeDataStr) {
           const storeData = JSON.parse(storeDataStr);
-          setStoreName(storeData.name || storeData.legalName || '');
+          const newName = storeData.name || storeData.legalName || '';
+          console.log('📝 [MainPage] Setting store name to:', newName);
+          setStoreName(newName);
         }
       } catch (error) {
-        console.error('Error parsing store data:', error);
+        console.error('❌ [MainPage] Error parsing store data:', error);
       }
     };
 
     fetchStoreName();
 
     const handleStorageChange = () => {
+      console.log('📢 [MainPage] localStorageChange event received');
       fetchStoreName();
     };
 
     window.addEventListener('localStorageChange', handleStorageChange);
+    console.log('👂 [MainPage] Listening for localStorageChange events');
+
     return () => {
       window.removeEventListener('localStorageChange', handleStorageChange);
+      console.log(
+        '🔇 [MainPage] Stopped listening for localStorageChange events'
+      );
     };
   }, []);
 

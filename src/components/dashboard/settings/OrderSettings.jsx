@@ -92,24 +92,36 @@ function OrderSettings() {
     isPremium: false,
   });
 
-  // Fetch store data
+  // Fetch store data - HAR SAFAR yangi ma'lumot olish
   useEffect(() => {
     const fetchStoreData = async () => {
+      console.log('🔍 [OrderSettings] fetchStoreData started');
       try {
+        // Avval localStorage'dan ma'lumotni olish (tezroq ko'rsatish uchun)
         const storeDataStr = localStorage.getItem('storeData');
+        console.log(
+          '📦 [OrderSettings] localStorage data:',
+          storeDataStr ? JSON.parse(storeDataStr) : null
+        );
+
         if (storeDataStr) {
           const cachedData = JSON.parse(storeDataStr);
           if (cachedData && Object.keys(cachedData).length > 0) {
+            console.log('⚙️ [OrderSettings] Setting forms from localStorage');
             setStoreData(cachedData);
             setOriginalStoreData(JSON.parse(JSON.stringify(cachedData)));
             populateForms(cachedData);
           }
         }
 
+        // HAR SAFAR API'dan yangi ma'lumot olish
+        console.log('🌐 [OrderSettings] Fetching from API...');
         const response = await api.get('/store/get');
         const data = response?.data || response;
+        console.log('📥 [OrderSettings] API response:', data);
 
         if (data) {
+          console.log('⚙️ [OrderSettings] Setting forms from API');
           setStoreData(data);
           setOriginalStoreData(JSON.parse(JSON.stringify(data)));
           populateForms(data);
@@ -119,10 +131,14 @@ function OrderSettings() {
             setPackageItems(
               Array.isArray(data.packageItems) ? data.packageItems : []
             );
+            console.log(
+              '📦 [OrderSettings] Package items loaded:',
+              data.packageItems
+            );
           }
         }
       } catch (error) {
-        console.error('Error fetching store data:', error);
+        console.error('❌ [OrderSettings] Error fetching store data:', error);
       }
     };
 
@@ -227,15 +243,22 @@ function OrderSettings() {
 
   // Update original data after successful save
   const updateOriginalData = (updatedData) => {
+    console.log('🔄 [OrderSettings] updateOriginalData started');
+    console.log('📥 [OrderSettings] Updated data received:', updatedData);
+
     const mergedData = { ...originalStoreData, ...updatedData };
     const preservedData = preserveImagesInResponse(
       mergedData,
       originalStoreData
     );
+
+    console.log('💾 [OrderSettings] Final data to save:', preservedData);
     setOriginalStoreData(JSON.parse(JSON.stringify(preservedData)));
     setStoreData(preservedData);
     localStorage.setItem('storeData', JSON.stringify(preservedData));
+
     window.dispatchEvent(new Event('localStorageChange'));
+    console.log('📢 [OrderSettings] Dispatched localStorageChange event');
   };
 
   const handleSaveAll = async () => {

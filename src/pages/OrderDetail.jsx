@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import '@/components/ui/scrollbar.css';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatDate, formatNumber } from '@/lib/utils';
 import api from '@/services/api';
@@ -272,7 +273,7 @@ const OrderProducts = ({ order }) => {
           {t('orderProducts')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 overflow-hidden">
         {/* Timeline */}
         <div className="relative">
           <div className="flex items-center justify-between">
@@ -422,7 +423,7 @@ const OrderProducts = ({ order }) => {
         </div>
 
         {/* Products List */}
-        <div className="space-y-3">
+        <div className="space-y-3 products-scroll">
           {order.items.map((item, index) => {
             console.log(`🔍 Product ${index}:`, item);
             console.log(`🔍 Product ${index} - product:`, item.product);

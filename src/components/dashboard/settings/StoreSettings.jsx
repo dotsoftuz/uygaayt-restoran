@@ -26,7 +26,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -235,134 +235,113 @@ function StoreSettings() {
     fetchAddressName();
   }, [addressLocation]);
 
-  // Fetch store data - faqat birinchi marta yoki komponent mount bo'lganda
+  // Fetch store data - HAR SAFAR yangi ma'lumot olish
   useEffect(() => {
+    console.log(' [StoreSettings] fetchStoreData started');
     const fetchStoreData = async () => {
-      // SessionStorage yordamida birinchi yuklanishni tekshirish
-      // Agar bu session'da allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
-      const sessionFetched = sessionStorage.getItem('storeSettingsFetched');
-
-      if (sessionFetched === 'true') {
-        // Agar allaqachon fetch qilingan bo'lsa, faqat cached datani ko'rsatish
-        try {
-          const storeDataStr = localStorage.getItem('storeData');
-          if (storeDataStr) {
-            const cachedData = JSON.parse(storeDataStr);
-            if (cachedData && Object.keys(cachedData).length > 0) {
-              if (!storeData) {
-                setStoreData(cachedData);
-                setOriginalStoreData(JSON.parse(JSON.stringify(cachedData))); // Deep copy
-                populateForms(cachedData);
-              }
-              setIsLoading(false);
-            } else {
-              setIsLoading(false);
-            }
-          } else {
-            setIsLoading(false);
-          }
-        } catch (error) {
-          console.error('Error parsing cached store data:', error);
-          setIsLoading(false);
-        }
-        return;
-      }
-
-      // Agar fetch hozir ishlamoqda bo'lsa, kutish
-      if (fetchInProgressRef.current) {
-        return;
-      }
-
       const token = localStorage.getItem('token');
+      console.log(' [StoreSettings] Token exists:', !!token);
 
-      // Avval localStorage'dan ma'lumotni tekshirish
-      // Agar ma'lumot mavjud bo'lsa, darhol ko'rsatish
-      let hasCachedData = false;
+      // Avval localStorage'dan ma'lumotni tekshirish (tezroq ko'rsatish uchun)
       try {
         const storeDataStr = localStorage.getItem('storeData');
+        console.log(
+          ' [StoreSettings] localStorage data:',
+          storeDataStr ? JSON.parse(storeDataStr) : null
+        );
+
         if (storeDataStr) {
           const cachedData = JSON.parse(storeDataStr);
           if (cachedData && Object.keys(cachedData).length > 0) {
+            console.log(' [StoreSettings] Setting forms from localStorage');
             setStoreData(cachedData);
-            setOriginalStoreData(JSON.parse(JSON.stringify(cachedData))); // Deep copy
+            setOriginalStoreData(JSON.parse(JSON.stringify(cachedData)));
             populateForms(cachedData);
-            hasCachedData = true;
-            setIsLoading(false); // Cached data bor bo'lsa, loading'ni darhol to'xtatish
           }
         }
       } catch (error) {
-        console.error('Error parsing cached store data:', error);
+        console.error(
+          ' [StoreSettings] Error parsing cached store data:',
+          error
+        );
       }
 
-      // Token yo'q bo'lsa, faqat cached data bilan ishlash
-      if (!token) {
-        if (!hasCachedData) {
+      // Token bo'lsa HAR SAFAR API'dan yangi ma'lumot olish
+      if (token) {
+        try {
+          console.log(' [StoreSettings] Fetching from API...');
+          setIsLoading(true);
+          const response = await api.get('/store/get');
+          const data = response?.data || response;
+          console.log(' [StoreSettings] API response:', data);
+
+          if (data) {
+            // Merge with existing localStorage data
+            try {
+              const existingStoreDataStr = localStorage.getItem('storeData');
+              if (existingStoreDataStr) {
+                const existingStoreData = JSON.parse(existingStoreDataStr);
+                if (!data.logo && existingStoreData.logo) {
+                  data.logo = existingStoreData.logo;
+                  console.log(' [StoreSettings] Preserved existing logo');
+                }
+              }
+            } catch (e) {
+              console.error(' [StoreSettings] Error merging store data:', e);
+            }
+
+            console.log(' [StoreSettings] Setting forms from API');
+            setStoreData(data);
+            setOriginalStoreData(JSON.parse(JSON.stringify(data)));
+            populateForms(data);
+            localStorage.setItem('storeData', JSON.stringify(data));
+
+            // Trigger event
+            window.dispatchEvent(new Event('localStorageChange'));
+            console.log(' [StoreSettings] Dispatched localStorageChange event');
+          }
+        } catch (error) {
+          console.error(' [StoreSettings] Error fetching store data:', error);
+        } finally {
           setIsLoading(false);
         }
-        sessionStorage.setItem('storeSettingsFetched', 'true');
-        return;
-      }
-
-      // API so'rovini faqat birinchi marta yoki cached data bo'lmasa qilish
-      if (!hasCachedData) {
-        setIsLoading(true);
-      }
-
-      fetchInProgressRef.current = true;
-
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        const response = await api.get('/store/get');
-        const data = response?.data || response;
-
-        if (data) {
-          // Merge with existing localStorage data to preserve logo if backend doesn't return it
-          try {
-            const existingStoreDataStr = localStorage.getItem('storeData');
-            if (existingStoreDataStr) {
-              const existingStoreData = JSON.parse(existingStoreDataStr);
-              // If backend data doesn't have logo but localStorage does, preserve it
-              if (!data.logo && existingStoreData.logo) {
-                data.logo = existingStoreData.logo;
-              }
-            }
-          } catch (e) {
-            console.error('Error merging store data:', e);
-          }
-
-          setStoreData(data);
-          setOriginalStoreData(JSON.parse(JSON.stringify(data))); // Deep copy for comparison
-          populateForms(data);
-          localStorage.setItem('storeData', JSON.stringify(data));
-          sessionStorage.setItem('storeSettingsFetched', 'true');
-
-          // Trigger localStorage change event
-          window.dispatchEvent(new Event('localStorageChange'));
-        }
-      } catch (error) {
-        console.error('Error fetching store data:', error);
-
-        // Agar cached data bo'lmasa va xatolik bo'lsa, xatolik xabarini ko'rsatish
-        // Lekin 401 xatolik bo'lsa va cached data bo'lsa, xatolik xabarini ko'rsatmaslik
-        // Chunki 401 xatolik API interceptor tomonidan boshqariladi
-        const is401Error =
-          error?.statusCode === 401 || error?.response?.status === 401;
-
-        if (!hasCachedData && !is401Error) {
-          toast.error(t('storeDataLoadError'));
-        }
-
-        // Agar cached data bo'lsa, fetch qilingan deb belgilash
-        if (hasCachedData) {
-          sessionStorage.setItem('storeSettingsFetched', 'true');
-        }
-      } finally {
+      } else {
         setIsLoading(false);
-        fetchInProgressRef.current = false;
       }
     };
 
     fetchStoreData();
+  }, []); // Har safar ishga tushadi
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      // Bu komponent o'z-o'zidan yangilaydi (updateOriginalData da),
+      // shuning uchun bu yerda faqat boshqa komponentlardan kelgan 
+      // o'zgarishlarni kuzatish uchun ishlatiladi
+      // Lekin biz o'z-o'zidan yangilayotganimiz uchun, bu yerda 
+      // faqat storeData ni yangilash kerak, populateForms ni chaqirmaymiz
+      // chunki bu komponent o'z-o'zidan yangilaydi
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const data = JSON.parse(storeDataStr);
+          if (data && Object.keys(data).length > 0) {
+            // Faqat storeData ni yangilash, populateForms ni chaqirmaymiz
+            // chunki bu komponent o'z-o'zidan yangilaydi
+            setStoreData(data);
+            setOriginalStoreData(JSON.parse(JSON.stringify(data)));
+          }
+        }
+      } catch (error) {
+        console.error(' [StoreSettings] Error handling storage change:', error);
+      }
+    };
+
+    window.addEventListener('localStorageChange', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('localStorageChange', handleStorageChange);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -636,17 +615,31 @@ function StoreSettings() {
 
   // Update original data after successful save
   const updateOriginalData = (updatedData) => {
+    console.log(' [StoreSettings] updateOriginalData started');
+    console.log(' [StoreSettings] Updated data received:', updatedData);
+
     const mergedData = { ...originalStoreData, ...updatedData };
     // Preserve logo and banner if they exist
     const preservedData = preserveImagesInResponse(
       mergedData,
       originalStoreData
     );
+
+    console.log(' [StoreSettings] Final data to save:', preservedData);
+    
+    // AVVAL state'larni yangilash
     setOriginalStoreData(JSON.parse(JSON.stringify(preservedData)));
     setStoreData(preservedData);
+    
+    // Keyin localStorage'ni yangilash
     localStorage.setItem('storeData', JSON.stringify(preservedData));
-    // Trigger localStorage change event to update ProfileHeader
+
+    // Keyin form'larni yangilash
+    populateForms(preservedData);
+
+    // Keyin event trigger qilish (boshqa komponentlar uchun)
     window.dispatchEvent(new Event('localStorageChange'));
+    console.log(' [StoreSettings] Dispatched localStorageChange event');
   };
 
   // Update forms when storeData changes (after save)
@@ -964,15 +957,8 @@ function StoreSettings() {
       );
 
       // Update original data and local state (this also updates localStorage and triggers event)
+      // updateOriginalData funksiyasi allaqachon populateForms ni chaqiradi
       updateOriginalData(updatedWithImages);
-
-      // Form'ni yangilash
-      basicForm.reset({
-        name: updatedStoreData.name || data.name,
-        phoneNumber: updatedStoreData.phoneNumber || data.phoneNumber,
-        email: updatedStoreData.email || data.email,
-        website: updatedStoreData.website || data.website,
-      });
 
       setHasChanges((prev) => ({ ...prev, basic: false }));
       toast.success(t('basicInfoSaved'));
@@ -1037,6 +1023,7 @@ function StoreSettings() {
         storeData
       );
 
+      // updateOriginalData funksiyasi allaqachon populateForms ni chaqiradi
       updateOriginalData(updatedWithImages);
 
       // Map address'ni ham yangilash
@@ -1119,6 +1106,7 @@ function StoreSettings() {
         storeData
       );
 
+      // updateOriginalData funksiyasi allaqachon populateForms ni chaqiradi
       updateOriginalData(updatedWithImages);
 
       // Description'ni ham yangilash (agar response'dan kelgan bo'lsa)
@@ -1351,49 +1339,9 @@ function StoreSettings() {
         storeData
       );
 
-      // Update state and localStorage
-      setStoreData(updatedWithImages);
-      setOriginalStoreData(JSON.parse(JSON.stringify(updatedWithImages)));
-      localStorage.setItem('storeData', JSON.stringify(updatedWithImages));
-      window.dispatchEvent(new Event('localStorageChange'));
+      // updateOriginalData funksiyasi allaqachon barcha state'larni, localStorage'ni 
+      // va form'larni yangilaydi (populateForms orqali)
       updateOriginalData(updatedWithImages);
-
-      // Update all forms
-      basicForm.reset({
-        name: updatedStoreData.name || basicData.name,
-        phoneNumber: updatedStoreData.phoneNumber || basicData.phoneNumber,
-        email: updatedStoreData.email || basicData.email,
-        website: updatedStoreData.website || basicData.website,
-      });
-
-      const convertedWorkDaysForForm = updatedStoreData.workDays
-        ? convertWorkDaysFromBackendFormat(updatedStoreData.workDays)
-        : workDays;
-
-      locationForm.reset({
-        addressName: updatedStoreData.addressName || locationData.addressName,
-        latitude:
-          updatedStoreData.addressLocation?.latitude || locationData.latitude,
-        longitude:
-          updatedStoreData.addressLocation?.longitude || locationData.longitude,
-        workTime: updatedStoreData.workTime || workTime,
-        workDays: convertedWorkDaysForForm,
-      });
-
-      if (updatedStoreData.workTime) {
-        setWorkTimeRange(parseWorkTime(updatedStoreData.workTime));
-      }
-
-      if (updatedStoreData.workDays) {
-        const convertedWorkDays = convertWorkDaysFromBackendFormat(
-          updatedStoreData.workDays
-        );
-        setWorkDays(convertedWorkDays);
-      }
-
-      if (updatedStoreData.addressName) {
-        setMapAddress(updatedStoreData.addressName);
-      }
 
       if (updatedStoreData.descriptionTranslate) {
         setDescription({

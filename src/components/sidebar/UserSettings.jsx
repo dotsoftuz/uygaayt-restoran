@@ -25,6 +25,51 @@ export function UserSettings() {
   const location = useLocation();
   const { state } = useSidebar();
   const { t } = useTranslation();
+  const [storeData, setStoreData] = useState(null);
+
+  // Load store data from localStorage
+  useEffect(() => {
+    try {
+      const storeDataStr = localStorage.getItem('storeData');
+      if (storeDataStr) {
+        const data = JSON.parse(storeDataStr);
+        setStoreData(data);
+      }
+    } catch (error) {
+      console.error('Error loading store data:', error);
+    }
+
+    // Listen for localStorage changes
+    const handleStorageChange = () => {
+      try {
+        const storeDataStr = localStorage.getItem('storeData');
+        if (storeDataStr) {
+          const data = JSON.parse(storeDataStr);
+          setStoreData(data);
+        }
+      } catch (error) {
+        console.error('Error loading store data:', error);
+      }
+    };
+
+    window.addEventListener('localStorageChange', handleStorageChange);
+    return () => {
+      window.removeEventListener('localStorageChange', handleStorageChange);
+    };
+  }, []);
+
+  // Helper function to format image URL
+  const formatImageUrl = (imageUrl) => {
+    if (!imageUrl) return null;
+    const baseUrl =
+      import.meta.env.VITE_API_BASE_URL || 'http://localhost:3008/v1';
+    const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+    let url = imageUrl;
+    if (url.startsWith('uploads/')) {
+      url = url.replace('uploads/', '');
+    }
+    return `${cleanBaseUrl}/uploads/${url}`;
+  };
 
   const handleLogout = () => {
     logout();
@@ -66,12 +111,24 @@ export function UserSettings() {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <SidebarMenuButton
-            tooltip={state === 'collapsed' ? t('Sozlamalar') : undefined}
+            tooltip={
+              state === 'collapsed'
+                ? storeData?.name || t('Sozlamalar')
+                : undefined
+            }
             className="w-full h-10 mt-5 justify-start hover:bg-muted group-data-[collapsible=icon]:justify-center border-2 border-border"
           >
-            <Settings className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
+            {storeData?.logo?.url ? (
+              <img
+                src={formatImageUrl(storeData.logo.url)}
+                alt={storeData.name || 'Store'}
+                className="w-6 h-6 group-data-[collapsible=icon]:w-6 group-data-[collapsible=icon]:h-6 object-cover rounded-full"
+              />
+            ) : (
+              <Settings className="w-4 h-4 group-data-[collapsible=icon]:w-5 group-data-[collapsible=icon]:h-5" />
+            )}
             <span className="text-sm font-medium group-data-[collapsible=icon]:hidden">
-              {t('Sozlamalar')}
+              {storeData?.name || t('Sozlamalar')}
             </span>
           </SidebarMenuButton>
         </DropdownMenuTrigger>
