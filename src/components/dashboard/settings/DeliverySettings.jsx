@@ -5,9 +5,11 @@ import { Switch } from '@/components/ui/switch';
 import api from '@/services/api';
 import { Loader2, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
 function DeliverySettings() {
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(10000);
   const [deliveryRadius, setDeliveryRadius] = useState(5000);
@@ -87,15 +89,17 @@ function DeliverySettings() {
   useEffect(() => {
     const handleStorageChange = () => {
       // Bu komponent o'z-o'zidan yangilaydi (handleSubmit da),
-      // shuning uchun bu yerda faqat boshqa komponentlardan kelgan 
+      // shuning uchun bu yerda faqat boshqa komponentlardan kelgan
       // o'zgarishlarni kuzatish uchun ishlatiladi
-      // Lekin biz o'z-o'zidan yangilayotganimiz uchun, bu yerda 
+      // Lekin biz o'z-o'zidan yangilayotganimiz uchun, bu yerda
       // localStorage'dan o'qish kerak emas, chunki state allaqachon yangilangan
-      console.log(' [DeliverySettings] localStorageChange event received (ignored - self-updated)');
+      console.log(
+        ' [DeliverySettings] localStorageChange event received (ignored - self-updated)'
+      );
     };
 
     window.addEventListener('localStorageChange', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('localStorageChange', handleStorageChange);
     };
@@ -131,9 +135,16 @@ function DeliverySettings() {
       );
 
       // AVVAL state'larni yangilash (localStorage'dan o'qishdan oldin)
-      const finalDeliveryFee = updatedStoreData.deliveryFee || updatedStoreData.deliveryPrice || deliveryFee;
-      const finalDeliveryRadius = updatedStoreData.deliveryRadius || deliveryRadius;
-      const finalSelfPickupEnabled = updatedStoreData.selfPickupEnabled !== undefined ? updatedStoreData.selfPickupEnabled : selfPickupEnabled;
+      const finalDeliveryFee =
+        updatedStoreData.deliveryFee ||
+        updatedStoreData.deliveryPrice ||
+        deliveryFee;
+      const finalDeliveryRadius =
+        updatedStoreData.deliveryRadius || deliveryRadius;
+      const finalSelfPickupEnabled =
+        updatedStoreData.selfPickupEnabled !== undefined
+          ? updatedStoreData.selfPickupEnabled
+          : selfPickupEnabled;
 
       setDeliveryFee(finalDeliveryFee);
       setDeliveryRadius(finalDeliveryRadius);
@@ -165,7 +176,7 @@ function DeliverySettings() {
       console.log(' [DeliverySettings] Dispatched localStorageChange event');
 
       console.log(' [DeliverySettings] Save completed successfully');
-      toast.success('Yetkazib berish sozlamalari saqlandi');
+      toast.success(t('deliverySettingsSaved'));
     } catch (error) {
       console.error(
         ' [DeliverySettings] Error saving delivery settings:',
@@ -187,7 +198,7 @@ function DeliverySettings() {
         <div className="space-y-2">
           <Label className="text-xs sm:text-sm flex items-center gap-2">
             <Truck className="w-4 h-4" />
-            Yetkazib berish to'lovi
+            {t('deliveryFee')}
           </Label>
           <div className="flex items-center gap-2">
             <Input
@@ -203,12 +214,12 @@ function DeliverySettings() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Har bir yetkazib berish uchun qo'shimcha to'lov
+            {t('deliveryFeeDescription')}
           </p>
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs sm:text-sm">Yetkazib berish radiusi</Label>
+          <Label className="text-xs sm:text-sm">{t('deliveryRadius')}</Label>
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -223,17 +234,15 @@ function DeliverySettings() {
             </span>
           </div>
           <p className="text-xs text-muted-foreground">
-            Do'kon atrofidagi yetkazib berish radiusi
+            {t('deliveryRadiusDescription')}
           </p>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border p-4">
           <div className="space-y-0.5">
-            <Label className="text-xs sm:text-sm">
-              O'z-o'zidan olib ketish
-            </Label>
+            <Label className="text-xs sm:text-sm">{t('selfPickup')}</Label>
             <p className="text-xs text-muted-foreground">
-              Mijozlar o'z-o'zidan olib ketish imkoniyatiga ega bo'ladi
+              {t('selfPickupDescription')}
             </p>
           </div>
           <Switch

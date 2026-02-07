@@ -1,15 +1,16 @@
-import React from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import TeamManagement from './TeamManagement';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import APIKeys from './APIKeys';
+import TeamManagement from './TeamManagement';
 
 function SystemSettings() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'team';
 
   return (
-    <Tabs 
+    <Tabs
       value={activeTab}
       onValueChange={(value) => {
         setSearchParams({ tab: value }, { replace: true });
@@ -18,10 +19,10 @@ function SystemSettings() {
     >
       <TabsList className="grid w-full grid-cols-2 mb-4">
         <TabsTrigger value="team" className="text-xs sm:text-sm">
-          Jamoa
+          {t('team')}
         </TabsTrigger>
         <TabsTrigger value="api-keys" className="text-xs sm:text-sm">
-          API kalitlar
+          {t('apiKeys')}
         </TabsTrigger>
       </TabsList>
       <TabsContent value="team">
@@ -35,4 +36,3 @@ function SystemSettings() {
 }
 
 export default SystemSettings;
-

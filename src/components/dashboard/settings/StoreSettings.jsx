@@ -26,7 +26,7 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -316,9 +316,9 @@ function StoreSettings() {
   useEffect(() => {
     const handleStorageChange = () => {
       // Bu komponent o'z-o'zidan yangilaydi (updateOriginalData da),
-      // shuning uchun bu yerda faqat boshqa komponentlardan kelgan 
+      // shuning uchun bu yerda faqat boshqa komponentlardan kelgan
       // o'zgarishlarni kuzatish uchun ishlatiladi
-      // Lekin biz o'z-o'zidan yangilayotganimiz uchun, bu yerda 
+      // Lekin biz o'z-o'zidan yangilayotganimiz uchun, bu yerda
       // faqat storeData ni yangilash kerak, populateForms ni chaqirmaymiz
       // chunki bu komponent o'z-o'zidan yangilaydi
       try {
@@ -338,7 +338,7 @@ function StoreSettings() {
     };
 
     window.addEventListener('localStorageChange', handleStorageChange);
-    
+
     return () => {
       window.removeEventListener('localStorageChange', handleStorageChange);
     };
@@ -626,11 +626,11 @@ function StoreSettings() {
     );
 
     console.log(' [StoreSettings] Final data to save:', preservedData);
-    
+
     // AVVAL state'larni yangilash
     setOriginalStoreData(JSON.parse(JSON.stringify(preservedData)));
     setStoreData(preservedData);
-    
+
     // Keyin localStorage'ni yangilash
     localStorage.setItem('storeData', JSON.stringify(preservedData));
 
@@ -1339,7 +1339,7 @@ function StoreSettings() {
         storeData
       );
 
-      // updateOriginalData funksiyasi allaqachon barcha state'larni, localStorage'ni 
+      // updateOriginalData funksiyasi allaqachon barcha state'larni, localStorage'ni
       // va form'larni yangilaydi (populateForms orqali)
       updateOriginalData(updatedWithImages);
 
@@ -1648,7 +1648,7 @@ function StoreSettings() {
 
             <div className="space-y-2">
               <Label optional className="text-xs sm:text-sm">
-                Email
+                {t('email')}
               </Label>
               <Input
                 {...basicForm.register('email')}
@@ -1906,7 +1906,7 @@ function StoreSettings() {
         <div className="flex items-center gap-2 pb-2 border-b">
           <FileText className="w-5 h-5" />
           <h2 className="text-lg sm:text-xl font-semibold">
-            {t('description')}
+            {t('descriptionSection')}
           </h2>
         </div>
         <div className="space-y-6">
