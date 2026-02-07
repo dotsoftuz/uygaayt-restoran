@@ -1,7 +1,7 @@
 {
   "breadcrumbTitle": "Dashboard",
   "welcome": "Xush kelibsiz!",
-  "description": "Bu React-da i18n misoli.",
+  "description": "Tavsif",
   "settings": "Sozlamalar",
   "logout": "Chiqish",
   "theme": "Mavzu",
@@ -449,6 +449,7 @@
   "noOrdersMatchSearch": "Qidiruv yoki filtrlash natijasiga mos buyurtma topilmadi. Boshqa qidiruv so'zlarini yoki filtrlarni sinab ko'ring.",
   "noOrdersDescription": "Hali hech qanday buyurtma qo'shilmagan. Yangi buyurtmalar shu yerda ko'rinadi.",
   "exportOrders": "Buyurtmalarni eksport qilish",
+  "amountPlaceholder": "Masalan: 10 000",
   "amount": "Summa",
   "payment": "To'lov",
   "delivery": "Yetkazib berish",

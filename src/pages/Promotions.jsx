@@ -539,6 +539,28 @@ function Promotions() {
     );
   }, [promotions, debouncedSearchTerm]);
 
+  const handlePromotionFormOpenChange = (isOpen) => {
+    setPromotionFormOpen(isOpen);
+
+    // If sheet is being closed, remove drawer parameter from URL
+    if (!isOpen) {
+      // Set flag to prevent immediate reopening
+      justSavedRef.current = true;
+
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('drawer');
+      setSearchParams(newParams, { replace: true });
+
+      // Reset editing promotion
+      setEditingPromotion(null);
+
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        justSavedRef.current = false;
+      }, 100);
+    }
+  };
+
   const handleCreateNew = () => {
     // Yangi promocode qo'shishda editingPromotion ni null qilish va formni reset qilish
     setEditingPromotion(null);
@@ -602,11 +624,13 @@ function Promotions() {
   const fetchPromotions = async () => {
     try {
       setLoading(true);
-      const response = await api.post('/store/promocode/paging', {
+      // Don't send search to backend - we'll filter client-side
+      const requestData = {
         page: 1,
-        limit: 100,
-        search: debouncedSearchTerm || undefined,
-      });
+        limit: 100, // Get all promotions
+      };
+
+      const response = await api.post('/store/promocode/paging', requestData);
 
       // Backend paging response structure: { data: { total: number, data: [...] } }
       // API interceptor returns response.data, so response should be { total: number, data: [...] }
@@ -693,12 +717,29 @@ function Promotions() {
         validUntil: promo.toDate ? new Date(promo.toDate) : new Date(),
         usageLimitTotal: promo.maxUsage,
         usageLimitPerUser: promo.maxUsageForUser || 1,
+        usageCount: promo.usedCount || 0,
       }));
 
       setPromotions(mappedPromotions);
     } catch (error) {
       console.error('Error fetching promotions:', error);
-      toast.error(t('promotionsLoadError'));
+
+      // Provide more specific error message
+      if (error?.statusCode === 400) {
+        toast.error(
+          t('promotionsLoadError') +
+            ': ' +
+            (error?.message || 'Invalid request')
+        );
+      } else if (error?.response?.status === 400) {
+        toast.error(
+          t('promotionsLoadError') +
+            ': ' +
+            (error?.response?.data?.message || 'Invalid request')
+        );
+      } else {
+        toast.error(t('promotionsLoadError'));
+      }
     } finally {
       setLoading(false);
     }
@@ -706,7 +747,7 @@ function Promotions() {
 
   useEffect(() => {
     fetchPromotions();
-  }, [debouncedSearchTerm]);
+  }, []); // Remove debouncedSearchTerm dependency
 
   const handleSavePromotion = async (promotionData) => {
     try {
@@ -766,17 +807,17 @@ function Promotions() {
         toast.success(t('promoCodeCreated'));
       }
 
-      // Close form and reset editing promotion FIRST
-      setEditingPromotion(null);
-      setPromotionFormOpen(false);
-
       // Mark that we just saved to prevent sheet from reopening
       justSavedRef.current = true;
 
-      // Remove drawer parameter from URL to prevent sheet from reopening
+      // Remove drawer parameter from URL FIRST to prevent sheet from reopening
       const newParams = new URLSearchParams(searchParams);
       newParams.delete('drawer');
       setSearchParams(newParams, { replace: true });
+
+      // Close form and reset editing promotion AFTER URL update
+      setEditingPromotion(null);
+      setPromotionFormOpen(false);
 
       // Refresh promotions list after closing
       await fetchPromotions();
@@ -910,7 +951,7 @@ function Promotions() {
         setDeleteDialogOpen(true);
       }
     }
-  }, [searchParams, promotions, promotionFormOpen]);
+  }, [searchParams, promotions]); // Remove promotionFormOpen from dependencies
 
   // Read search from URL on mount
   useEffect(() => {
@@ -1053,21 +1094,7 @@ function Promotions() {
       {/* Promotion Form */}
       <PromotionForm
         open={promotionFormOpen}
-        onOpenChange={(open) => {
-          // Only update if state actually changed to prevent double calls
-          if (open !== promotionFormOpen) {
-            setPromotionFormOpen(open);
-            if (!open) {
-              setEditingPromotion(null);
-              // Remove drawer parameter from URL when closing
-              const newParams = new URLSearchParams(searchParams);
-              newParams.delete('drawer');
-              setSearchParams(newParams, { replace: true });
-              // Reset the flag when manually closing
-              justSavedRef.current = false;
-            }
-          }
-        }}
+        onOpenChange={handlePromotionFormOpenChange}
         promotion={editingPromotion}
         onSave={handleSavePromotion}
       />

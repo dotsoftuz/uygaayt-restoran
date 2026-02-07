@@ -365,7 +365,7 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
     }
   };
 
-  // Handle sheet close - reset form
+  // Handle sheet close - reset form and notify parent
   const handleOpenChange = (isOpen) => {
     if (!isOpen) {
       // Sheet yopilganda formni to'liq reset qilish
@@ -381,7 +381,11 @@ function PromotionForm({ open, onOpenChange, promotion = null, onSave }) {
         description: '',
         productIds: [],
         bannerImageId: null,
+        isShow: false,
       });
+      setBannerPreview(null);
+      setBannerFile(null);
+      setBannerImageId(null);
     }
     onOpenChange(isOpen);
   };
