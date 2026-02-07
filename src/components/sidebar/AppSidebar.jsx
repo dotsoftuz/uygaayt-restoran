@@ -24,7 +24,6 @@ import { useAppContext } from '@/context/AppContext';
 import { Link, useLocation } from 'react-router-dom';
 // import { NavUser } from './NavUser';
 import { useTranslation } from 'react-i18next';
-import { SearchCommandDialog } from '../dashboard/dialogs/search-comman';
 import { UserSettings } from './UserSettings';
 
 export function AppSidebar({ ...props }) {
@@ -91,8 +90,8 @@ export function AppSidebar({ ...props }) {
         />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup className="space-y-0.5">
-          <SearchCommandDialog />
+        <SidebarGroup className="space-y-0.5 pt-10">
+          {/* <SearchCommandDialog /> */}
           <SidebarGroupLabel className="hidden group-data-[collapsible=icon]:hidden">
             {t('mainMenu')}
           </SidebarGroupLabel>
