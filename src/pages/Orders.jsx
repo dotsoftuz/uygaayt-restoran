@@ -415,7 +415,10 @@ function Orders() {
       case 'created':
         return 'pending';
       case 'inProcess':
+        return 'processing';
       case 'inDelivery':
+        return 'processing';
+      case 'processing':
         return 'processing';
       case 'completed':
         return 'completed';
@@ -704,42 +707,71 @@ function Orders() {
   };
 
   const handleExportCSV = () => {
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [
-        [
-          t('orderId'),
-          t('clientName'),
-          t('phone'),
-          t('amount'),
-          t('paymentType'),
-          t('delivery'),
-          t('status'),
-          t('date'),
-        ].join(','),
-        ...filteredAndSortedOrders.map((order) =>
-          [
-            order.id,
-            order.clientName,
-            order.phone,
-            order.amount,
-            order.paymentType,
-            order.deliveryType,
-            order.status,
-            order.createdAt instanceof Date
-              ? formatDateTime(order.createdAt.getTime())
-              : formatDateTime(order.createdAt),
-          ].join(',')
-        ),
-      ].join('\n');
+    // Ensure we have data to export
+    let dataToExport = [];
 
-    const encodedUri = encodeURI(csvContent);
+    if (filteredAndSortedOrders.length > 0) {
+      dataToExport = filteredAndSortedOrders;
+    } else if (orders.length > 0) {
+      dataToExport = orders;
+    } else {
+      toast.error(t('noOrdersFound'));
+      return;
+    }
+
+    // Create CSV content with proper formatting
+    const headers = [
+      t('orderId'),
+      t('clientName'),
+      t('phone'),
+      t('amount'),
+      t('paymentType'),
+      t('delivery'),
+      t('status'),
+      t('date'),
+    ];
+
+    const csvRows = [headers.join(',')];
+
+    dataToExport.forEach((order) => {
+      const row = [
+        `"${order.id}"`, // Wrap in quotes to handle any special characters
+        `"${order.clientName}"`,
+        `"${order.phone}"`,
+        order.amount,
+        `"${order.paymentType}"`,
+        `"${order.deliveryType}"`,
+        `"${order.status}"`,
+        `"${
+          order.createdAt instanceof Date
+            ? formatDateTime(order.createdAt.getTime())
+            : formatDateTime(order.createdAt)
+        }"`,
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = csvRows.join('\n');
+
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'orders.csv');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `orders_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    link.style.visibility = 'hidden';
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    // Clean up
+    URL.revokeObjectURL(url);
+
     toast.success(t('csvDownloaded'));
   };
 
@@ -806,6 +838,7 @@ function Orders() {
               <SelectContent>
                 <SelectItem value="all">{t('all')}</SelectItem>
                 <SelectItem value="pending">{t('pending')}</SelectItem>
+                <SelectItem value="processing">{t('processing')}</SelectItem>
                 <SelectItem value="completed">{t('completedOrder')}</SelectItem>
                 <SelectItem value="cancelled">
                   {t('cancelledOrdersLabel')}
@@ -850,17 +883,16 @@ function Orders() {
               </SelectContent>
             </Select>
 
-            {!isMobile && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportCSV}
-                className="ml-auto"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {t('exportOrders')}
-              </Button>
-            )}
+            {/* Export Button - Always Visible */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCSV}
+              className={isMobile ? 'w-full' : 'ml-auto'}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {t('exportOrders')}
+            </Button>
             {!isMobile && (
               <div className="flex items-center gap-2">
                 <Button

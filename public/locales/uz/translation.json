@@ -448,7 +448,7 @@
   "noOrdersYet": "Hech qanday buyurtma yo'q",
   "noOrdersMatchSearch": "Qidiruv yoki filtrlash natijasiga mos buyurtma topilmadi. Boshqa qidiruv so'zlarini yoki filtrlarni sinab ko'ring.",
   "noOrdersDescription": "Hali hech qanday buyurtma qo'shilmagan. Yangi buyurtmalar shu yerda ko'rinadi.",
-  "exportOrders": "Buyurtmalarni eksport qilish",
+  "exportOrders": "Eksport",
   "amountPlaceholder": "Masalan: 10 000",
   "amount": "Summa",
   "payment": "To'lov",

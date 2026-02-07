@@ -448,7 +448,7 @@
   "noOrdersYet": "No orders yet",
   "noOrdersMatchSearch": "No orders match your search or filters. Try different keywords or filters.",
   "noOrdersDescription": "No orders have been added yet. New orders will appear here.",
-  "exportOrders": "Export Orders",
+  "exportOrders": "Export",
   "amountPlaceholder": "e.g: 10,000",
   "amount": "Amount",
   "payment": "Payment",
