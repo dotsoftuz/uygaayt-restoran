@@ -113,15 +113,51 @@ const generateFakeOrders = () => {
 const StatusBadge = ({ status }) => {
   const { t } = useTranslation();
   const statusConfig = {
-    pending: { label: t('pending'), variant: 'secondary' },
-    processing: { label: t('processing'), variant: 'default' },
-    completed: { label: t('completedOrder'), variant: 'default' },
-    cancelled: { label: t('cancelledOrdersLabel'), variant: 'destructive' },
+    pending: {
+      label: t('pending'),
+      variant: 'secondary',
+      className:
+        'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-200',
+    },
+    created: {
+      label: t('orderCreated'),
+      variant: 'secondary',
+      className: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
+    },
+    inProcess: {
+      label: t('orderInProcess'),
+      variant: 'default',
+      className:
+        'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
+    },
+    processing: {
+      label: t('processing'),
+      variant: 'default',
+      className:
+        'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
+    },
+    inDelivery: {
+      label: t('orderInDelivery'),
+      variant: 'default',
+      className:
+        'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
+    },
+    completed: {
+      label: t('completedOrder'),
+      variant: 'default',
+      className:
+        'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+    },
+    cancelled: {
+      label: t('cancelledOrdersLabel'),
+      variant: 'destructive',
+      className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+    },
   };
 
   const config = statusConfig[status] || statusConfig.pending;
   return (
-    <Badge variant={config.variant} className="text-xs">
+    <Badge variant={config.variant} className={config.className}>
       {config.label}
     </Badge>
   );

@@ -158,7 +158,7 @@ export default function TransactionDetailModal({
 
   const handleOrderClick = (orderId) => {
     if (orderId) {
-      navigate(`/orders/${orderId}`);
+      navigate(`/dashboard/order-detail/${orderId}`);
       onOpenChange(false);
     }
   };
@@ -276,7 +276,7 @@ export default function TransactionDetailModal({
             <CardHeader className="pb-3">
               <CardTitle className="text-base">{t('details')}</CardTitle>
             </CardHeader>
-            <CardContent className="p-0">
+            <CardContent className="p-4">
               <InfoRow
                 icon={Calendar}
                 label={t('date')}
@@ -296,12 +296,7 @@ export default function TransactionDetailModal({
                 value={loadingCustomer ? t('loading') : customerName || '-'}
                 copyable={false}
               />
-              <InfoRow
-                icon={FileText}
-                label={t('transactionId')}
-                value={_id}
-                copyable={true}
-              />
+              <InfoRow icon={FileText} label={t('transactionId')} value={_id} />
             </CardContent>
           </Card>
 

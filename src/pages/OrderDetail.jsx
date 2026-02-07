@@ -8,6 +8,7 @@ import api from '@/services/api';
 import {
   ArrowLeft,
   Building,
+  Calendar,
   CheckCircle2,
   Circle,
   Clock,
@@ -26,6 +27,9 @@ import { toast } from 'sonner';
 // Backend order formatidan frontend formatiga o'tkazish
 const mapOrderFromBackend = (backendOrder) => {
   console.log('🔍 mapOrderFromBackend - Input:', backendOrder);
+  console.log('🔍 Payment State:', backendOrder.paymentState);
+  console.log('🔍 Order Status:', backendOrder.status);
+  console.log('🔍 Transaction ID:', backendOrder.transactionId);
 
   if (!backendOrder) {
     console.error('🔍 mapOrderFromBackend - backendOrder is null or undefined');
@@ -149,6 +153,43 @@ const mapOrderFromBackend = (backendOrder) => {
     (backendOrder.apartmentNumber ? `, ${backendOrder.apartmentNumber}` : '') +
     (backendOrder.floor ? `, ${backendOrder.floor}` : '');
 
+  // Payment status ni aniqlash - agar order tugallangan bo'lsa, to'lov ham to'langan hisoblanadi
+  const isPaymentCompleted =
+    backendOrder.paymentState === 'completed' ||
+    backendOrder.paymentState === 'paid' ||
+    backendOrder.paymentStatus === 'completed' ||
+    backendOrder.paymentStatus === 'paid' ||
+    backendOrder.status === 'completed' ||
+    backendOrder.state?.state === 'completed' ||
+    (backendOrder.status === 'completed' && backendOrder.transactionId) ||
+    (backendOrder.state?.state === 'completed' && backendOrder.transactionId) ||
+    (backendOrder.status === 'completed' &&
+      backendOrder.payments?.some((p) => p.status === 'completed')) ||
+    (backendOrder.payments &&
+      Array.isArray(backendOrder.payments) &&
+      backendOrder.payments.some(
+        (p) => p.status === 'completed' || p.state === 'completed'
+      )) ||
+    (backendOrder.transactions &&
+      Array.isArray(backendOrder.transactions) &&
+      backendOrder.transactions.some(
+        (t) =>
+          t.status === 'completed' ||
+          t.state === 'completed' ||
+          t.status === 'success'
+      )) ||
+    (backendOrder.transaction &&
+      (backendOrder.transaction.status === 'completed' ||
+        backendOrder.transaction.state === 'completed' ||
+        backendOrder.transaction.status === 'success'));
+
+  console.log('🔍 Is Payment Completed:', isPaymentCompleted);
+  console.log('🔍 Order Status:', backendOrder.status);
+  console.log('🔍 Order State:', backendOrder.state?.state);
+  console.log('🔍 Backend Payments:', backendOrder.payments);
+  console.log('🔍 Backend Transactions:', backendOrder.transactions);
+  console.log('🔍 Backend Transaction:', backendOrder.transaction);
+
   return {
     id: orderId,
     _id: backendOrder._id || backendOrder.id,
@@ -161,8 +202,7 @@ const mapOrderFromBackend = (backendOrder) => {
     addressLocation: addressLocation,
     deliveryNotes: backendOrder.comment || '',
     items: items,
-    paymentStatus:
-      backendOrder.paymentState === 'completed' ? 'paid' : 'unpaid',
+    paymentStatus: isPaymentCompleted ? 'paid' : 'unpaid',
     paymentType: backendOrder.paymentType || 'cash',
     status: state.state || 'created',
     statusIndex: getStatusIndex(state),
@@ -266,14 +306,16 @@ const OrderProducts = ({ order }) => {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Package className="w-5 h-5" />
+    <Card className="shadow-sm border-0">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <div className="p-2 rounded-lg bg-orange-500/10">
+            <Package className="w-5 h-5 text-orange-500" />
+          </div>
           {t('orderProducts')}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6 overflow-hidden">
+      <CardContent className="space-y-6 overflow-hidden pt-0">
         {/* Timeline */}
         <div className="relative">
           <div className="flex items-center justify-between">
@@ -504,7 +546,7 @@ const OrderProducts = ({ order }) => {
         </div>
 
         {/* Order Summary - moved to end */}
-        <div className="border-t pt-4 space-y-3 bg-muted/20 rounded-lg p-4 -mx-4 -mb-4">
+        <div className="border-t pt-4 space-y-3 bg-gradient-to-r from-muted/20 to-muted/10 rounded-xl p-4 -mx-4 -mb-4">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">{t('itemsSubtotal')}:</span>
             <span className="font-medium">
@@ -535,7 +577,7 @@ const OrderProducts = ({ order }) => {
               </span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-base sm:text-lg pt-3 border-t">
+          <div className="flex justify-between font-bold text-base sm:text-lg pt-3 border-t bg-muted/30 rounded-lg p-3 -mx-3">
             <span>{t('total')}:</span>
             <span className="text-primary">
               {(() => {
@@ -579,46 +621,61 @@ const OrderInfo = ({ order }) => {
   return (
     <div className="space-y-4">
       {/* Payment Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="w-5 h-5" />
+      <Card className="shadow-sm border-0 bg-gradient-to-br from-card to-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <DollarSign className="w-5 h-5 text-primary" />
+            </div>
             {t('paymentInfo')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">
-              {t('paymentType')}:
-            </span>
-            <Badge variant="outline">
+        <CardContent className="space-y-4 pt-0">
+          <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+            <span className="text-sm font-medium">{t('paymentType')}:</span>
+            <Badge variant="outline" className="px-3 py-1">
               {order.paymentType === 'cash' ? t('cash') : t('card')}
             </Badge>
           </div>
-          <div className="flex justify-between">
-            <span className="text-sm text-muted-foreground">
-              {t('status')}:
-            </span>
+          <div className="flex justify-between items-center p-3 rounded-lg bg-muted/30">
+            <span className="text-sm font-medium">{t('status')}:</span>
             <Badge
               variant={
                 order.paymentStatus === 'paid' ? 'default' : 'destructive'
               }
+              className={`px-3 py-1 ${
+                order.paymentStatus === 'paid'
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : ''
+              }`}
             >
-              {order.paymentStatus === 'paid' ? t('paid') : t('unpaid')}
+              {order.paymentStatus === 'paid' ? (
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {t('paid')}
+                </span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Circle className="w-3 h-3" />
+                  {t('unpaid')}
+                </span>
+              )}
             </Badge>
           </div>
         </CardContent>
       </Card>
 
       {/* Customer Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+      <Card className="shadow-sm border-0">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <User className="w-5 h-5 text-blue-500" />
+            </div>
             {t('customer')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="pt-0">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
               {order.customer?.image ? (
@@ -654,14 +711,16 @@ const OrderInfo = ({ order }) => {
       </Card>
 
       {/* Address Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="w-5 h-5" />
+      <Card className="shadow-sm border-0">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <div className="p-2 rounded-lg bg-green-500/10">
+              <MapPin className="w-5 h-5 text-green-500" />
+            </div>
             {t('address')}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0">
           <div className="bg-muted/30 rounded-lg p-3">
             <p className="text-sm break-words leading-relaxed">
               {order.address || t('addressNotProvided')}
@@ -871,6 +930,85 @@ function OrderDetail() {
         console.log('🔍 Order Detail - Order Data:', orderData);
         console.log('🔍 Order Detail - Order Data Items:', orderData?.items);
 
+        // To'lov ma'lumotlarini alohida tekshirish
+        if (orderData?._id) {
+          try {
+            // Transaction ma'lumotlarini olish - turli variantlar
+            let transactionEndpoints = [
+              `/transaction/order/${orderData._id}`,
+              `/transactions/order/${orderData._id}`,
+              `/payment/transaction/order/${orderData._id}`,
+              `/store/order/${orderData._id}/transactions`,
+              `/store/order/${orderData._id}/transaction`,
+            ];
+
+            for (const endpoint of transactionEndpoints) {
+              try {
+                const transactionResponse = await api.get(endpoint);
+                console.log(
+                  `🔍 Transaction Response from ${endpoint}:`,
+                  transactionResponse
+                );
+                if (transactionResponse?.data || transactionResponse) {
+                  const transactions =
+                    transactionResponse.data || transactionResponse;
+                  if (Array.isArray(transactions) && transactions.length > 0) {
+                    orderData.transactions = transactions;
+                    // Agar transaction bo'lsa va u completed bo'lsa, payment status ni yangilash
+                    const hasCompletedTransaction = transactions.some(
+                      (t) =>
+                        t.status === 'completed' ||
+                        t.state === 'completed' ||
+                        t.status === 'success'
+                    );
+                    if (hasCompletedTransaction) {
+                      orderData.paymentState = 'completed';
+                      console.log(
+                        '🔍 Found completed transaction, setting paymentState to completed'
+                      );
+                    }
+                    break;
+                  } else if (transactions.status) {
+                    orderData.transaction = transactions;
+                    if (
+                      transactions.status === 'completed' ||
+                      transactions.state === 'completed' ||
+                      transactions.status === 'success'
+                    ) {
+                      orderData.paymentState = 'completed';
+                      console.log(
+                        '🔍 Found single completed transaction, setting paymentState to completed'
+                      );
+                    }
+                    break;
+                  }
+                }
+              } catch (err) {
+                console.log(`🔍 Endpoint ${endpoint} failed:`, err.message);
+              }
+            }
+          } catch (transactionError) {
+            console.log(
+              '🔍 Could not fetch transaction info:',
+              transactionError.message
+            );
+          }
+
+          try {
+            const paymentResponse = await api.get(
+              `/payment/order/${orderData._id}`
+            );
+            console.log('🔍 Payment Response:', paymentResponse);
+            if (paymentResponse?.data || paymentResponse) {
+              orderData.payments = paymentResponse.data || paymentResponse;
+            }
+          } catch (paymentError) {
+            console.log(
+              '🔍 Could not fetch payment info:',
+              paymentError.message
+            );
+          }
+        }
         const mappedOrder = mapOrderFromBackend(orderData);
         console.log('🔍 Order Detail - Mapped Order:', mappedOrder);
         console.log('🔍 Order Detail - Mapped Items:', mappedOrder.items);
@@ -922,37 +1060,93 @@ function OrderDetail() {
     cancelled: t('orderCancelled'),
   };
 
+  const statusConfig = {
+    created: {
+      label: statusLabels.created,
+      className: 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200',
+    },
+    inProcess: {
+      label: statusLabels.inProcess,
+      className:
+        'bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-200',
+    },
+    inDelivery: {
+      label: statusLabels.inDelivery,
+      className:
+        'bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200',
+    },
+    completed: {
+      label: statusLabels.completed,
+      className:
+        'bg-green-100 text-green-800 border-green-200 hover:bg-green-200',
+    },
+    cancelled: {
+      label: statusLabels.cancelled,
+      className: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-200',
+    },
+  };
+
+  const currentStatusConfig =
+    statusConfig[order.status] || statusConfig.created;
+
   return (
     <div className="space-y-4 sm:space-y-6 py-2 sm:py-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/dashboard/orders')}
-            className="flex-shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h2 className="title truncate">
-              {t('orderTitle', { id: order.id })}
-            </h2>
-            <p className="paragraph">{formatDate(order.createdAt.getTime())}</p>
+      <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-background rounded-2xl p-6 sm:p-8 border shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/dashboard/orders')}
+              className="flex-shrink-0 hover:bg-background/80 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-bold truncate">
+                  {order.id}
+                </h1>
+                <Badge
+                  className={`text-sm px-3 py-1 ${currentStatusConfig.className}`}
+                >
+                  {currentStatusConfig.label}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {formatDate(order.createdAt.getTime())}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {new Date(order.createdAt).toLocaleTimeString('uz-UZ', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col sm:items-end gap-2">
+            <div className="text-2xl sm:text-3xl font-bold text-primary">
+              {formatNumber(order.totalPrice)} {t('currency')}
+            </div>
+            <Badge
+              variant={
+                order.paymentStatus === 'paid' ? 'default' : 'destructive'
+              }
+              className={`text-sm px-3 py-1 ${
+                order.paymentStatus === 'paid'
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : ''
+              }`}
+            >
+              {order.paymentStatus === 'paid' ? t('paid') : t('unpaid')}
+            </Badge>
           </div>
         </div>
-        <Badge
-          variant={
-            order.status === 'completed'
-              ? 'default'
-              : order.status === 'cancelled'
-                ? 'destructive'
-                : 'secondary'
-          }
-        >
-          {statusLabels[order.status] || order.status}
-        </Badge>
       </div>
 
       {/* Main Content */}
