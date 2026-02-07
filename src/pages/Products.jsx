@@ -45,6 +45,7 @@ import {
 import { useDebounce } from '@/hooks/use-debounce';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatNumber } from '@/lib/utils';
+import api from '@/services/api';
 import {
   createStoreProduct,
   deleteStoreProduct,
@@ -146,6 +147,19 @@ function Products() {
 
   // Load categories
   useEffect(() => {
+    fetchCategories()
+      .then((res) => {
+        if (res?.data?.data) {
+          setCategories(res.data.data);
+        } else if (res?.data && Array.isArray(res.data)) {
+          setCategories(res.data);
+        }
+      })
+      .catch(console.error);
+  }, []); // Load categories on mount
+
+  // Reload categories when needed
+  useEffect(() => {
     if (productFormOpen || categoryFilter !== 'all') {
       fetchCategories()
         .then((res) => {
@@ -194,6 +208,16 @@ function Products() {
         isActive: statusFilter === 'all' ? null : statusFilter === 'active',
         stockState: stockState,
       });
+
+      // Debug logging for category filter
+      if (categoryFilter !== 'all') {
+        console.log('Category filter applied:', {
+          categoryFilter,
+          categoryId: categoryFilter !== 'all' ? categoryFilter : null,
+          categoriesCount: categories.length,
+          categories: categories.map((c) => ({ _id: c._id, name: c.name })),
+        });
+      }
 
       if (response?.data?.data) {
         setProducts(response.data.data);
@@ -511,25 +535,6 @@ function Products() {
     }
   };
 
-  // Bulk status change
-  const handleBulkStatusChange = async (isActive) => {
-    if (selectedProducts.length === 0) return;
-
-    try {
-      const updatePromises = selectedProducts.map((id) =>
-        updateStoreProduct({ _id: id, isActive })
-      );
-      await Promise.all(updatePromises);
-      toast.success(`${selectedProducts.length} ${t('productsStatusUpdated')}`);
-      setSelectedProducts([]);
-      setSelectAll(false);
-      await loadProducts();
-    } catch (error) {
-      console.error('Error bulk updating products:', error);
-      toast.error(t('productsUpdateError'));
-    }
-  };
-
   // Calculate low stock products for alerts
   const lowStockProducts = useMemo(() => {
     return products.filter((product) => {
@@ -556,65 +561,164 @@ function Products() {
   ).length;
 
   // CSV Export
-  const handleExportCSV = () => {
-    const headers = [
-      'ID',
-      t('nameUz'),
-      t('nameRu'),
-      t('nameEn'),
-      t('category'),
-      t('price'),
-      t('salePrice'),
-      t('stock'),
-      t('yellowLine'),
-      t('redLine'),
-      t('status'),
-      t('createdAt'),
-    ];
+  const handleExportCSV = async () => {
+    toast.info(t('loading') + '...');
 
-    const rows = products.map((product) => {
-      const productName = getProductName(product);
-      const categoryName = product.categoryId
-        ? getCategoryName(product.categoryId)
-        : '-';
-      const createdAt = product.createdAt
-        ? new Date(product.createdAt).toLocaleDateString()
-        : '-';
+    try {
+      let allProducts = [];
+      let currentPage = 1;
+      let hasMore = true;
+      const limit = 200; // Backend limit
 
-      return [
-        product._id || '',
-        product.name?.uz || '',
-        product.name?.ru || '',
-        product.name?.en || '',
-        categoryName,
-        product.price || 0,
-        product.salePrice || product.price || 0,
-        product.inStock || 0,
-        product.yellowLine || 0,
-        product.redLine || 0,
-        product.isActive ? t('active') : t('hidden'),
-        createdAt,
+      // Fetch all products with pagination
+      while (hasMore) {
+        const allProductsResponse = await fetchStoreProducts({
+          page: currentPage,
+          limit: limit,
+          search: '',
+          sortBy: '',
+          sortOrder: '',
+          categoryId: categoryFilter !== 'all' ? categoryFilter : null,
+          isActive: statusFilter === 'all' ? null : statusFilter === 'active',
+          stockState:
+            stockFilter === 'low'
+              ? 'yellowLine'
+              : stockFilter === 'out'
+                ? 'redLine'
+                : null,
+        });
+
+        let products = [];
+        if (allProductsResponse?.data?.data) {
+          products = allProductsResponse.data.data;
+        } else if (
+          allProductsResponse?.data &&
+          Array.isArray(allProductsResponse.data)
+        ) {
+          products = allProductsResponse.data;
+        }
+
+        allProducts = [...allProducts, ...products];
+
+        // Check if there are more pages
+        const total =
+          allProductsResponse?.data?.total || allProductsResponse?.total || 0;
+        hasMore = products.length === limit && allProducts.length < total;
+        currentPage++;
+      }
+
+      toast.info(t('loading') + `... (${allProducts.length} ${t('products')})`);
+
+      // For each product, we need to fetch the full details to get the complete name object and createdAt
+      const productsWithFullData = await Promise.all(
+        allProducts.map(async (product) => {
+          try {
+            // Try to get full product details
+            const details = await api.get(
+              `/store/product/get-by-id/${product._id}`
+            );
+            const fullProduct = details?.data;
+
+            if (fullProduct) {
+              return {
+                ...product,
+                name: fullProduct.name || product.name,
+                createdAt: fullProduct.createdAt || product.createdAt,
+              };
+            }
+          } catch (error) {
+            console.warn(
+              `Could not fetch full details for product ${product._id}`
+            );
+          }
+
+          // Return original product if we can't fetch details
+          return product;
+        })
+      );
+
+      const headers = [
+        'ID',
+        t('nameUz'),
+        t('nameRu'),
+        t('nameEn'),
+        t('category'),
+        t('price'),
+        t('salePrice'),
+        t('stock'),
+        t('yellowLine'),
+        t('redLine'),
+        t('status'),
+        t('createdAt'),
       ];
-    });
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [
+      const rows = productsWithFullData.map((product) => {
+        // Get category name
+        const categoryName = product.categoryId
+          ? getCategoryName(product.categoryId)
+          : '-';
+
+        // Format creation date
+        let createdAt = '-';
+        if (product.createdAt) {
+          try {
+            const date = new Date(product.createdAt);
+            if (!isNaN(date.getTime())) {
+              createdAt = date.toLocaleString('uz-UZ', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+              });
+            }
+          } catch (e) {
+            console.error('Invalid date:', product.createdAt);
+          }
+        }
+
+        return [
+          product._id || '',
+          product.name?.uz || '',
+          product.name?.ru || '',
+          product.name?.en || '',
+          categoryName,
+          product.price || 0,
+          product.salePrice || product.price || 0,
+          product.inStock || 0,
+          product.yellowLine || 0,
+          product.redLine || 0,
+          product.isActive ? t('active') : t('hidden'),
+          createdAt,
+        ];
+      });
+
+      // Create CSV content
+      const csvContent = [
         headers.join(','),
         ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
       ].join('\n');
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `products_${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(t('csvDownloaded'));
+      // Create and trigger download
+      const blob = new Blob(['\ufeff' + csvContent], {
+        type: 'text/csv;charset=utf-8;',
+      });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute(
+        'download',
+        `products_${new Date().toISOString().split('T')[0]}.csv`
+      );
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success(t('csvDownloaded'));
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      toast.error(error?.data?.[0]?.message || t('error'));
+    }
   };
 
   // Pagination calculations
@@ -812,40 +916,26 @@ function Products() {
 
       {/* Bulk Actions */}
       {selectedProducts.length > 0 && (
-        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+        <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
           <span className="text-sm font-medium">
             {selectedProducts.length} {t('selected')}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleBulkStatusChange(true)}
-          >
-            <CheckCircle2 className="h-4 w-4 mr-1" />
-            {t('activate')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleBulkStatusChange(false)}
-          >
-            <XCircle className="h-4 w-4 mr-1" />
-            {t('hide')}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
-            <Trash2 className="h-4 w-4 mr-1" />
-            {t('delete')}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelectedProducts([]);
-              setSelectAll(false);
-            }}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="h-4 w-4 mr-1" />
+              {t('delete')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedProducts([]);
+                setSelectAll(false);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       )}
 
