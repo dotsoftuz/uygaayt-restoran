@@ -75,7 +75,11 @@ export function AppSidebar({ ...props }) {
   ];
 
   return (
-    <Sidebar collapsible="icon" className="px-2" {...props}>
+    <Sidebar
+      collapsible="icon"
+      className="px-2 [&_[data-sidebar=sidebar]]:bg-background [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-border"
+      {...props}
+    >
       <SidebarHeader className="pt-4">
         <img
           src="/assets/logos/uygaayt-store-admin.svg"

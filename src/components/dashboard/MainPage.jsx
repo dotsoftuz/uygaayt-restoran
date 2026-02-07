@@ -118,6 +118,10 @@ function AdminDashboard() {
   const fetchStatistics = async () => {
     setLoading(true);
     try {
+      const currentStoreId = (localStorage.getItem('storeId') || '')
+        .toString()
+        .toLowerCase();
+
       const params = {
         page: 1,
         limit: 200,
@@ -128,39 +132,48 @@ function AdminDashboard() {
         params.dateTo = dateRange.to.toISOString();
       }
 
-      const [ordersResponse, statisticsResponse] = await Promise.all([
-        api.post('/store/order/paging', params),
-        api.post('/store/statistics', {
-          dateFrom: params.dateFrom,
-          dateTo: params.dateTo,
-        }),
-      ]);
+      const [ordersResponse, statisticsResponse, balanceResponse] =
+        await Promise.all([
+          api.post('/store/order/paging', params),
+          api.post('/store/statistics', {
+            dateFrom: params.dateFrom,
+            dateTo: params.dateTo,
+          }),
+          api.post('/store/balance/total', {
+            dateFrom: params.dateFrom,
+            dateTo: params.dateTo,
+          }),
+        ]);
 
-      const orders = ordersResponse?.data?.data || [];
-      const storeStatistics = statisticsResponse?.data || {};
+      const ordersPaging = ordersResponse?.data
+        ? ordersResponse.data
+        : ordersResponse;
+      const orders = Array.isArray(ordersPaging)
+        ? ordersPaging
+        : Array.isArray(ordersPaging?.data)
+          ? ordersPaging.data
+          : [];
+      const storeStatistics = statisticsResponse?.data
+        ? statisticsResponse.data
+        : statisticsResponse || {};
 
-      const totalOrders = orders.length;
-      const completedOrders = orders.filter(
-        (order) => order.state?.state === 'completed'
-      ).length;
-      const cancelledOrders = orders.filter(
-        (order) => order.state?.state === 'cancelled'
-      ).length;
-      const totalRevenue = orders
-        .filter((order) => order.state?.state === 'completed')
-        .reduce((sum, order) => sum + (order.totalPrice || 0), 0);
+      const storeBalanceData = balanceResponse?.data
+        ? balanceResponse.data
+        : balanceResponse || {};
 
-      let productsSold = 0;
-      orders.forEach((order) => {
-        if (order.items && Array.isArray(order.items)) {
-          productsSold += order.items.reduce(
-            (sum, item) => sum + (item.quantity || 0),
-            0
-          );
-        }
-      });
+      const totalOrders = storeStatistics.totalOrders ?? orders.length;
+      const completedOrders =
+        storeStatistics.completedOrders ??
+        orders.filter((order) => order.state?.state === 'completed').length;
+      const cancelledOrders =
+        storeStatistics.cancelledOrders ??
+        orders.filter((order) => order.state?.state === 'cancelled').length;
+
+      const totalRevenue = storeStatistics.totalRevenue ?? 0;
+      const productsSold = storeStatistics.productsSold ?? 0;
 
       const storeViewsCount = storeStatistics.storeViewsCount || 0;
+      const storeBalance = storeBalanceData.storeBalance ?? 0;
 
       const ordersByDate = {};
       orders.forEach((order) => {
@@ -210,7 +223,7 @@ function AdminDashboard() {
         totalOrders,
         completedOrders,
         cancelledOrders,
-        totalRevenue,
+        totalRevenue: storeBalance || totalRevenue,
         productsSold,
         storeViewsCount,
         areaChartData,

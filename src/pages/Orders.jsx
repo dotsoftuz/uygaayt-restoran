@@ -157,7 +157,10 @@ const StatusBadge = ({ status }) => {
 
   const config = statusConfig[status] || statusConfig.pending;
   return (
-    <Badge variant={config.variant} className={config.className}>
+    <Badge
+      variant={config.variant}
+      className={`${config.className} whitespace-normal break-words text-center leading-4`}
+    >
       {config.label}
     </Badge>
   );
@@ -272,7 +275,7 @@ const OrderCard = ({ order, onView, onContact }) => {
 };
 
 // Order Table Row Component
-const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
+const OrderTableRow = ({ order, index, isMobile, onView, onContact }) => {
   const { t } = useTranslation();
 
   const getPaymentTypeLabel = (type) => {
@@ -297,7 +300,10 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
       className="hover:bg-muted/50 cursor-pointer"
       onClick={() => onView(order.id)}
     >
-      <TableCell className="font-mono font-medium text-xs sm:text-sm">
+      <TableCell className="font-medium text-xs sm:text-sm w-[60px]">
+        {index + 1}
+      </TableCell>
+      <TableCell className="font-mono font-medium text-xs sm:text-sm w-[90px] max-w-[90px]">
         <div className="truncate">{order.id}</div>
       </TableCell>
       <TableCell>
@@ -318,7 +324,7 @@ const OrderTableRow = ({ order, isMobile, onView, onContact }) => {
       <TableCell className="hidden md:table-cell text-sm">
         <div className="truncate">{getPaymentTypeLabel(order.paymentType)}</div>
       </TableCell>
-      <TableCell>
+      <TableCell className="w-[140px]">
         <StatusBadge status={order.status} />
       </TableCell>
       <TableCell className="hidden md:table-cell text-xs sm:text-sm">
@@ -392,6 +398,7 @@ function Orders() {
   // YANGI: API dan orderlarni olish
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [storeId, setStoreId] = useState(localStorage.getItem('storeId') || '');
 
   // Filter states
@@ -502,17 +509,27 @@ function Orders() {
 
         const response = await api.post('/store/order/paging', params);
 
-        // Backend response format: { data: [...], total: ... }
-        const responseData = response?.data?.data || response?.data || [];
-        const mappedOrders = Array.isArray(responseData)
-          ? responseData.map(mapOrderFromBackend)
+        // api interceptor response.data qaytaradi.
+        // Paging response odatda: { data: [...], total: number }
+        const paging = response?.data ? response.data : response;
+        const rows = Array.isArray(paging?.data)
+          ? paging.data
+          : Array.isArray(paging)
+            ? paging
+            : [];
+        const total = paging?.total ?? rows.length;
+
+        const mappedOrders = Array.isArray(rows)
+          ? rows.map(mapOrderFromBackend)
           : [];
 
         setOrders(mappedOrders);
+        setTotalOrders(total || 0);
       } catch (error) {
         console.error('Error fetching orders:', error);
         // Xato bo'lsa, fake data ishlatish
         setOrders(generateFakeOrders());
+        setTotalOrders(0);
         toast.error(t('loadingOrdersError'));
       } finally {
         setLoading(false);
@@ -520,7 +537,7 @@ function Orders() {
     };
 
     fetchOrders();
-  }, [storeId, currentPage, itemsPerPage, statusFilter]);
+  }, [storeId, currentPage, itemsPerPage]);
 
   // Filter and sort orders
   const filteredAndSortedOrders = useMemo(() => {
@@ -595,11 +612,9 @@ function Orders() {
     sortBy,
   ]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredAndSortedOrders.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedOrders = filteredAndSortedOrders.slice(startIndex, endIndex);
+  // Pagination calculations (server-side)
+  const totalPages = Math.max(1, Math.ceil((totalOrders || 0) / itemsPerPage));
+  const paginatedOrders = filteredAndSortedOrders;
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -611,6 +626,10 @@ function Orders() {
     periodFilter,
     sortBy,
   ]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   // Read filters and pagination from URL on mount and when URL changes
   useEffect(() => {
@@ -951,7 +970,10 @@ function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[120px] whitespace-nowrap">
+                    <TableHead className="w-[60px] whitespace-nowrap text-center">
+                      #
+                    </TableHead>
+                    <TableHead className="w-[90px] whitespace-nowrap">
                       {t('orderId')}
                     </TableHead>
                     <TableHead className="w-[180px] whitespace-nowrap">
@@ -963,7 +985,7 @@ function Orders() {
                     <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">
                       {t('paymentType')}
                     </TableHead>
-                    <TableHead className="w-[110px] whitespace-nowrap">
+                    <TableHead className="w-[140px] whitespace-nowrap">
                       {t('status')}
                     </TableHead>
                     <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">
@@ -977,6 +999,12 @@ function Orders() {
                 <TableBody>
                   {[...Array(10)].map((_, index) => (
                     <TableRow key={index}>
+                      <TableCell>
+                        <div className="h-4 bg-muted rounded w-8 animate-pulse mx-auto"></div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
+                      </TableCell>
                       <TableCell>
                         <div className="h-4 bg-muted rounded w-16 animate-pulse"></div>
                       </TableCell>
@@ -1031,7 +1059,10 @@ function Orders() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[120px] whitespace-nowrap">
+                    <TableHead className="w-[60px] whitespace-nowrap text-center">
+                      #
+                    </TableHead>
+                    <TableHead className="w-[90px] whitespace-nowrap">
                       {t('orderId')}
                     </TableHead>
                     <TableHead className="w-[180px] whitespace-nowrap">
@@ -1043,7 +1074,7 @@ function Orders() {
                     <TableHead className="hidden md:table-cell w-[110px] whitespace-nowrap">
                       {t('paymentType')}
                     </TableHead>
-                    <TableHead className="w-[110px] whitespace-nowrap">
+                    <TableHead className="w-[140px] whitespace-nowrap">
                       {t('status')}
                     </TableHead>
                     <TableHead className="hidden md:table-cell w-[130px] whitespace-nowrap">
@@ -1055,10 +1086,11 @@ function Orders() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedOrders.map((order) => (
+                  {paginatedOrders.map((order, index) => (
                     <OrderTableRow
                       key={order.id}
                       order={order}
+                      index={index}
                       isMobile={isMobile}
                       onView={handleView}
                       onContact={handleContact}
@@ -1090,7 +1122,7 @@ function Orders() {
       )}
 
       {/* Pagination */}
-      {filteredAndSortedOrders.length > 0 && (
+      {totalOrders > 0 && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
@@ -1113,9 +1145,9 @@ function Orders() {
             </Select>
             <span className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
               {t('paginationInfo', {
-                start: startIndex + 1,
-                end: Math.min(endIndex, filteredAndSortedOrders.length),
-                total: filteredAndSortedOrders.length,
+                start: (currentPage - 1) * itemsPerPage + 1,
+                end: Math.min(currentPage * itemsPerPage, totalOrders),
+                total: totalOrders,
                 unit: t('unit'),
               })}
             </span>
