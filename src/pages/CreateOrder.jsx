@@ -12,14 +12,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,10 +21,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Controller, useForm } from 'react-hook-form';
 import { useAppContext } from '@/context/AppContext';
 import { useTemplates } from '@/hooks/use-templates';
 import { useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
 
 export default function CreateOrder({ onSubmit }) {
   const [selectedTemplateServices, setSelectedTemplateServices] = useState([]);
@@ -132,7 +124,6 @@ export default function CreateOrder({ onSubmit }) {
     });
   };
   console.log(orderData);
-  
 
   const formatNumber = (num) => {
     return (
@@ -152,19 +143,41 @@ export default function CreateOrder({ onSubmit }) {
         clientId: selectedClientId || null,
         clientName: data.mijozIsmi,
         clientPhone: data.telefon,
+        templateId: selectedTemplateId,
+        services: selectedTemplateServices.map((service) => ({
+          ...service,
+          quantity: 1,
+          date: new Date(),
+          comment: service.comment,
+          price: service.price,
+          category: service.category,
+          name: service.name,
+          isWorking: service.isWorking,
+        })),
+        totalAmount: orderData.contractPrice || 0,
+        status: 'created',
+        createdAt: new Date(),
       };
 
-      await addOrder(orderData);
+      // API orqali order yaratish
+      const createdOrder = await createOrder(orderData);
+
+      toast.success('Buyurtma muvaffaqiyatli yaratildi!');
+
       reset();
       setSelectedClientId('');
       setIsNewClient(false);
       setSelectedTemplateId('');
+      setSelectedTemplateServices([]);
 
       if (onSubmit) {
-        onSubmit(orderData);
+        onSubmit(createdOrder);
       }
     } catch (error) {
       console.error('Error creating order:', error);
+      toast.error(
+        'Buyurtma yaratishda xatolik: ' + (error?.message || "Noma'lum xatolik")
+      );
     }
   };
 
