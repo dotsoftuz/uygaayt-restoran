@@ -90,7 +90,7 @@ export function AppSidebar({ ...props }) {
         />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup className="space-y-0.5 pt-10">
+        <SidebarGroup className="space-y-0.5 pt-4">
           {/* <SearchCommandDialog /> */}
           <SidebarGroupLabel className="hidden group-data-[collapsible=icon]:hidden">
             {t('mainMenu')}
