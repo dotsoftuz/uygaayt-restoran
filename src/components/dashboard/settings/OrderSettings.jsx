@@ -287,7 +287,10 @@ function OrderSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
       const updatedWithImages = preserveImagesInResponse(
         updatedStoreData,
         storeData

@@ -128,7 +128,10 @@ function DeliverySettings() {
 
       console.log(' [DeliverySettings] Sending to API:', updateData);
       const response = await api.put('/store/update', updateData);
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
       console.log(
         ' [DeliverySettings] API response after save:',
         updatedStoreData

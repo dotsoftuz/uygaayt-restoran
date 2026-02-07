@@ -896,8 +896,10 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
 
       if (updatedStoreData.isShowReview !== undefined) {
         setIsShowReview(updatedStoreData.isShowReview);
@@ -1011,8 +1013,10 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
 
       if (updatedStoreData.isShowReview !== undefined) {
         setIsShowReview(updatedStoreData.isShowReview);
@@ -1094,8 +1098,10 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
 
       if (updatedStoreData.isShowReview !== undefined) {
         setIsShowReview(updatedStoreData.isShowReview);
@@ -1286,7 +1292,12 @@ function StoreSettings() {
       };
 
       const response = await api.put('/store/update', updateData);
-      const updatedStoreData = response?.data || response || updateData;
+      const serverData = response?.data || response;
+      // Yuborilgan ma'lumotlarni server javobiga merge qilish
+      // (server tranzaksiya tufayli eski ma'lumot qaytarishi mumkin)
+      const updatedStoreData = serverData
+        ? { ...serverData, ...updateData }
+        : updateData;
 
       if (updatedStoreData.isShowReview !== undefined) {
         setIsShowReview(updatedStoreData.isShowReview);
